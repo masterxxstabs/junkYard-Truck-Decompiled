@@ -84,6 +84,11 @@ bed.
 |---|---|
 | **O** | Open / close: roll the tarp up, fold the tonneau against the cab, or lift the hard top's rear hatch |
 | **Y** | Remove the cover. It goes back in its box, which drops into the bed |
+| **Page Up / Page Down** | Raise / lower the fitted cover 1 cm (hold Shift for 5 cm). Saved per cover |
+
+Each fit writes what it measured to the MelonLoader console (bed zone, floor, rail
+height, which end is the cab, plus the colliders the floor probe hit). If a cover
+sits wrong on some vehicle, that log line shows why.
 
 A closed cover is solid: cargo can't bounce out, and you can stack things on a
 tonneau. It won't close on cargo sticking up above the rails ("Something's

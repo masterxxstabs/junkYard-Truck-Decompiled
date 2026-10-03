@@ -8,8 +8,8 @@ using UnityEngine;
 namespace TruckPartsQOL
 {
 	// One line per part in UserData/TruckPartsQOL.txt:
-	// kind;cd;vehicle;mountPath;px;py;pz;rx;ry;rz;rw;power;volume;mode;track;insertedCd;coverOpen
-	// (coverOpen was added later; older lines without it still load.)
+	// kind;cd;vehicle;mountPath;px;py;pz;rx;ry;rz;rw;power;volume;mode;track;insertedCd;coverOpen;coverHeight
+	// (the cover fields were added later; older lines without them still load.)
 	// Installed parts store their pose relative to what they're mounted on and are
 	// re-installed on the first vehicle with that name; loose parts store world pose.
 	internal static class PartSave
@@ -78,7 +78,8 @@ namespace TruckPartsQOL
 						(unit != null ? unit.mode : 0).ToString(Inv),
 						(unit != null ? unit.track : 0).ToString(Inv),
 						(unit != null ? unit.insertedCd : 0).ToString(Inv),
-						part.GetComponent<BedCover>() != null && part.GetComponent<BedCover>().open ? "1" : "0"
+						part.GetComponent<BedCover>() != null && part.GetComponent<BedCover>().open ? "1" : "0",
+						F(part.GetComponent<BedCover>() != null ? part.GetComponent<BedCover>().heightOffset : 0f)
 					}));
 					sb.Append("\n");
 				}
@@ -132,6 +133,7 @@ namespace TruckPartsQOL
 						part = PartFactory.Create(kind, cd, mount.position + Vector3.up, mount.rotation);
 						BedCover cover = part.GetComponent<BedCover>();
 						cover.open = f.Length > 16 && f[16] == "1";
+						cover.heightOffset = f.Length > 17 ? P(f[17]) : 0f;
 						string problem;
 						if (!cover.Fit(Vehicles.FindRoot(mount) ?? mount.gameObject, false, out problem))
 						{

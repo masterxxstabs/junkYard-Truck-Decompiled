@@ -301,7 +301,16 @@ namespace TruckPartsQOL
 			if (fittedCover != null)
 			{
 				string what = target.kind == PartKind.HardTop ? "hatch" : target.DisplayName;
-				hint = Key(openKey) + (fittedCover.open ? " Close " : " Open ") + what + "   " + Key(useKey) + " Remove " + target.DisplayName;
+				hint = Key(openKey) + (fittedCover.open ? " Close " : " Open ") + what + "   " + Key(useKey) + " Remove " + target.DisplayName + "\n[PgUp/PgDn] Raise/lower (Shift: faster)";
+				float step = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 0.05f : 0.01f;
+				if (Input.GetKeyDown(KeyCode.PageUp))
+				{
+					fittedCover.AdjustHeight(step);
+				}
+				else if (Input.GetKeyDown(KeyCode.PageDown))
+				{
+					fittedCover.AdjustHeight(-step);
+				}
 				if (Input.GetKeyDown(openKey.Value))
 				{
 					string problem;

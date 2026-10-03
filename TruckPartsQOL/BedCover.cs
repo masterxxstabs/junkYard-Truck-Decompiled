@@ -22,6 +22,9 @@ namespace TruckPartsQOL
 		// Saved and copied when a vehicle is cloned.
 		public bool open;
 
+		// Player's fine-tuning of the fitted height (Page Up / Page Down).
+		public float heightOffset;
+
 		private const string FittedName = "Fitted";
 
 		public TruckPart Part
@@ -108,7 +111,7 @@ namespace TruckPartsQOL
 			transform.SetParent(vehicle.transform, false);
 			transform.localScale = Vector3.one;
 			transform.localRotation = Quaternion.identity;
-			transform.localPosition = bed.center;
+			transform.localPosition = bed.center + Vector3.up * heightOffset;
 			GameObject fitted = new GameObject(FittedName);
 			fitted.transform.SetParent(transform, false);
 			BuildFitted(fitted.transform, part.kind, bed);
@@ -139,6 +142,20 @@ namespace TruckPartsQOL
 			// Lift the kit above the bed before it drops.
 			transform.position += Vector3.up * 0.6f;
 			SetKitVisible(true);
+		}
+
+		public void AdjustHeight(float delta)
+		{
+			if (!IsFitted)
+			{
+				return;
+			}
+			heightOffset = Mathf.Clamp(heightOffset + delta, -1.5f, 1.5f);
+			GameObject vehicle = Part.Vehicle;
+			Rigidbody body = vehicle != null ? vehicle.GetComponent<Rigidbody>() : null;
+			PhysicsState saved = PhysicsState.Of(body);
+			transform.localPosition += Vector3.up * delta;
+			saved.Restore(body);
 		}
 
 		public bool SetOpen(bool value, out string problem)
@@ -224,21 +241,29 @@ namespace TruckPartsQOL
 			bed.width = Mathf.Clamp(size.x, 0.8f, 2.5f);
 			bed.length = Mathf.Clamp(size.z, 0.8f, 3.5f);
 
-			// Floor, then the rails: the highest truck surface along each side.
-			float floor = Probe(vehicle, new Vector3(c.x, top + 1f, c.z), bottom - 0.5f) ?? bottom;
+			// Floor, then the rails: the highest truck surface along each side. The
+			// game's bed zone can be a bit narrower than the bed, so look a little
+			// past its edge too and keep the highest surface at each spot.
+			float? floorHit = Probe(vehicle, zone, new Vector3(c.x, top + 1f, c.z), bottom - 0.5f);
+			float floor = floorHit ?? bottom;
 			List<float> rails = new List<float>();
 			foreach (float side in new[] { -1f, 1f })
 			{
-				foreach (float inset in new[] { 0f, 0.05f })
+				foreach (float along in new[] { -0.35f, 0f, 0.35f })
 				{
-					foreach (float along in new[] { -0.35f, 0f, 0.35f })
+					float? highest = null;
+					foreach (float outward in new[] { 0f, 0.04f, 0.08f, 0.12f })
 					{
-						float x = c.x + side * (bed.width / 2f + inset);
-						float? y = Probe(vehicle, new Vector3(x, top + 1f, c.z + along * bed.length), floor);
-						if (y.HasValue && y.Value > floor + 0.15f && y.Value < top + 0.6f)
+						float x = c.x + side * (bed.width / 2f + outward);
+						float? y = Probe(vehicle, zone, new Vector3(x, top + 1f, c.z + along * bed.length), floor);
+						if (y.HasValue && y.Value > floor + 0.15f && y.Value < top + 0.6f && (!highest.HasValue || y.Value > highest.Value))
 						{
-							rails.Add(y.Value);
+							highest = y;
 						}
+					}
+					if (highest.HasValue)
+					{
+						rails.Add(highest.Value);
 					}
 				}
 			}
@@ -256,8 +281,8 @@ namespace TruckPartsQOL
 
 			// The cab is the taller end.
 			float half = bed.length / 2f + 0.45f;
-			float? plus = Probe(vehicle, new Vector3(c.x, rail + 3f, c.z + half), rail);
-			float? minus = Probe(vehicle, new Vector3(c.x, rail + 3f, c.z - half), rail);
+			float? plus = Probe(vehicle, zone, new Vector3(c.x, rail + 3f, c.z + half), rail);
+			float? minus = Probe(vehicle, zone, new Vector3(c.x, rail + 3f, c.z - half), rail);
 			float plusY = plus ?? rail;
 			float minusY = minus ?? rail;
 			if (Mathf.Abs(plusY - minusY) > 0.2f)
@@ -275,31 +300,20 @@ namespace TruckPartsQOL
 			{
 				bed.shellHeight = 0.55f;
 			}
+			TruckPartsQOLMod.Log(string.Format("Bed on {0}: zone center {1} size {2}; floor {3}; rails {4} from {5} samples; cab {6}; roof {7}; shell {8:0.00}",
+				vehicle.name, c.ToString("F2"), size.ToString("F2"), floorHit.HasValue ? floorHit.Value.ToString("F2") : "not found (using zone bottom " + bottom.ToString("F2") + ")",
+				rail.ToString("F2"), rails.Count, bed.cabSign > 0f ? "+z" : "-z", roof.ToString("F2"), bed.shellHeight));
+			LogHits(vehicle, zone, new Vector3(c.x, top + 1f, c.z), bottom - 0.5f);
 			return bed;
 		}
 
 		// Highest point of the vehicle below `from` (vehicle-local), straight down
-		// to `downTo`, ignoring triggers, cargo and our own parts.
-		private static float? Probe(Transform vehicle, Vector3 from, float downTo)
+		// to `downTo`.
+		private static float? Probe(Transform vehicle, TruckBedGrav zone, Vector3 from, float downTo)
 		{
-			Vector3 origin = vehicle.TransformPoint(from);
-			Vector3 down = -vehicle.up;
-			float distance = (from.y - downTo) * vehicle.lossyScale.y + 0.01f;
-			if (distance <= 0f)
-			{
-				return null;
-			}
 			float? best = null;
-			foreach (RaycastHit hit in Physics.RaycastAll(origin, down, distance, ~0, QueryTriggerInteraction.Ignore))
+			foreach (RaycastHit hit in VehicleHits(vehicle, zone, from, downTo))
 			{
-				if (Vehicles.FindRoot(hit.collider.transform) != vehicle.gameObject || hit.collider.GetComponentInParent<TruckPart>() != null)
-				{
-					continue;
-				}
-				if (hit.rigidbody != null && hit.rigidbody.transform != vehicle)
-				{
-					continue; // loose parts lying in the bed, doors...
-				}
 				float y = vehicle.InverseTransformPoint(hit.point).y;
 				if (!best.HasValue || y > best.Value)
 				{
@@ -307,6 +321,45 @@ namespace TruckPartsQOL
 				}
 			}
 			return best;
+		}
+
+		// Rays down through the vehicle's own surfaces only: not triggers, not the
+		// Ignore Raycast layer (invisible helpers), not cargo lying in the bed (it
+		// has a PickUp), not the bed zone itself, not our own parts. Body panels with
+		// their own rigidbody still count as the vehicle.
+		private static List<RaycastHit> VehicleHits(Transform vehicle, TruckBedGrav zone, Vector3 from, float downTo)
+		{
+			List<RaycastHit> result = new List<RaycastHit>();
+			float distance = (from.y - downTo) * vehicle.lossyScale.y + 0.01f;
+			if (distance <= 0f)
+			{
+				return result;
+			}
+			foreach (RaycastHit hit in Physics.RaycastAll(vehicle.TransformPoint(from), -vehicle.up, distance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+			{
+				Transform t = hit.collider.transform;
+				if (Vehicles.FindRoot(t) != vehicle.gameObject || t.IsChildOf(zone.transform) || hit.collider.GetComponentInParent<TruckPart>() != null)
+				{
+					continue;
+				}
+				if (hit.rigidbody != null && hit.rigidbody.GetComponent<PickUp>() != null)
+				{
+					continue;
+				}
+				result.Add(hit);
+			}
+			return result;
+		}
+
+		// For the log: what the floor probe hit, so a bad fit can be diagnosed.
+		private static void LogHits(Transform vehicle, TruckBedGrav zone, Vector3 from, float downTo)
+		{
+			List<string> names = new List<string>();
+			foreach (RaycastHit hit in VehicleHits(vehicle, zone, from, downTo))
+			{
+				names.Add(hit.collider.name + "@" + vehicle.InverseTransformPoint(hit.point).y.ToString("F2") + (hit.rigidbody != null && hit.rigidbody.transform != vehicle ? "(rb " + hit.rigidbody.name + ")" : ""));
+			}
+			TruckPartsQOLMod.Log("  floor probe hit: " + (names.Count > 0 ? string.Join(", ", names.ToArray()) : "nothing"));
 		}
 
 		// Any loose item poking into the band from the rails up to `height`?
@@ -318,7 +371,9 @@ namespace TruckPartsQOL
 			foreach (Collider collider in Physics.OverlapBox(center, half, vehicle.rotation, ~0, QueryTriggerInteraction.Ignore))
 			{
 				Rigidbody other = collider.attachedRigidbody;
-				if (other != null && other != body && !other.isKinematic && collider.GetComponentInParent<CharacterController>() == null)
+				// The vehicle's own panels don't count, only cargo.
+				bool ownPanel = other != null && other.GetComponent<PickUp>() == null && Vehicles.FindRoot(other.transform) == vehicle.gameObject;
+				if (other != null && other != body && !ownPanel && !other.isKinematic && collider.GetComponentInParent<CharacterController>() == null)
 				{
 					return true;
 				}
