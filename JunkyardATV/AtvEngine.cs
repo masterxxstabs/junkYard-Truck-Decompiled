@@ -22,6 +22,9 @@ namespace JunkyardATV
 
 		private static GameObject holder;
 		private static GameObject template;
+		// The template's meshes in its own space, every part fitted: Place() sits
+		// the engine on its mount by this box, whatever the block's pivot is.
+		private static Bounds shape;
 
 		// A factory-fresh 250 engine, made once per level from the game's own.
 		private static GameObject Template()
@@ -72,6 +75,9 @@ namespace JunkyardATV
 			}
 			Engine250 engine = copy.GetComponent<Engine250>();
 			MakeNew(engine);
+			shape = MeshBox(copy.transform);
+			Vector3 size = Vector3.Scale(shape.size, copy.transform.localScale);
+			AtvMod.Log("The 250 engine measures " + size.x.ToString("0.00", Inv) + " wide x " + size.y.ToString("0.00", Inv) + " tall x " + size.z.ToString("0.00", Inv) + " long (m).");
 			template = copy;
 			return template;
 		}
@@ -97,6 +103,83 @@ namespace JunkyardATV
 			engine.db.powerDivision = 1;
 			// (Not ShowBolts(): its bolts belong to the dirt bike's frame.)
 			return engine;
+		}
+
+		// The box around root's visible meshes, in root's space. Mesh bounds, not
+		// Renderer.bounds: those are world boxes, and wrong while inactive. Particle
+		// effects (exhaust smoke) have no MeshFilter and are left out.
+		private static Bounds MeshBox(Transform root)
+		{
+			bool any = false;
+			Bounds box = new Bounds();
+			foreach (MeshFilter filter in root.GetComponentsInChildren<MeshFilter>(true))
+			{
+				Renderer r = filter.GetComponent<Renderer>();
+				if (filter.sharedMesh == null || r == null || !r.enabled)
+				{
+					continue;
+				}
+				Bounds b = filter.sharedMesh.bounds;
+				for (int i = 0; i < 8; i++)
+				{
+					Vector3 corner = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+					Vector3 p = root.InverseTransformPoint(filter.transform.TransformPoint(corner));
+					if (!any)
+					{
+						box = new Bounds(p, Vector3.zero);
+						any = true;
+					}
+					else
+					{
+						box.Encapsulate(p);
+					}
+				}
+			}
+			return box;
+		}
+
+		// Turn and size the engine on its mount, then sit it so the bottom middle
+		// of its box is at the mount point (atv.cfg's engine= is that spot).
+		public static void Place(Engine250 engine, Vector3 rotation, float scale)
+		{
+			if (engine == null || template == null)
+			{
+				return;
+			}
+			Vector3 min, max;
+			TurnedBox(rotation, scale, out min, out max);
+			Transform t = engine.transform;
+			t.localRotation = Quaternion.Euler(rotation);
+			t.localScale = template.transform.localScale * Mathf.Max(0.01f, scale);
+			t.localPosition = -new Vector3((min.x + max.x) / 2f, min.y, (min.z + max.z) / 2f);
+		}
+
+		// The engine's size on the ATV as placed (meters).
+		public static Vector3 PlacedSize(Vector3 rotation, float scale)
+		{
+			if (template == null)
+			{
+				return Vector3.zero;
+			}
+			Vector3 min, max;
+			TurnedBox(rotation, scale, out min, out max);
+			return max - min;
+		}
+
+		// The engine's box once turned and sized, in its mount's space.
+		private static void TurnedBox(Vector3 rotation, float scale, out Vector3 min, out Vector3 max)
+		{
+			Quaternion turn = Quaternion.Euler(rotation);
+			Vector3 size = template.transform.localScale * Mathf.Max(0.01f, scale);
+			min = Vector3.one * float.MaxValue;
+			max = Vector3.one * float.MinValue;
+			for (int i = 0; i < 8; i++)
+			{
+				Vector3 corner = shape.center + Vector3.Scale(shape.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+				Vector3 p = turn * Vector3.Scale(corner, size);
+				min = Vector3.Min(min, p);
+				max = Vector3.Max(max, p);
+			}
 		}
 
 		// Every part fitted and at 100%, fluids full, a little fuel in the tank.

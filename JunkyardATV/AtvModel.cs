@@ -77,7 +77,13 @@ namespace JunkyardATV
 			model.transform.localRotation = Quaternion.Euler(cfg.rotation);
 			model.transform.localScale = Vector3.one * cfg.scale;
 			layout.visual = model.transform;
-			foreach (string name in cfg.HideList())
+			List<string> hidden = cfg.HideList();
+			// The model's own engine makes way for the game's 250.
+			if (!cfg.showStockEngine)
+			{
+				hidden.Add("StockEngine");
+			}
+			foreach (string name in hidden)
 			{
 				Transform t = FindDeep(model.transform, name);
 				if (t != null)
@@ -151,7 +157,8 @@ namespace JunkyardATV
 
 			Bounds bd = layout.body;
 			layout.seat = AtvConfig.IsAuto(cfg.seat) ? new Vector3(bd.center.x, bd.max.y, bd.center.z - bd.extents.z * 0.2f) : cfg.seat;
-			layout.engine = AtvConfig.IsAuto(cfg.engine) ? new Vector3(bd.center.x, bd.min.y + bd.size.y * 0.4f, bd.center.z) : cfg.engine;
+			// The engine's bottom sits here: a little above the bottom of the body.
+			layout.engine = AtvConfig.IsAuto(cfg.engine) ? new Vector3(bd.center.x, bd.min.y + bd.size.y * 0.15f, bd.center.z) : cfg.engine;
 			layout.fuelInlet = AtvConfig.IsAuto(cfg.fuelInlet) ? new Vector3(bd.center.x, bd.max.y, bd.center.z + bd.extents.z * 0.25f) : cfg.fuelInlet;
 			if (cfg.handlebars.Length > 0)
 			{

@@ -96,6 +96,7 @@ namespace JunkyardATV
 			BuildLook(cfg);
 
 			Engine = AtvEngine.Fit(engineMount, transform);
+			AtvEngine.Place(Engine, cfg.engineRotation, cfg.engineScale);
 			if (Engine != null && !string.IsNullOrEmpty(engineState))
 			{
 				AtvEngine.Restore(Engine, engineState);
@@ -181,6 +182,7 @@ namespace JunkyardATV
 			Seat.localPosition = AtvConfig.IsAuto(cfg.seat) ? layout.seat : cfg.seat;
 			engineMount.localPosition = AtvConfig.IsAuto(cfg.engine) ? layout.engine : cfg.engine;
 			fuelInlet.localPosition = AtvConfig.IsAuto(cfg.fuelInlet) ? layout.fuelInlet : cfg.fuelInlet;
+			AtvEngine.Place(Engine, cfg.engineRotation, cfg.engineScale);
 		}
 
 		public Vector3 PointOf(string which)

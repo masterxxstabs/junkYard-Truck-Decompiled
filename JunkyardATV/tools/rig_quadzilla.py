@@ -1,13 +1,13 @@
 """Rig the Tinkercad Suzuki Quadzilla 500 for Junkyard ATV.
 
-Usage: python3 rig_quadzilla.py <folder with tinker.obj and obj.mtl>
-Writes quadzilla.obj and quadzilla.mtl to the current folder (needs numpy).
-
 Tinkercad merges every shape of one color into one group, so the wheels aren't
 separate. This finds the four tires (dark grey cylinders), assigns every face
 inside each wheel's cylinder (tire, rim, hub) to that wheel, splits out the
-handlebars, converts Z-up millimeters to Y-up meters facing forward, adds
+handlebars and the stock engine, converts Z-up millimeters to Y-up meters facing forward, adds
 crease-aware normals, and writes quadzilla.obj/.mtl.
+
+Usage: python3 rig_quadzilla.py <folder with tinker.obj and obj.mtl>
+Writes quadzilla.obj and quadzilla.mtl to the current folder (needs numpy).
 """
 import math, collections, json, sys
 import numpy as np
@@ -51,6 +51,22 @@ for side in (-1, 1):
         w = wheels[name]
         print(f"{name}: x {w['xmin']:.1f}..{w['xmax']:.1f}  axle y {w['cy']:.1f} z {w['cz']:.1f}  radius {w['r']:.2f}  ({sel.sum()} tire faces)")
 
+# The Quadzilla's own engine (crankcase, covers, cylinder, head and carb) is
+# fused into the grey frame mesh. Carve it out by region into its own part so
+# the mod can hide it and the game's 250 sits in the empty bay. Boxes are
+# Tinkercad mm (x, y, z ranges; front is -Y); the side frame rails run at
+# x < 3.4 and x > 14.8, the lower rail below z 12.2, the down tubes in front of
+# y -11.6 and the swingarm pivot behind y 5.6, so those stay on the Body.
+FRAME = 'color_12568524'
+STOCK_ENGINE = [
+    (2.3, 15.8, -11.6, 5.4, 12.2, 22.4),  # crankcase, side covers, cylinder
+    (3.6, 14.6, -10.5, 5.5, 22.4, 28.0),  # head, valve cover, carb, intake boot
+]
+def in_stock_engine(c):
+    if c[2] < 14 and c[1] < -9.5:
+        return False  # foot of the front down tubes
+    return any(b[0] <= c[0] <= b[1] and b[2] <= c[1] <= b[3] and b[4] <= c[2] <= b[5] for b in STOCK_ENGINE)
+
 part = []
 for i in range(len(F)):
     c = cent[i]; who = 'Body'
@@ -59,6 +75,8 @@ for i in range(len(F)):
             who = name; break
     if who == 'Body' and c[2] > 39.5 and c[1] < -4:
         who = 'Handlebars'
+    if who == 'Body' and M[i] == FRAME and in_stock_engine(c):
+        who = 'StockEngine'
     part.append(who)
 print(collections.Counter(part))
 
@@ -73,7 +91,7 @@ VO = np.array([out(p) for p in V])
 # Wheels: modelled with camber (tilted). The game spins each wheel about a
 # horizontal axle, so straighten each one about its own center: its axle is the
 # tire's thinnest direction (smallest principal axis of the tire's vertices).
-PARTS = ['Body', 'Handlebars', 'Wheel_FL', 'Wheel_FR', 'Wheel_RL', 'Wheel_RR']
+PARTS = ['Body', 'Handlebars', 'StockEngine', 'Wheel_FL', 'Wheel_FR', 'Wheel_RL', 'Wheel_RR']
 objects = {}  # name -> (local vertex array, list of (local face, material))
 for name in PARTS:
     ids = [i for i in range(len(F)) if part[i] == name]
@@ -142,7 +160,7 @@ with open('quadzilla.mtl', 'w') as m:
         m.write(f'\nnewmtl {names[key]}\n{kd}\nNs {ns}\nd 1\n')
 
 with open('quadzilla.obj', 'w') as o:
-    o.write('# Suzuki Quadzilla 500, rigged for Junkyard ATV\n# Y up, meters, front toward +Z. Parts: Body, Handlebars, Wheel_FL/FR/RL/RR\nmtllib quadzilla.mtl\n')
+    o.write('# Suzuki Quadzilla 500, rigged for Junkyard ATV\n# Y up, meters, front toward +Z. Parts: Body, Handlebars, StockEngine, Wheel_FL/FR/RL/RR\nmtllib quadzilla.mtl\n')
     for n in normals:
         o.write(f'vn {n[0]} {n[1]} {n[2]}\n')
     base = 0
@@ -171,9 +189,38 @@ seat = u([cx, 8, seat_top])
 tank_sel = (np.array([m in ('color_24813', 'color_16768282') for m in M])) & (cent[:, 1] > -14) & (cent[:, 1] < -4) & (np.abs(cent[:, 0] - cx) < 4)
 tank_top = cent[tank_sel][:, 2].max()
 fuel = u([cx, -9, tank_top])
-engine = u([cx, 2, 13])
+# The empty engine bay: the biggest clear box (no vertex of what's left inside)
+# grown out from the middle of where the stock engine was. The engine point is
+# the middle of its floor; the mod sits the 250's lowest point there.
+import itertools
+eng_faces = [i for i in range(len(F)) if part[i] == 'StockEngine']
+rest = V[np.unique(np.concatenate([F[i] for i in range(len(F)) if part[i] != 'StockEngine']))]
+ev = V[np.unique(np.concatenate([F[i] for i in eng_faces]))]
+seed = (ev.min(axis=0) + ev.max(axis=0)) / 2
+near = rest[np.all((rest > seed - 30) & (rest < seed + 30), axis=1)]
+def clear(a, b):
+    return not np.any(np.all((near > a) & (near < b), axis=1))
+bay = None
+for order in itertools.permutations(range(6)):
+    a, b = seed - 0.5, seed + 0.5
+    grew = True
+    while grew:
+        grew = False
+        for k in order:
+            a2, b2 = a.copy(), b.copy()
+            if k % 2 == 0:
+                a2[k // 2] -= 0.1
+            else:
+                b2[k // 2] += 0.1
+            if clear(a2, b2):
+                a, b, grew = a2, b2, True
+    if bay is None or np.prod(b - a) > np.prod(bay[1] - bay[0]):
+        bay = (a, b)
+a, b = bay
+engine = u([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, a[2]])
+bay_size = ((b - a) * s)[[0, 2, 1]]  # width, height, length in meters
+print(f"stock engine: {len(eng_faces)} faces; empty bay {bay_size[0]:.3f} wide x {bay_size[1]:.3f} tall x {bay_size[2]:.3f} long (m)")
 radius = max(w['r'] for w in wheels.values()) * s
-info = dict(scale=s, seat=seat, fuel=fuel, engine=engine, wheelRadius=radius,
+info = dict(scale=s, seat=seat, fuel=fuel, engine=engine, bay=bay_size, wheelRadius=radius,
             size_m=list((hi - lo)[[0, 2, 1]] * s), parts=collections.Counter(part))
 print(json.dumps(info, default=lambda o: o.tolist() if hasattr(o, 'tolist') else str(o), indent=1))
-

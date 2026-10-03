@@ -8,7 +8,7 @@ namespace JunkyardATV
 	// the model file, F7 again saves atv.cfg and refits every ATV.
 	internal class FitMode
 	{
-		private static readonly string[] Targets = { "Model position", "Model rotation", "Model scale", "Wheel size", "Seat", "Engine", "Fuel inlet" };
+		private static readonly string[] Targets = { "Model position", "Model rotation", "Model scale", "Wheel size", "Seat", "Engine", "Fuel inlet", "Engine turn", "Engine size" };
 
 		private AtvVehicle atv;
 		private int target;
@@ -127,6 +127,15 @@ namespace JunkyardATV
 				cfg.wheelRadius = Mathf.Max(0.05f, cfg.wheelRadius + (d.z + d.y + d.x) * (big ? 0.02f : 0.005f));
 				Rebuild();
 				break;
+			case 7:
+				// Same keys as model rotation.
+				cfg.engineRotation += new Vector3(d.z, d.x, d.y) * (big ? 90f : 5f);
+				atv.ApplyPoints(cfg);
+				break;
+			case 8:
+				cfg.engineScale = Mathf.Max(0.05f, cfg.engineScale * (1f + (d.z + d.y + d.x) * (big ? 0.1f : 0.01f)));
+				atv.ApplyPoints(cfg);
+				break;
 			default:
 				string which = target == 4 ? "seat" : target == 5 ? "engine" : "fuel";
 				Vector3 p = atv.PointOf(which) + d * (big ? 0.05f : 0.01f);
@@ -192,7 +201,7 @@ namespace JunkyardATV
 				return;
 			}
 			AtvConfig cfg = AtvMod.Config;
-			Rect rect = new Rect(20f, 80f, 360f, 300f);
+			Rect rect = new Rect(20f, 80f, 400f, 350f);
 			GUI.Box(rect, "");
 			GUI.Box(rect, "");
 			GUILayout.BeginArea(new Rect(rect.x + 10f, rect.y + 8f, rect.width - 20f, rect.height - 16f));
@@ -223,6 +232,11 @@ namespace JunkyardATV
 				return atv.PointOf("seat").ToString("F2");
 			case 5:
 				return atv.PointOf("engine").ToString("F2");
+			case 7:
+				return cfg.engineRotation.ToString("F0");
+			case 8:
+				Vector3 size = AtvEngine.PlacedSize(cfg.engineRotation, cfg.engineScale);
+				return cfg.engineScale.ToString("0.###") + "  (" + size.x.ToString("0.00") + " x " + size.y.ToString("0.00") + " x " + size.z.ToString("0.00") + " m)";
 			default:
 				return atv.PointOf("fuel").ToString("F2");
 			}

@@ -24,6 +24,11 @@ namespace JunkyardATV
 		public Vector3 seat = Auto;
 		public Vector3 engine = Auto;
 		public Vector3 fuelInlet = Auto;
+		// The engine on its mount: turned (degrees x,y,z) and sized (1 = as in game).
+		public Vector3 engineRotation = Vector3.zero;
+		public float engineScale = 1f;
+		// Show the model's own engine (a part named StockEngine) next to the 250.
+		public bool showStockEngine;
 		public float mass = 280f;
 
 		public static readonly Vector3 Auto = new Vector3(float.NaN, float.NaN, float.NaN);
@@ -54,6 +59,11 @@ namespace JunkyardATV
 		// from it.
 		private const string Quadzilla = "quadzilla.obj";
 
+		// Floor middle of the Quadzilla's engine bay once its StockEngine is hidden.
+		private static readonly Vector3 QuadzillaEngine = new Vector3(0f, 0.28f, 0.028f);
+		// Where the first Quadzilla preset put the engine, before the bay was cut.
+		private static readonly Vector3 OldQuadzillaEngine = new Vector3(0f, 0.29f, -0.06f);
+
 		private void UseQuadzilla()
 		{
 			model = Quadzilla;
@@ -63,7 +73,7 @@ namespace JunkyardATV
 			wheelRadius = 0f;
 			handlebars = "Handlebars";
 			seat = new Vector3(0f, 0.82f, -0.19f);
-			engine = new Vector3(0f, 0.29f, -0.06f);
+			engine = QuadzillaEngine;
 			fuelInlet = new Vector3(0f, 0.87f, 0.19f);
 		}
 
@@ -128,6 +138,19 @@ namespace JunkyardATV
 					case "fuelInlet":
 						c.fuelInlet = V(value);
 						break;
+					case "engineRotation":
+						c.engineRotation = V(value);
+						if (IsAuto(c.engineRotation))
+						{
+							c.engineRotation = Vector3.zero;
+						}
+						break;
+					case "engineScale":
+						c.engineScale = F(value);
+						break;
+					case "showStockEngine":
+						c.showStockEngine = value.ToLowerInvariant() == "true";
+						break;
 					case "mass":
 						c.mass = F(value);
 						break;
@@ -146,6 +169,13 @@ namespace JunkyardATV
 				c.Save();
 				AtvMod.Log("Using the Suzuki Quadzilla 500 model.");
 			}
+			// Still the first preset's engine spot: move it into the new bay.
+			else if (c.model == Quadzilla && !IsAuto(c.engine) && (c.engine - OldQuadzillaEngine).sqrMagnitude < 1e-6f)
+			{
+				c.engine = QuadzillaEngine;
+				c.Save();
+				AtvMod.Log("Moved the engine into the Quadzilla's engine bay.");
+			}
 			return c;
 		}
 
@@ -162,6 +192,9 @@ namespace JunkyardATV
 			sb.AppendLine("# seat / engine / fuelInlet: x,y,z on the ATV, or auto.");
 			sb.AppendLine("# handlebars: name of the part that turns with the steering.");
 			sb.AppendLine("# hide: names of parts to hide, comma-separated.");
+			sb.AppendLine("# engineRotation (degrees x,y,z) / engineScale: turn and size the 250 engine;");
+			sb.AppendLine("#   it sits with the bottom middle of the engine on the engine point.");
+			sb.AppendLine("# showStockEngine: true shows the model's own engine (part StockEngine).");
 			sb.AppendLine();
 			sb.AppendLine("model=" + model);
 			sb.AppendLine("scale=" + scale.ToString("R", Inv));
@@ -174,6 +207,9 @@ namespace JunkyardATV
 			sb.AppendLine("seat=" + S(seat));
 			sb.AppendLine("engine=" + S(engine));
 			sb.AppendLine("fuelInlet=" + S(fuelInlet));
+			sb.AppendLine("engineRotation=" + S(engineRotation));
+			sb.AppendLine("engineScale=" + engineScale.ToString("R", Inv));
+			sb.AppendLine("showStockEngine=" + (showStockEngine ? "true" : "false"));
 			sb.AppendLine("mass=" + mass.ToString("R", Inv));
 			try
 			{

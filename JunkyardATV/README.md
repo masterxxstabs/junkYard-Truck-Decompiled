@@ -76,12 +76,31 @@ separate wheels. `tools/rig_quadzilla.py` rigs it:
   mirrored.
 * **Adds normals.** The surfaces have hard edges kept sharp (creases over 35°)
   instead of everything being smoothed over.
-* **Measures** the seat, fuel filler and engine bay positions used in `atv.cfg`.
+* **Cuts out the stock engine.** The Quadzilla's own engine (crankcase, side
+  covers, cylinder, head, carb and intake boot) was fused into the grey frame mesh.
+  The triangles in two boxes around it go to their own part, `StockEngine`, which
+  the mod hides so the game's 250 sits in the empty bay. The side frame rails, lower
+  rail, front down tubes, swingarm pivot and exhaust stay on the `Body`. Set
+  `showStockEngine=true` in `atv.cfg` to see it again.
+* **Measures** the seat and fuel filler positions used in `atv.cfg`, and the
+  empty engine bay: the biggest clear box where the stock engine was, about
+  0.23 m wide x 0.27 m tall x 0.27 m long. The engine point is the middle of its
+  floor.
 
 The handlebars turn about their own center (the mod gives OBJ parts a pivot there).
 
 To rerun it: `python3 tools/rig_quadzilla.py <folder with tinker.obj and obj.mtl>`
 (needs numpy).
+
+### Fitting the engine
+
+The 250 engine sits with the bottom middle of its box on the engine point, so it
+lands on the bay floor whatever its own pivot is. The log prints the engine's size
+when a level loads. If it's too big for the bay or faces the wrong way, use fit
+mode (F7): **Engine** moves it, **Engine turn** turns it (the same keys as model
+rotation) and **Engine size** scales it, showing its size in meters. Or set
+`engineRotation=` and `engineScale=` in `atv.cfg`. A config still holding the first
+Quadzilla engine point is moved into the bay by itself.
 
 ### Working on the engine
 
@@ -110,7 +129,7 @@ Put a model file in `<game>/JunkyardATV/` and set `model=` in `atv.cfg`:
 
 | Key | |
 |---|---|
-| **[ / ]** | Choose: model position / rotation / scale, wheel size, seat, engine, fuel inlet |
+| **[ / ]** | Choose: model position / rotation / scale, wheel size, seat, engine, fuel inlet, engine turn, engine size |
 | **Arrows, Page Up / Down** | Adjust (Shift: bigger steps; rotation steps 5°, or 90° with Shift) |
 | **R** | Reload `atv.cfg` and the model file (swap models without restarting) |
 | **F7** | Save to `atv.cfg` and refit every ATV |
