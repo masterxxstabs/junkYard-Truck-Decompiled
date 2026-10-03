@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 [assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "1.0.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
@@ -40,6 +42,13 @@ namespace EngineCloner
 
 		private static readonly List<GameObject> blocks = new List<GameObject>();
 
+		// Blocks this mod created.
+		private static readonly HashSet<int> clones = new HashSet<int>();
+
+		// Per engine type, the block the game's vehicles, gearboxes, gauges etc. are
+		// currently wired to. See ReferenceSwapper.
+		private static readonly Dictionary<Type, GameObject> wiredBlock = new Dictionary<Type, GameObject>();
+
 		private static MelonLogger.Instance log;
 
 		private MelonPreferences_Entry<KeyCode> cloneKey;
@@ -58,6 +67,8 @@ namespace EngineCloner
 			anchorByBlock.Clear();
 			ownerByAnchor.Clear();
 			blocks.Clear();
+			clones.Clear();
+			wiredBlock.Clear();
 			nextBlockScan = 0f;
 		}
 
@@ -92,7 +103,59 @@ namespace EngineCloner
 				{
 					Release(block);
 				}
+				if (IsMounted(block, joint))
+				{
+					WireToVehicle(block);
+				}
 			}
+		}
+
+		// Bolted into a truck, car or bike: the game parents the block to the vehicle
+		// and fixes its joint to the vehicle's rigidbody.
+		private static bool IsMounted(GameObject block, FixedJoint joint)
+		{
+			Transform parent = block.transform.parent;
+			return parent != null && joint != null && joint.connectedBody != null && joint.connectedBody.transform == parent;
+		}
+
+		// Make the vehicles talk to this block instead of whichever one of the same
+		// type they were wired to before.
+		private static void WireToVehicle(GameObject block)
+		{
+			Type type = EngineType(block);
+			GameObject wired;
+			if (!wiredBlock.TryGetValue(type, out wired) || wired == null || wired == block)
+			{
+				wiredBlock[type] = block;
+				return;
+			}
+			// The game can only drive one block of each type. If the wired one is
+			// still mounted somewhere, leave it alone, or two mounted blocks would
+			// steal the wiring back and forth every frame.
+			if (IsMounted(wired, wired.GetComponent<FixedJoint>()))
+			{
+				return;
+			}
+			int swapped = ReferenceSwapper.Swap(wired, block);
+			wiredBlock[type] = block;
+			log.Msg("Mounted " + block.name + ": rewired " + swapped + " game references to it.");
+		}
+
+		private static Type EngineType(GameObject block)
+		{
+			if (block.GetComponent<enginev8>() != null)
+			{
+				return typeof(enginev8);
+			}
+			if (block.GetComponent<enginei6>() != null)
+			{
+				return typeof(enginei6);
+			}
+			if (block.GetComponent<Engine250>() != null)
+			{
+				return typeof(Engine250);
+			}
+			return typeof(engine);
 		}
 
 		public static bool IsEngineBlock(GameObject go)
@@ -124,9 +187,17 @@ namespace EngineCloner
 		{
 			foreach (MonoBehaviour script in scripts)
 			{
-				if (!blocks.Contains(script.gameObject))
+				GameObject block = script.gameObject;
+				if (!blocks.Contains(block))
 				{
-					blocks.Add(script.gameObject);
+					blocks.Add(block);
+				}
+				// After a level loads the game is wired to the block it shipped with,
+				// which is never one of ours.
+				Type type = EngineType(block);
+				if (!clones.Contains(block.GetInstanceID()) && (!wiredBlock.ContainsKey(type) || wiredBlock[type] == null))
+				{
+					wiredBlock[type] = block;
 				}
 			}
 		}
@@ -256,6 +327,7 @@ namespace EngineCloner
 			// The clone's joint still points at whatever held the original (its anchor,
 			// the stand, the truck). Cut that link before the first physics step.
 			Release(clone);
+			clones.Add(clone.GetInstanceID());
 			blocks.Add(clone);
 			log.Msg("Cloned " + original.name + ".");
 		}

@@ -37,6 +37,16 @@ fixed to one body are welded together, so moving one drags the other.
   condition of every part it was cloned from. The clone keeps the original's name,
   because the game recognises blocks by name for pickup, the engine stand and
   mounting.
+* **Rewires the vehicles to whichever engine is mounted.** On level load, the game
+  wires each vehicle to one specific block per engine type: `car.enginescriptv8`,
+  `GearBox`, `AudioControl`, `FluidHandler`, `DrainOil`, `Diagnostic`, `Interactor`,
+  and `GameObject` fields for parts inside the block such as `engineFan` and
+  `engineCrank`. Without the rewiring, a truck with a cloned engine keeps asking the
+  original, which is loose, so it reports `canRun = false` and the truck won't start.
+  When you mount a different block of the same type, the mod swaps all of those
+  references (every scene script plus static fields, matched part-by-part through
+  the identical hierarchy) to the mounted block. The MelonLoader console shows
+  "Mounted v8_block: rewired N game references to it."
 * **Patches `Interactor.EngReleaseStand`.** The stock version finds blocks with
   `GameObject.Find(name)`, which picks an arbitrary block once there are duplicates.
   The patch releases whichever block is actually on the stand.
@@ -80,5 +90,8 @@ to `MelonLoader/MelonLoader.dll`, but 0.5 has no `OnInitializeMelon`, so rename 
   coolant) and some Interactor checks use `GameObject.Find("engineblock")` and similar,
   so with duplicates they may act on a different block of the same type than the one
   you're working on. This affects game logic only. Physics is fully independent.
-* **One engine per truck.** A truck tracks a single engine, so mounting a clone in a
-  truck that already has one installed is not supported.
+* **One running engine of each type at a time.** The game drives a single block per
+  engine type, so the most recently mounted one is the one that runs. If a V8 is
+  still mounted in one vehicle, a second V8 mounted in another vehicle won't run
+  until the first one is taken out and the second is remounted. The same applies to
+  the I6. Different engine types are independent.
