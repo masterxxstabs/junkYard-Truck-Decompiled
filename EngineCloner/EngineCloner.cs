@@ -91,6 +91,7 @@ namespace EngineCloner
 				nextBlockScan = Time.time + 1f;
 				ScanForBlocks();
 				VehicleCloner.Scan();
+				VehicleCloner.RecordSafePoses();
 			}
 			for (int i = blocks.Count - 1; i >= 0; i--)
 			{

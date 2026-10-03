@@ -8,8 +8,9 @@ AMC, golf cart, dirt bike) and use each copy on its own.
 Look at an engine block or a vehicle and press **F8**.
 
 * **Engine:** a loose copy appears in front of you.
-* **Vehicle:** a copy appears beside you, far enough out not to land on you. Get out
-  of the vehicle first. Looking at an engine that's mounted in a truck clones the
+* **Vehicle:** a copy is placed on solid ground beside you: in front if there's room,
+  otherwise to your right, left or behind. If none of those is clear, the console
+  says so; move somewhere more open. Get out of the vehicle first. Looking at an engine that's mounted in a truck clones the
   engine, not the truck, so aim at the body to clone the truck.
 
 Get in any copy by its seat as usual, and you drive that one.
@@ -70,6 +71,12 @@ fixed to one body are welded together, so moving one drags the other.
 * **Cuts cloned vehicles loose.** Any joint in the copy that points at something
   outside it (for example a dirt bike strapped into the original truck's bed) is
   removed, so the copy isn't welded to the original.
+* **Rescues copies that fall out of the world.** `LostFound` (the out-of-world
+  trigger) calls `PhoneScript.Option1b()` and its siblings, which warp the vehicle
+  the game is *wired* to home, not the one that fell. They also switch it off and on
+  and teleport you, once per collider that enters. A prefix on
+  `LostFound.OnTriggerEnter` skips that for any vehicle the game isn't wired to and
+  puts that vehicle back where it last came to rest.
 * **Puts engines in the right bay.** `PickUp` finds the vehicle to mount an engine
   in with `GameObject.Find("dirt pickup truck")` and similar, which can return the
   wrong copy. A patch on `PickUp.LetGo` hands it the vehicle that owns the bay you

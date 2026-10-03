@@ -23,10 +23,75 @@ namespace EngineCloner
 
 		private static readonly HashSet<int> clones = new HashSet<int>();
 
+		private static readonly List<GameObject> vehicles = new List<GameObject>();
+
+		// Last place each vehicle was seen at rest, to put it back if it falls out of
+		// the world.
+		private static readonly Dictionary<int, SavedPose> safePose = new Dictionary<int, SavedPose>();
+
+		private static readonly Dictionary<int, float> lastRescue = new Dictionary<int, float>();
+
 		public static void Reset()
 		{
 			wired.Clear();
 			clones.Clear();
+			vehicles.Clear();
+			safePose.Clear();
+			lastRescue.Clear();
+		}
+
+		public static bool IsWired(GameObject vehicle)
+		{
+			Scan();
+			GameObject current;
+			Type type = VehicleType(vehicle);
+			return type == null || !wired.TryGetValue(type, out current) || current == null || current == vehicle;
+		}
+
+		public static void RecordSafePoses()
+		{
+			for (int i = vehicles.Count - 1; i >= 0; i--)
+			{
+				GameObject vehicle = vehicles[i];
+				if (vehicle == null)
+				{
+					vehicles.RemoveAt(i);
+					continue;
+				}
+				Rigidbody body = vehicle.GetComponent<Rigidbody>();
+				if (vehicle.activeInHierarchy && body != null && body.velocity.sqrMagnitude < 0.25f)
+				{
+					safePose[vehicle.GetInstanceID()] = new SavedPose(vehicle.transform.position, vehicle.transform.rotation);
+				}
+			}
+		}
+
+		// A copy the game isn't wired to fell into the out-of-world trigger. The game
+		// would warp the vehicle it IS wired to (the original) home, so put the one
+		// that actually fell back where it last rested instead.
+		public static void Rescue(GameObject vehicle)
+		{
+			int id = vehicle.GetInstanceID();
+			float last;
+			// Every collider on the vehicle fires the trigger; handle it once.
+			if (lastRescue.TryGetValue(id, out last) && Time.time - last < 2f)
+			{
+				return;
+			}
+			lastRescue[id] = Time.time;
+			SavedPose pose;
+			if (!safePose.TryGetValue(id, out pose))
+			{
+				return;
+			}
+			vehicle.transform.position = pose.position + Vector3.up * 0.5f;
+			vehicle.transform.rotation = pose.rotation;
+			foreach (Rigidbody body in vehicle.GetComponentsInChildren<Rigidbody>())
+			{
+				body.velocity = Vector3.zero;
+				body.angularVelocity = Vector3.zero;
+			}
+			EngineClonerMod.Log(vehicle.name + " copy fell out of the world; put it back where it last stopped.");
 		}
 
 		// After a level loads the game is wired to the vehicles it shipped with.
@@ -34,6 +99,14 @@ namespace EngineCloner
 		{
 			foreach (Type type in VehicleTypes)
 			{
+				foreach (Object found in Object.FindObjectsOfType(type))
+				{
+					GameObject go = ((Component)found).gameObject;
+					if (!vehicles.Contains(go))
+					{
+						vehicles.Add(go);
+					}
+				}
 				GameObject current;
 				if (wired.TryGetValue(type, out current) && current != null)
 				{
@@ -98,6 +171,91 @@ namespace EngineCloner
 			EngineClonerMod.Log("Switched to " + vehicle.name + ": rewired " + swapped + " game references to it.");
 		}
 
+		// Find open, solid ground next to the player: in front, then right, left,
+		// behind. A copy that starts even partly inside the terrain falls through it.
+		private static bool FindSpawnPosition(GameObject original, out Vector3 position)
+		{
+			position = Vector3.zero;
+			// The copy gets the same heading, so the original's bounds as it stands now
+			// are a good fit (only off a little if the original is parked on a slope).
+			Bounds bounds = new Bounds(original.transform.position, Vector3.zero);
+			foreach (Collider collider in original.GetComponentsInChildren<Collider>())
+			{
+				if (collider.enabled && !collider.isTrigger)
+				{
+					bounds.Encapsulate(collider.bounds);
+				}
+			}
+			Vector3 pivotToCenter = bounds.center - original.transform.position;
+			float pivotAboveBottom = original.transform.position.y - bounds.min.y;
+			float reach = Mathf.Max(bounds.extents.x, bounds.extents.z) + 2.5f;
+
+			Transform cam = Camera.main.transform;
+			Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+			Vector3 right = Vector3.Cross(Vector3.up, forward);
+			foreach (Vector3 direction in new[] { forward, right, -right, -forward })
+			{
+				Vector3 spot = cam.position + direction * reach;
+				float groundY;
+				if (!GroundBelow(spot, cam.position.y + 3f, original, out groundY))
+				{
+					continue;
+				}
+				Vector3 candidate = new Vector3(spot.x, groundY + pivotAboveBottom + 0.3f, spot.z);
+				// Check the space the body will occupy, lifted a little so gentle
+				// slopes and road meshes under the wheels don't count as blocked.
+				Vector3 center = candidate + pivotToCenter + Vector3.up * (bounds.extents.y * 0.25f);
+				Vector3 half = new Vector3(bounds.extents.x * 0.95f, bounds.extents.y * 0.7f, bounds.extents.z * 0.95f);
+				if (!IsBlocked(center, half, original))
+				{
+					position = candidate;
+					return true;
+				}
+			}
+			return false;
+		}
+
+		private static bool GroundBelow(Vector3 spot, float fromHeight, GameObject ignore, out float groundY)
+		{
+			groundY = 0f;
+			Vector3 start = new Vector3(spot.x, fromHeight, spot.z);
+			RaycastHit[] hits = Physics.RaycastAll(start, Vector3.down, 100f, ~0, QueryTriggerInteraction.Ignore);
+			Array.Sort(hits, (x, y) => x.distance.CompareTo(y.distance));
+			foreach (RaycastHit hit in hits)
+			{
+				if (hit.transform.IsChildOf(ignore.transform) || IsPlayer(hit.collider))
+				{
+					continue;
+				}
+				// Loose junk lying around is not ground.
+				if (hit.rigidbody != null && !hit.rigidbody.isKinematic)
+				{
+					continue;
+				}
+				groundY = hit.point.y;
+				return true;
+			}
+			return false;
+		}
+
+		private static bool IsBlocked(Vector3 center, Vector3 half, GameObject ignore)
+		{
+			foreach (Collider collider in Physics.OverlapBox(center, half, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
+			{
+				if (collider is TerrainCollider || collider.transform.IsChildOf(ignore.transform) || IsPlayer(collider))
+				{
+					continue;
+				}
+				return true;
+			}
+			return false;
+		}
+
+		private static bool IsPlayer(Collider collider)
+		{
+			return collider.GetComponentInParent<CharacterController>() != null;
+		}
+
 		public static void Clone(GameObject original)
 		{
 			Interactor interactor = Object.FindObjectOfType<Interactor>();
@@ -106,17 +264,12 @@ namespace EngineCloner
 				EngineClonerMod.Log("Get out of the vehicle before cloning.");
 				return;
 			}
-			// Drop it beside the player, far enough out that it doesn't land on them.
-			Bounds bounds = new Bounds(original.transform.position, Vector3.zero);
-			foreach (Renderer renderer in original.GetComponentsInChildren<Renderer>())
+			Vector3 position;
+			if (!FindSpawnPosition(original, out position))
 			{
-				bounds.Encapsulate(renderer.bounds);
+				EngineClonerMod.Log("Not enough room to put a copy of " + original.name + " here. Try somewhere more open.");
+				return;
 			}
-			float reach = Mathf.Max(bounds.extents.x, bounds.extents.z) + 2f;
-			Transform cam = Camera.main.transform;
-			Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
-			Vector3 position = cam.position + forward * reach;
-			position.y = original.transform.position.y + 0.5f;
 			Quaternion rotation = Quaternion.Euler(0f, original.transform.eulerAngles.y, 0f);
 
 			GameObject clone = Object.Instantiate(original, position, rotation, original.transform.parent);
@@ -153,8 +306,46 @@ namespace EngineCloner
 				}
 			}
 			EngineClonerMod.RegisterClonedBlocks(clone);
+			vehicles.Add(clone);
+			safePose[clone.GetInstanceID()] = new SavedPose(position, rotation);
 			EngineClonerMod.Log("Cloned " + original.name + (cut > 0 ? " (cut " + cut + " joint(s) to outside objects)." : "."));
 		}
+	}
+
+	// LostFound is the out-of-world trigger. For a vehicle it calls PhoneScript,
+	// which warps the vehicle the game is WIRED to home, not the one that fell (and
+	// toggles it off and on, once per collider). Only let that happen for the wired
+	// vehicle.
+	[HarmonyPatch(typeof(LostFound), "OnTriggerEnter")]
+	internal static class LostFoundPatch
+	{
+		private static bool Prefix(Collider other)
+		{
+			if (other == null)
+			{
+				return true;
+			}
+			GameObject vehicle = VehicleCloner.FindVehicleRoot(other.transform);
+			if (vehicle == null || VehicleCloner.IsWired(vehicle))
+			{
+				return true;
+			}
+			VehicleCloner.Rescue(vehicle);
+			return false;
+		}
+	}
+
+	internal struct SavedPose
+	{
+		public SavedPose(Vector3 position, Quaternion rotation)
+		{
+			this.position = position;
+			this.rotation = rotation;
+		}
+
+		public Vector3 position;
+
+		public Quaternion rotation;
 	}
 
 	// Getting in: wire the game to the vehicle whose seat you actually clicked.
