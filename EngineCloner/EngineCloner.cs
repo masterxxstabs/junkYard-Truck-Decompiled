@@ -59,7 +59,7 @@ namespace EngineCloner
 		{
 			log = LoggerInstance;
 			MelonPreferences_Category category = MelonPreferences.CreateCategory("EngineCloner");
-			cloneKey = category.CreateEntry("CloneKey", KeyCode.F8, "Clone key", "Look at an engine block and press this to clone it.");
+			cloneKey = category.CreateEntry("CloneKey", KeyCode.F8, "Clone key", "Look at an engine block or a vehicle and press this to clone it.");
 		}
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -69,6 +69,7 @@ namespace EngineCloner
 			blocks.Clear();
 			clones.Clear();
 			wiredBlock.Clear();
+			VehicleCloner.Reset();
 			nextBlockScan = 0f;
 		}
 
@@ -76,7 +77,7 @@ namespace EngineCloner
 		{
 			if (Input.GetKeyDown(cloneKey.Value))
 			{
-				CloneLookedAtEngine();
+				CloneLookedAt();
 			}
 		}
 
@@ -89,6 +90,7 @@ namespace EngineCloner
 			{
 				nextBlockScan = Time.time + 1f;
 				ScanForBlocks();
+				VehicleCloner.Scan();
 			}
 			for (int i = blocks.Count - 1; i >= 0; i--)
 			{
@@ -106,6 +108,42 @@ namespace EngineCloner
 				if (IsMounted(block, joint))
 				{
 					WireToVehicle(block);
+				}
+			}
+		}
+
+		public static void Log(string message)
+		{
+			log.Msg(message);
+		}
+
+		// A vehicle swap also swapped the engines mounted in the two vehicles; keep
+		// tracking whichever block the game is wired to now.
+		public static void FollowVehicleSwap(Dictionary<Object, Object> map)
+		{
+			foreach (Type type in new List<Type>(wiredBlock.Keys))
+			{
+				GameObject block = wiredBlock[type];
+				Object other;
+				if (block != null && map.TryGetValue(block, out other) && other is GameObject)
+				{
+					wiredBlock[type] = (GameObject)other;
+				}
+			}
+		}
+
+		// Engine blocks that came along inside a cloned vehicle.
+		public static void RegisterClonedBlocks(GameObject root)
+		{
+			foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+			{
+				if (IsEngineBlock(t.gameObject))
+				{
+					clones.Add(t.gameObject.GetInstanceID());
+					if (!blocks.Contains(t.gameObject))
+					{
+						blocks.Add(t.gameObject);
+					}
 				}
 			}
 		}
@@ -264,7 +302,9 @@ namespace EngineCloner
 			return "EmptyObjRigidbody";
 		}
 
-		private static GameObject FindLookedAtEngine()
+		// The nearest engine block or vehicle up the hierarchy from what the player
+		// is looking at. An engine mounted in a truck is found before the truck.
+		private static GameObject FindLookedAt()
 		{
 			Camera camera = Camera.main;
 			if (camera == null)
@@ -276,10 +316,10 @@ namespace EngineCloner
 			{
 				return null;
 			}
-			// The ray usually hits a part (head, oil pan, bolt...), so walk up to the block.
+			// The ray usually hits a part (head, oil pan, door, wheel...), so walk up.
 			for (Transform t = hit.collider.transform; t != null; t = t.parent)
 			{
-				if (IsEngineBlock(t.gameObject))
+				if (IsEngineBlock(t.gameObject) || VehicleCloner.VehicleType(t.gameObject) != null)
 				{
 					return t.gameObject;
 				}
@@ -287,12 +327,17 @@ namespace EngineCloner
 			return null;
 		}
 
-		private void CloneLookedAtEngine()
+		private void CloneLookedAt()
 		{
-			GameObject original = FindLookedAtEngine();
+			GameObject original = FindLookedAt();
 			if (original == null)
 			{
-				log.Msg("Look at an engine block to clone it.");
+				log.Msg("Look at an engine block or a vehicle to clone it.");
+				return;
+			}
+			if (!IsEngineBlock(original))
+			{
+				VehicleCloner.Clone(original);
 				return;
 			}
 			PickUp originalPickUp = original.GetComponent<PickUp>();

@@ -1,6 +1,18 @@
 # Engine Cloner (MelonLoader mod for Junkyard Truck)
 
-Clone any engine block (4-cyl, V8, I6, 250) and move each copy around on its own.
+Clone any engine block (4-cyl, V8, I6, 250) or vehicle (Diamondback pickup, F100,
+AMC, golf cart, dirt bike) and use each copy on its own.
+
+## Usage
+
+Look at an engine block or a vehicle and press **F8**.
+
+* **Engine:** a loose copy appears in front of you.
+* **Vehicle:** a copy appears beside you, far enough out not to land on you. Get out
+  of the vehicle first. Looking at an engine that's mounted in a truck clones the
+  engine, not the truck, so aim at the body to clone the truck.
+
+Get in any copy by its seat as usual, and you drive that one.
 
 ## Why clones used to move together
 
@@ -47,6 +59,21 @@ fixed to one body are welded together, so moving one drags the other.
   references (every scene script plus static fields, matched part-by-part through
   the identical hierarchy) to the mounted block. The MelonLoader console shows
   "Mounted v8_block: rewired N game references to it."
+* **Rewires the game to whichever vehicle you get into.** Vehicles have the same
+  problem engines had. `Interactor` is wired to one truck (`truck`, `carscript`,
+  `seatMount`, `exitMount`...), one F100, one AMC, one golf cart and one dirt bike,
+  and so are `GearBox`, `AudioControl`, `Officer`, `Winch`, `FluidHandler` and the
+  rest. A Harmony prefix on `GetIn`, `GetInF`, `GetInCar`, `GetInCart` and
+  `GetInDirtbike` swaps those references to the vehicle whose seat you clicked,
+  just before the game seats you. Parts are matched by name and occurrence, so the
+  engine inside each vehicle is swapped along with it.
+* **Cuts cloned vehicles loose.** Any joint in the copy that points at something
+  outside it (for example a dirt bike strapped into the original truck's bed) is
+  removed, so the copy isn't welded to the original.
+* **Puts engines in the right bay.** `PickUp` finds the vehicle to mount an engine
+  in with `GameObject.Find("dirt pickup truck")` and similar, which can return the
+  wrong copy. A patch on `PickUp.LetGo` hands it the vehicle that owns the bay you
+  dropped the engine into.
 * **Patches `Interactor.EngReleaseStand`.** The stock version finds blocks with
   `GameObject.Find(name)`, which picks an arbitrary block once there are duplicates.
   The patch releases whichever block is actually on the stand.
@@ -84,8 +111,12 @@ to `MelonLoader/MelonLoader.dll`, but 0.5 has no `OnInitializeMelon`, so rename 
 
 ## Known limits
 
-* **Clones are not saved.** The save system only knows the original blocks, so clones
-  disappear on reload.
+* **Clones are not saved.** The save system only knows the original engines and
+  vehicles, so clones disappear on reload. It saves whichever copy the game is wired
+  to, i.e. the one you last drove or last mounted an engine in. If that's a clone,
+  its position and parts are saved as the original's.
+* **Copies you aren't driving still run their own scripts.** If the original has its
+  engine running when you clone it, the copy starts with its engine running too.
 * **Some game logic is still name-based.** Scripts such as `FluidHandler` (oil and
   coolant) and some Interactor checks use `GameObject.Find("engineblock")` and similar,
   so with duplicates they may act on a different block of the same type than the one

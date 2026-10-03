@@ -28,7 +28,15 @@ namespace EngineCloner
 
 		public static int Swap(GameObject a, GameObject b)
 		{
-			Dictionary<Object, Object> map = new Dictionary<Object, Object>();
+			Dictionary<Object, Object> map;
+			return Swap(a, b, out map);
+		}
+
+		// map receives every matched pair (both directions), so callers can follow
+		// other objects that live inside a or b, e.g. the engine inside a truck.
+		public static int Swap(GameObject a, GameObject b, out Dictionary<Object, Object> map)
+		{
+			map = new Dictionary<Object, Object>();
 			MapHierarchy(a.transform, b.transform, map);
 			int swapped = 0;
 			foreach (MonoBehaviour behaviour in Resources.FindObjectsOfTypeAll<MonoBehaviour>())
@@ -68,14 +76,35 @@ namespace EngineCloner
 					Pair(ca[i], cb[i], map);
 				}
 			}
-			for (int i = 0; i < a.childCount && i < b.childCount; i++)
+			// Pair children by name and occurrence (the 2nd "bolt" with the 2nd "bolt"),
+			// not by index: mounting or pulling an engine moves it to the end of the
+			// vehicle's child list, so indexes drift between a vehicle and its clone.
+			Dictionary<string, List<Transform>> childrenOfB = new Dictionary<string, List<Transform>>();
+			foreach (Transform child in b)
 			{
-				Transform childA = a.GetChild(i);
-				Transform childB = b.GetChild(i);
-				if (childA.name == childB.name)
+				List<Transform> named;
+				if (!childrenOfB.TryGetValue(child.name, out named))
 				{
-					MapHierarchy(childA, childB, map);
+					named = new List<Transform>();
+					childrenOfB[child.name] = named;
 				}
+				named.Add(child);
+			}
+			Dictionary<string, int> used = new Dictionary<string, int>();
+			foreach (Transform childA in a)
+			{
+				List<Transform> named;
+				if (!childrenOfB.TryGetValue(childA.name, out named))
+				{
+					continue;
+				}
+				int n;
+				used.TryGetValue(childA.name, out n);
+				if (n < named.Count)
+				{
+					MapHierarchy(childA, named[n], map);
+				}
+				used[childA.name] = n + 1;
 			}
 		}
 
