@@ -83,6 +83,14 @@ The handlebars turn about their own center (the mod gives OBJ parts a pivot ther
 To rerun it: `python3 tools/rig_quadzilla.py <folder with tinker.obj and obj.mtl>`
 (needs numpy).
 
+### Working on the engine
+
+When you bolt a part on, the game records it on the dirt bike's engine
+(`GameObject.Find("250_block")`). The mod redirects that to the engine the part
+actually went into, so the ATV's and the bike's engines each keep their own parts.
+Engine Cloner ships the same fix; whichever mod loads first runs it. A new ATV's
+engine starts with every part new, and saves keep each part's condition exactly.
+
 ## Using your own model
 
 Put a model file in `<game>/JunkyardATV/` and set `model=` in `atv.cfg`:
@@ -102,7 +110,7 @@ Put a model file in `<game>/JunkyardATV/` and set `model=` in `atv.cfg`:
 
 | Key | |
 |---|---|
-| **Tab** | Choose: model position / rotation / scale, wheel size, seat, engine, fuel inlet |
+| **[ / ]** | Choose: model position / rotation / scale, wheel size, seat, engine, fuel inlet |
 | **Arrows, Page Up / Down** | Adjust (Shift: bigger steps; rotation steps 5°, or 90° with Shift) |
 | **R** | Reload `atv.cfg` and the model file (swap models without restarting) |
 | **F7** | Save to `atv.cfg` and refit every ATV |

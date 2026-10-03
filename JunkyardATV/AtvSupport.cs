@@ -186,12 +186,17 @@ namespace JunkyardATV
 		}
 	}
 
+	// New game over slot 1: it leaves PlayerPrefs "LoadSlot" as it was, so
+	// remember that this one is a new game.
 	[HarmonyPatch(typeof(MainMenu), "PlayGameOverwrite")]
 	internal static class OverwritePatch
 	{
+		public static bool NewGame;
+
 		private static void Prefix()
 		{
 			AtvSave.Delete(1);
+			NewGame = true;
 		}
 	}
 

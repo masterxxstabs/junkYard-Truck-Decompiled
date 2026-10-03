@@ -229,7 +229,8 @@ namespace TruckPartsQOL
 						restoredWith = new GameObject("TruckPartsQOL_Restored");
 						UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(restoredWith, vehicles[0].scene);
 						savingDisabled = false;
-						int slot = PlayerPrefs.GetInt("LoadSlot", 0);
+						int slot = OverwritePatch.NewGame ? 0 : PlayerPrefs.GetInt("LoadSlot", 0);
+						OverwritePatch.NewGame = false;
 						try
 						{
 							PartSave.Load(slot);
@@ -313,9 +314,12 @@ namespace TruckPartsQOL
 				hint = Key(useKey) + " Install " + held.DisplayName;
 				if (Input.GetKeyDown(useKey.Value))
 				{
-					// Mount to the rigidbody that was hit (body, door...) so the part
-					// moves with it; fall back to the vehicle itself.
-					Transform mount = hit.rigidbody != null && Vehicles.FindRoot(hit.rigidbody.transform) == vehicle ? hit.rigidbody.transform : vehicle.transform;
+					// Mount to the rigidbody that was hit (a door...) so the part moves
+					// with it; otherwise to the vehicle itself. Not to anything that can
+					// be picked up and carried off (an engine block, cargo).
+					Rigidbody hitBody = hit.rigidbody;
+					bool followBody = hitBody != null && hitBody.GetComponent<PickUp>() == null && Vehicles.FindRoot(hitBody.transform) == vehicle;
+					Transform mount = followBody ? hitBody.transform : vehicle.transform;
 					held.Install(mount, hit.point, hit.normal);
 				}
 				return;

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace JunkyardATV
 {
-	// Line a model up in game: F7 next to an ATV. Tab picks what to adjust, arrow
+	// Line a model up in game: F7 next to an ATV. [ and ] pick what to adjust, arrow
 	// keys and Page Up/Down move it (Shift = bigger steps), R reloads atv.cfg and
 	// the model file, F7 again saves atv.cfg and refits every ATV.
 	internal class FitMode
@@ -58,9 +58,14 @@ namespace JunkyardATV
 			{
 				return;
 			}
-			if (Input.GetKeyDown(KeyCode.Tab))
+			// Not Tab: that's likely the game's inventory key.
+			if (Input.GetKeyDown(KeyCode.RightBracket))
 			{
 				target = (target + 1) % Targets.Length;
+			}
+			if (Input.GetKeyDown(KeyCode.LeftBracket))
+			{
+				target = (target + Targets.Length - 1) % Targets.Length;
 			}
 			if (Input.GetKeyDown(KeyCode.R))
 			{
@@ -197,7 +202,7 @@ namespace JunkyardATV
 				GUILayout.Label((i == target ? "<color=#ffd23f>> " : "   ") + Targets[i] + ": " + Value(i) + (i == target ? "</color>" : ""), Rich());
 			}
 			GUILayout.Space(6f);
-			GUILayout.Label("Tab: next   Arrows / PgUp / PgDn: adjust (Shift: bigger)\nR: reload atv.cfg + model   F7: save and exit\nMarkers: green seat, red engine, yellow fuel inlet", Rich());
+			GUILayout.Label("[ ]: choose   Arrows / PgUp / PgDn: adjust (Shift: bigger)\nR: reload atv.cfg + model   F7: save and exit\nMarkers: green seat, red engine, yellow fuel inlet", Rich());
 			GUILayout.EndArea();
 		}
 

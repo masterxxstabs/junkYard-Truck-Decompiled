@@ -92,6 +92,20 @@ The hotkey can be changed in `UserData/MelonPreferences.cfg`:
 CloneKey = "F8"
 ```
 
+## Fitting parts to duplicate engines
+
+When you bolt a part onto an engine, the game records it with
+`addPart` on whichever engine `GameObject.Find("engineblock")` (or `v8_block`,
+`i6block`, `250_block`) returns, and reads the part's health with
+`GameObject.Find(partName)`. With clones, both can be the wrong engine. The mod
+re-runs `addPart` on the engine that owns the slot the part went into, with
+same-named slots on other engines briefly renamed so the game's lookup lands on the
+right part. Junkyard ATV ships the same fix; whichever mod loads first runs it.
+
+Only real game engine blocks (they all carry a `FixedJoint`) count as engine blocks.
+Engines built into other mods' vehicles, like Junkyard ATV's, are never rewired,
+swapped or cloned.
+
 ## Build
 
 Requires the .NET SDK (or Visual Studio) and MelonLoader already installed into the game.

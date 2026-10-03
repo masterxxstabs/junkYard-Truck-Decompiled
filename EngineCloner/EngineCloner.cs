@@ -62,6 +62,11 @@ namespace EngineCloner
 			cloneKey = category.CreateEntry("CloneKey", KeyCode.F8, "Clone key", "Look at an engine block or a vehicle and press this to clone it.");
 		}
 
+		public override void OnLateInitializeMelon()
+		{
+			AddPartFix.Install(HarmonyInstance);
+		}
+
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
 		{
 			anchorByBlock.Clear();
@@ -197,9 +202,13 @@ namespace EngineCloner
 			return typeof(engine);
 		}
 
+		// A real, loose-able engine block. Every one in the game carries a
+		// FixedJoint (the engine scripts use it unconditionally); engines built into
+		// other mods' vehicles (Junkyard ATV's 250) don't, and must not be wired,
+		// swapped or cloned as blocks.
 		public static bool IsEngineBlock(GameObject go)
 		{
-			return go != null && (go.GetComponent<engine>() != null || go.GetComponent<enginev8>() != null || go.GetComponent<enginei6>() != null || go.GetComponent<Engine250>() != null);
+			return go != null && go.GetComponent<FixedJoint>() != null && (go.GetComponent<engine>() != null || go.GetComponent<enginev8>() != null || go.GetComponent<enginei6>() != null || go.GetComponent<Engine250>() != null);
 		}
 
 		// Shared game anchor, or a private anchor belonging to some other block.
@@ -227,6 +236,10 @@ namespace EngineCloner
 			foreach (MonoBehaviour script in scripts)
 			{
 				GameObject block = script.gameObject;
+				if (!IsEngineBlock(block))
+				{
+					continue;
+				}
 				if (!blocks.Contains(block))
 				{
 					blocks.Add(block);

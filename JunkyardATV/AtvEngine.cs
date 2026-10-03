@@ -111,6 +111,9 @@ namespace JunkyardATV
 				}
 				part.health = 100f;
 				SetFitted(part, true);
+				// The condition the engine itself tracks for the part (addPart keeps
+				// it; Refresh only re-reads some): new, not whatever the bike had.
+				SetFloat(engine, CndName(f), 100f);
 			}
 			SetFloat(engine, "newOilLevel", 100f);
 			SetFloat(engine, "newCoolantLevel", 100f);
@@ -168,7 +171,7 @@ namespace JunkyardATV
 					continue;
 				}
 				Renderer r = part.GetComponent<Renderer>();
-				parts.Add(f.Name + "=" + part.health.ToString("R", Inv) + ":" + (r == null || r.enabled ? "1" : "0"));
+				parts.Add(f.Name + "=" + part.health.ToString("R", Inv) + ":" + (r == null || r.enabled ? "1" : "0") + ":" + GetFloat(engine, CndName(f)).ToString("R", Inv));
 			}
 			return string.Join(",", new[]
 			{
@@ -201,21 +204,30 @@ namespace JunkyardATV
 			}
 			foreach (string entry in halves[1].Split(','))
 			{
+				// name=health:fitted[:recorded condition]
 				int eq = entry.IndexOf('=');
-				int colon = entry.LastIndexOf(':');
 				FieldInfo f;
-				if (eq < 0 || colon < eq || !byName.TryGetValue(entry.Substring(0, eq), out f))
+				if (eq < 0 || !byName.TryGetValue(entry.Substring(0, eq), out f))
 				{
 					continue;
 				}
+				string[] v = entry.Substring(eq + 1).Split(':');
 				durability part = f.GetValue(engine) as durability;
-				if (part == null)
+				if (part == null || v.Length < 2)
 				{
 					continue;
 				}
-				part.health = P(entry.Substring(eq + 1, colon - eq - 1));
-				SetFitted(part, entry.Substring(colon + 1) == "1");
+				part.health = P(v[0]);
+				bool fitted = v[1] == "1";
+				SetFitted(part, fitted);
+				SetFloat(engine, CndName(f), v.Length > 2 ? P(v[2]) : (fitted ? part.health : 0f));
 			}
+		}
+
+		// carb_cnd_c -> carb_cnd
+		private static string CndName(FieldInfo partField)
+		{
+			return partField.Name.Substring(0, partField.Name.Length - 2);
 		}
 
 		public static float GetFloat(Engine250 engine, string name)

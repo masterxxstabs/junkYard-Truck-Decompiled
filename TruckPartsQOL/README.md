@@ -209,6 +209,9 @@ Files, in `UserData/TruckPartsQOL/`:
 * Each save and load is logged in the MelonLoader console, e.g.
   `Saved 5 part(s) and 2 painted rim(s) with save slot 1.`
 
+* Starting a new game over slot 1 ("overwrite") starts without any parts, even
+  though the game leaves its last-loaded slot setting as it was.
+
 **Upgrading:** older versions kept everything in one file,
 `UserData/TruckPartsQOL.txt`. The first time you load a slot, that file is loaded
 into it once and renamed to `TruckPartsQOL.txt.old`. Save the game to keep the

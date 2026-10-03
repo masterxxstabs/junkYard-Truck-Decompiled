@@ -77,6 +77,7 @@ namespace JunkyardATV
 		{
 			AtvStore.TryInstall(HarmonyInstance);
 			AtvSave.PatchEasySave(HarmonyInstance);
+			AddPartFix.Install(HarmonyInstance);
 		}
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -113,14 +114,16 @@ namespace JunkyardATV
 				if (Time.realtimeSinceStartup >= nextLoadTry)
 				{
 					nextLoadTry = Time.realtimeSinceStartup + 1f;
+					// The level proper: the player and the game's 250 engine (to copy).
 					Interactor interactor = Object.FindObjectOfType<Interactor>();
-					if (interactor != null)
+					if (interactor != null && Object.FindObjectOfType<Engine250>() != null)
 					{
 						restoredWith = new GameObject("JunkyardATV_Restored");
 						UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(restoredWith, interactor.gameObject.scene);
 						savingDisabled = false;
 						AtvEngine.Reset();
-						int slot = PlayerPrefs.GetInt("LoadSlot", 0);
+						int slot = OverwritePatch.NewGame ? 0 : PlayerPrefs.GetInt("LoadSlot", 0);
+						OverwritePatch.NewGame = false;
 						try
 						{
 							AtvSave.Load(slot);
@@ -186,6 +189,13 @@ namespace JunkyardATV
 			{
 				return;
 			}
+			// The game moved the player (got in a truck, a cutscene...): stop riding
+			// without moving them again.
+			if (rider == null || rider.parent != riding.Seat)
+			{
+				LetGoOfRider();
+				return;
+			}
 			float throttle = (Input.GetKey(forwardKey.Value) ? 1f : 0f) - (Input.GetKey(backKey.Value) ? 1f : 0f);
 			float steer = (Input.GetKey(rightKey.Value) ? 1f : 0f) - (Input.GetKey(leftKey.Value) ? 1f : 0f);
 			riding.throttle = throttle;
@@ -215,7 +225,7 @@ namespace JunkyardATV
 
 		private void Mount(AtvVehicle atv)
 		{
-			Interactor interactor = Object.FindObjectOfType<Interactor>();
+			Interactor interactor = Player();
 			if (interactor == null || interactor.person == null || interactor.drivingCar)
 			{
 				return;
@@ -248,18 +258,45 @@ namespace JunkyardATV
 
 		private void Dismount()
 		{
-			Interactor interactor = Object.FindObjectOfType<Interactor>();
 			AtvVehicle atv = riding;
-			riding = null;
-			atv.ridden = false;
-			atv.throttle = 0f;
-			atv.steer = 0f;
-			atv.GetComponent<Rigidbody>().mass = Config.mass;
-			if (rider != null)
+			if (rider != null && atv != null)
 			{
 				rider.SetParent(riderOldParent, true);
-				rider.position = atv.transform.position - atv.transform.right * 1.1f + Vector3.up * 1.0f;
+				rider.position = DismountSpot(atv);
 				rider.rotation = Quaternion.Euler(0f, atv.transform.eulerAngles.y, 0f);
+			}
+			LetGoOfRider();
+		}
+
+		// Beside the ATV where there's room for the player: left, right, else on top.
+		private static Vector3 DismountSpot(AtvVehicle atv)
+		{
+			Transform t = atv.transform;
+			foreach (Vector3 side in new[] { -t.right, t.right })
+			{
+				Vector3 spot = t.position + side * 1.1f + Vector3.up * 1.0f;
+				if (!Physics.CheckCapsule(spot - Vector3.up * 0.45f, spot + Vector3.up * 0.45f, 0.3f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+				{
+					return spot;
+				}
+			}
+			return t.position + Vector3.up * 2.0f;
+		}
+
+		// End riding: the ATV parks, the player gets their walking and collisions back.
+		private void LetGoOfRider()
+		{
+			AtvVehicle atv = riding;
+			riding = null;
+			if (atv != null)
+			{
+				atv.ridden = false;
+				atv.throttle = 0f;
+				atv.steer = 0f;
+				atv.GetComponent<Rigidbody>().mass = Config.mass;
+			}
+			if (rider != null)
+			{
 				rider.gameObject.layer = riderOldLayer;
 				Collider capsule = rider.GetComponent<Collider>();
 				if (capsule != null)
@@ -274,11 +311,23 @@ namespace JunkyardATV
 				}
 			}
 			ignored.Clear();
-			if (interactor != null)
+			Interactor interactor = Player();
+			if (interactor != null && (rider == null || rider.parent == riderOldParent))
 			{
 				SetPlayerCanMove(interactor, true);
 			}
 			rider = null;
+		}
+
+		private static Interactor cachedInteractor;
+
+		private static Interactor Player()
+		{
+			if (cachedInteractor == null)
+			{
+				cachedInteractor = Object.FindObjectOfType<Interactor>();
+			}
+			return cachedInteractor;
 		}
 
 		// interactor.fpc (FirstPersonController, in the plugins assembly).
@@ -328,7 +377,7 @@ namespace JunkyardATV
 			{
 				return mountKey.Value;
 			}
-			Interactor interactor = Object.FindObjectOfType<Interactor>();
+			Interactor interactor = Player();
 			FieldInfo crField = typeof(Interactor).GetField("cr", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 			object cr = interactor != null && crField != null ? crField.GetValue(interactor) : null;
 			object key = null;
@@ -412,7 +461,9 @@ namespace JunkyardATV
 				AtvVehicle.Create(ground.point + Vector3.up * 0.4f, Quaternion.LookRotation(right), null);
 				return;
 			}
-			Log("No room to put the ATV down here.");
+			// Nowhere clear nearby: drop it in from above rather than lose a paid order.
+			Log("Not much room here; dropping the ATV in from above.");
+			AtvVehicle.Create(cam.transform.position + forward * 3.5f + Vector3.up * 2.5f, Quaternion.LookRotation(right), null);
 		}
 
 		// --- HUD. ---
