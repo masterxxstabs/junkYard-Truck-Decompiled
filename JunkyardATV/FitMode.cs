@@ -67,6 +67,11 @@ namespace JunkyardATV
 			{
 				target = (target + Targets.Length - 1) % Targets.Length;
 			}
+			if (Input.GetKeyDown(KeyCode.F6))
+			{
+				AtvMod.Log(EngineExport.Write(atv.transform, atv.Engine));
+				return;
+			}
 			if (Input.GetKeyDown(KeyCode.R))
 			{
 				AtvMod.Config = AtvConfig.Load();
@@ -211,7 +216,7 @@ namespace JunkyardATV
 				GUILayout.Label((i == target ? "<color=#ffd23f>> " : "   ") + Targets[i] + ": " + Value(i) + (i == target ? "</color>" : ""), Rich());
 			}
 			GUILayout.Space(6f);
-			GUILayout.Label("[ ]: choose   Arrows / PgUp / PgDn: adjust (Shift: bigger)\nR: reload atv.cfg + model   F7: save and exit\nMarkers: green seat, red engine, yellow fuel inlet", Rich());
+			GUILayout.Label("[ ]: choose   Arrows / PgUp / PgDn: adjust (Shift: bigger)\nR: reload atv.cfg + model   F6: export engine   F7: save and exit\nMarkers: green seat, red engine, yellow fuel inlet", Rich());
 			GUILayout.EndArea();
 		}
 

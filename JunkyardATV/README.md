@@ -92,6 +92,9 @@ The handlebars turn about their own center (the mod gives OBJ parts a pivot ther
 To rerun it: `python3 tools/rig_quadzilla.py <folder with tinker.obj and obj.mtl>`
 (needs numpy).
 
+`tools/render_fit.py engine250_export.obj` renders the Quadzilla with an engine
+exported from fit mode (F6) sitting in it, to check the fit outside the game.
+
 ### Fitting the engine
 
 The 250 engine sits with the bottom middle of its box on the engine point, so it
@@ -132,6 +135,7 @@ Put a model file in `<game>/JunkyardATV/` and set `model=` in `atv.cfg`:
 | **[ / ]** | Choose: model position / rotation / scale, wheel size, seat, engine, fuel inlet, engine turn, engine size |
 | **Arrows, Page Up / Down** | Adjust (Shift: bigger steps; rotation steps 5°, or 90° with Shift) |
 | **R** | Reload `atv.cfg` and the model file (swap models without restarting) |
+| **F6** | Export the engine as placed to `<game>/JunkyardATV/engine250_export.obj` (same frame as `quadzilla.obj`) |
 | **F7** | Save to `atv.cfg` and refit every ATV |
 
 Aim: the model's front points forward, the wheels sit where the colliders are, and
