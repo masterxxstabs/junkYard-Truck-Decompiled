@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
-namespace TruckStereo
+namespace TruckPartsQOL
 {
 	// Builds the stereo parts out of Unity primitives so the mod needs no asset
 	// files. Every part faces local +Z (the side you look at once it's installed).
@@ -19,7 +19,7 @@ namespace TruckStereo
 
 		// parent: an inactive parent makes a dormant template (nothing runs until a
 		// copy is Instantiated), which is what the Parts Store needs.
-		public static StereoPart Create(PartKind kind, int cdNumber, Vector3 position, Quaternion rotation, Transform parent = null)
+		public static TruckPart Create(PartKind kind, int cdNumber, Vector3 position, Quaternion rotation, Transform parent = null)
 		{
 			GameObject root = new GameObject("TS_" + kind + (kind == PartKind.CD ? cdNumber.ToString() : ""));
 			if (parent != null)
@@ -28,7 +28,7 @@ namespace TruckStereo
 			}
 			root.transform.position = position;
 			root.transform.rotation = rotation;
-			StereoPart part = root.AddComponent<StereoPart>();
+			TruckPart part = root.AddComponent<TruckPart>();
 			part.kind = kind;
 			part.cdNumber = cdNumber;
 			Vector3 size;
@@ -48,6 +48,21 @@ namespace TruckStereo
 				size = BuildSubwoofer(root.transform);
 				part.mass = 14f;
 				AddSpeakerAudio(root, true);
+				break;
+			case PartKind.Tarp:
+				size = BuildKit(root.transform, new Vector3(0.42f, 0.14f, 0.32f), new Color(0.12f, 0.28f, 0.62f), "TARP");
+				part.mass = 3f;
+				root.AddComponent<BedCover>();
+				break;
+			case PartKind.Tonneau:
+				size = BuildKit(root.transform, new Vector3(1.5f, 0.1f, 0.6f), new Color(0.04f, 0.04f, 0.045f), "TONNEAU");
+				part.mass = 25f;
+				root.AddComponent<BedCover>();
+				break;
+			case PartKind.HardTop:
+				size = BuildKit(root.transform, new Vector3(1.7f, 0.45f, 1.0f), new Color(0.55f, 0.42f, 0.26f), "HARD TOP");
+				part.mass = 55f;
+				root.AddComponent<BedCover>();
 				break;
 			default:
 				size = BuildCd(root.transform, cdNumber);
@@ -164,6 +179,18 @@ namespace TruckStereo
 			cone.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 			GameObject cap = Cylinder(root, "DustCap", 0.08f, 0.01f, new Vector3(0f, 0f, 0.184f), Grey);
 			cap.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			return size;
+		}
+
+		// Bed covers are sold boxed; the box turns into the fitted cover on the
+		// truck. Children named Kit* are the boxed look (hidden while fitted).
+		private static Vector3 BuildKit(Transform root, Vector3 size, Color color, string label)
+		{
+			Box(root, "KitBox", size, Vector3.zero, color);
+			Box(root, "KitStrapA", new Vector3(size.x + 0.01f, size.y + 0.01f, 0.03f), new Vector3(0f, 0f, size.z * 0.25f), new Color(0.05f, 0.05f, 0.05f));
+			Box(root, "KitStrapB", new Vector3(size.x + 0.01f, size.y + 0.01f, 0.03f), new Vector3(0f, 0f, -size.z * 0.25f), new Color(0.05f, 0.05f, 0.05f));
+			TextMesh text = Text(root, "KitLabel", new Vector3(0f, 0f, size.z / 2f + 0.003f), Mathf.Min(size.y, 0.2f) * 0.035f, Color.white);
+			text.text = label;
 			return size;
 		}
 

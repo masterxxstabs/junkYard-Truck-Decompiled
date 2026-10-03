@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace TruckStereo
+namespace TruckPartsQOL
 {
 	public enum PartKind
 	{
 		HeadUnit,
 		Speaker,
 		Subwoofer,
-		CD
+		CD,
+		Tarp,
+		Tonneau,
+		HardTop
 	}
 
 	// One stereo item: carried with the game's own PickUp, installed by parenting
@@ -19,9 +22,9 @@ namespace TruckStereo
 	// Note for the Engine Cloner mod: nothing here keeps a reference to the vehicle.
 	// Its reference swapper rewrites fields that point at vehicles, so the vehicle
 	// is always looked up from the transform hierarchy instead.
-	public class StereoPart : MonoBehaviour
+	public class TruckPart : MonoBehaviour
 	{
-		public static readonly List<StereoPart> All = new List<StereoPart>();
+		public static readonly List<TruckPart> All = new List<TruckPart>();
 
 		// Public so Object.Instantiate (e.g. cloning a vehicle) copies them.
 		public PartKind kind;
@@ -111,6 +114,12 @@ namespace TruckStereo
 					return "6.5\" speaker";
 				case PartKind.Subwoofer:
 					return "subwoofer";
+				case PartKind.Tarp:
+					return "bed tarp";
+				case PartKind.Tonneau:
+					return "tonneau cover";
+				case PartKind.HardTop:
+					return "hard top";
 				default:
 					return "CD " + cdNumber;
 				}
@@ -151,6 +160,11 @@ namespace TruckStereo
 
 		public void Remove()
 		{
+			BedCover cover = GetComponent<BedCover>();
+			if (cover != null)
+			{
+				cover.Unfit();
+			}
 			transform.SetParent(null, true);
 			foreach (Collider collider in GetComponentsInChildren<Collider>())
 			{

@@ -1,20 +1,35 @@
-# Truck Stereo (MelonLoader mod for Junkyard Truck)
+# Truck Parts QOL (MelonLoader mod for Junkyard Truck)
 
-A CD stereo system for your vehicles, in the spirit of My Summer Car: buy a head
-unit, speakers and CDs burned from your own music, carry them to a vehicle and fit
-them wherever you like.
+Extra parts for your vehicles, in the spirit of My Summer Car:
 
-Separate from the Engine Cloner mod. Install either or both.
+* **Stereo:** a CD head unit, speakers and a subwoofer, playing CDs burned from
+  your own music or the game's FM radio.
+* **Bed covers:** a tarp, a tri-fold tonneau cover or a hard top (camper shell),
+  fitted to your pickup's bed.
+
+Formerly **Truck Stereo**. Separate from the Engine Cloner mod; install either or
+both.
+
+## Upgrading from Truck Stereo
+
+**Delete `Mods/TruckStereo.dll`.** Truck Parts QOL replaces it. If both are
+installed, the console shows an error and every part is doubled. On first launch:
+
+* `TruckStereo/` (your CD folders) is moved to `TruckPartsQOL/`.
+* `UserData/TruckStereo.txt` (your installed parts) is moved to
+  `UserData/TruckPartsQOL.txt`.
+* Any keys or prices you changed under `[TruckStereo]` in `MelonPreferences.cfg` are
+  copied to `[TruckPartsQOL]`.
 
 ## Install
 
-Copy `TruckStereo.dll` into `<game>/Mods/` (MelonLoader 0.6 or newer).
+Copy `TruckPartsQOL.dll` into `<game>/Mods/` (MelonLoader 0.6 or newer).
 
-On first launch the mod creates a `TruckStereo` folder in the game directory:
+On first launch the mod creates a `TruckPartsQOL` folder in the game directory:
 
 ```
 Junkyard Truck/
-  TruckStereo/
+  TruckPartsQOL/
     CD1/   <- your music for CD 1
     CD2/
     CD3/   (you can add folders up to CD9)
@@ -26,9 +41,9 @@ Unity version; if a track shows `READ ERROR`, convert it to .ogg.
 
 ## Buying parts
 
-**With the Junkyard Terminal (ComputerPartStore mod) installed**, the stereo parts are
+**With the Junkyard Terminal (ComputerPartStore mod) installed**, everything is
 sold in its **Parts Store** tab, listed under *All* and *Truck Parts* as
-`Stereo - ...`. Order them like any other part; they're delivered in front of you.
+`Stereo - ...` and `Bed - ...`. Order them like any other part; they're delivered in front of you.
 The CD entries follow your `CD` folders: add music to a new folder and its CD
 appears within a few seconds.
 
@@ -42,6 +57,9 @@ Either way, items are paid from your wallet like any part.
 | 6.5" speaker | $35 | Door/dash speaker, cuts deep bass |
 | 12" subwoofer box | $120 | Bass only, louder, heavy (14 kg) |
 | CD *n* | $5 | One per non-empty `CD` folder |
+| Bed tarp | $40 | Strapped-down tarp; rolls up toward the cab |
+| Tonneau cover | $250 | Tri-fold hard cover; folds up against the cab |
+| Hard top | $600 | Camper shell to cab height, with a lifting rear glass hatch |
 
 ## Fitting
 
@@ -55,6 +73,29 @@ Either way, items are paid from your wallet like any part.
 The head unit plays through **every speaker installed in the same vehicle**, all in
 sync. With no speakers you only hear its tiny built-in speaker. It needs the
 vehicle's battery: a flat battery means no music.
+
+## Bed covers
+
+Bed covers come boxed. Carry the box to a pickup (the Diamondback or the F100),
+look at the truck and press **Y**. The cover fits itself to that bed. One cover per
+bed.
+
+| Key | Action |
+|---|---|
+| **O** | Open / close: roll the tarp up, fold the tonneau against the cab, or lift the hard top's rear hatch |
+| **Y** | Remove the cover. It goes back in its box, which drops into the bed |
+
+A closed cover is solid: cargo can't bounce out, and you can stack things on a
+tonneau. It won't close on cargo sticking up above the rails ("Something's
+sticking up in the way"). Likewise, a hard top won't go on until the bed is clear
+above the rails. You can mount stereo parts on a hard top's walls too.
+
+**How the fit works:** each pickup's bed has a `TruckBedGrav` zone (the game uses
+it to find cargo to strap down). The cover reads that zone's size, raycasts for the
+bed floor, the rail tops and the cab roof, and builds itself to match, so it works
+on any pickup, including Engine Cloner copies. Fitted, its colliders become part of
+the truck. The truck's center of mass is kept where the game set it, and the thin
+panels add next to nothing to its inertia.
 
 ## Head unit controls
 
@@ -71,15 +112,15 @@ Look at the installed head unit:
 
 FM radio plays the songs the game ships for its own radios, tuned in mid-song.
 
-All keys can be changed in `UserData/MelonPreferences.cfg` under `[TruckStereo]`,
+All keys can be changed in `UserData/MelonPreferences.cfg` under `[TruckPartsQOL]`,
 and so can the prices (`HeadUnitPrice`, `SpeakerPrice`, `SubwooferPrice`,
-`CdPrice`). `FreeParts = true` makes everything free, in both shops.
+`CdPrice`, `TarpPrice`, `TonneauPrice`, `HardTopPrice`). `FreeParts = true` makes everything free, in both shops.
 
 ## Saving
 
-Stereo parts are saved on their own, to `UserData/TruckStereo.txt`, every minute and
+Parts are saved on their own, to `UserData/TruckPartsQOL.txt`, every minute and
 when you quit. This includes installed parts with their exact spots, loose parts,
-power, volume, mode, track and the CD in the slot. They are restored when a level
+power, volume, mode, track, the CD in the slot, and whether each bed cover is open. They are restored when a level
 with vehicles loads. Because this save is separate from the game's, it doesn't
 follow the game's save slots, and it keeps changes even if you quit without saving
 the game.
@@ -101,7 +142,7 @@ the game.
   `ComputerFeatures.PartsStoreService.GetCatalog()`. It appends `PartEntry` items
   (prefab, name, price, category) to the returned list, whether that's the cached
   catalog or the fresh list built before the junkyard loads, and re-sorts it the way
-  the store does. Everything goes through reflection, so Truck Stereo still loads
+  the store does. Everything goes through reflection, so Truck Parts QOL still loads
   without the store. The prefabs are dormant templates under an inactive
   `DontDestroyOnLoad` object, because `TryPurchase` instantiates the prefab and the
   store caches its catalog across levels. The store drops orders at foot level, so
@@ -113,7 +154,7 @@ the game.
 ## Build
 
 ```
-cd TruckStereo
+cd TruckPartsQOL
 dotnet build -c Release
 ```
 

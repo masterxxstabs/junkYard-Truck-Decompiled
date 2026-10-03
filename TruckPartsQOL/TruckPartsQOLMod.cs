@@ -5,12 +5,12 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckStereo.TruckStereoMod), "Truck Stereo", "1.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.1.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
-namespace TruckStereo
+namespace TruckPartsQOL
 {
-	public class TruckStereoMod : MelonMod
+	public class TruckPartsQOLMod : MelonMod
 	{
 		private const float Reach = 3f;
 
@@ -23,6 +23,10 @@ namespace TruckStereo
 		private MelonPreferences_Entry<KeyCode> modeKey;
 		private MelonPreferences_Entry<KeyCode> ejectKey;
 		private MelonPreferences_Entry<KeyCode> shopKey;
+		private MelonPreferences_Entry<KeyCode> openKey;
+		private MelonPreferences_Entry<float> tarpPrice;
+		private MelonPreferences_Entry<float> tonneauPrice;
+		private MelonPreferences_Entry<float> hardTopPrice;
 		private MelonPreferences_Entry<bool> freeParts;
 		private MelonPreferences_Entry<float> headUnitPrice;
 		private MelonPreferences_Entry<float> speakerPrice;
@@ -54,26 +58,73 @@ namespace TruckStereo
 		public override void OnInitializeMelon()
 		{
 			log = LoggerInstance;
-			MelonPreferences_Category c = MelonPreferences.CreateCategory("TruckStereo");
+			MelonPreferences_Category c = MelonPreferences.CreateCategory("TruckPartsQOL", "Truck Parts QOL");
 			useKey = c.CreateEntry("UseKey", KeyCode.Y, "Install / remove / insert CD");
 			powerKey = c.CreateEntry("PowerKey", KeyCode.P, "Head unit power");
 			nextKey = c.CreateEntry("NextKey", KeyCode.N, "Next track / station");
 			prevKey = c.CreateEntry("PrevKey", KeyCode.B, "Previous track / station");
 			modeKey = c.CreateEntry("ModeKey", KeyCode.M, "Switch CD / radio");
 			ejectKey = c.CreateEntry("EjectKey", KeyCode.J, "Eject CD");
-			shopKey = c.CreateEntry("ShopKey", KeyCode.F9, "Open the stereo shop");
+			shopKey = c.CreateEntry("ShopKey", KeyCode.F9, "Open the parts shop (when the Parts Store mod isn't installed)");
+			openKey = c.CreateEntry("OpenKey", KeyCode.O, "Open / close a bed cover");
+			tarpPrice = c.CreateEntry("TarpPrice", 40f, "Price of the bed tarp");
+			tonneauPrice = c.CreateEntry("TonneauPrice", 250f, "Price of the tonneau cover");
+			hardTopPrice = c.CreateEntry("HardTopPrice", 600f, "Price of the hard top");
 			freeParts = c.CreateEntry("FreeParts", false, "Shop items cost nothing");
 			headUnitPrice = c.CreateEntry("HeadUnitPrice", 150f, "Price of the CD head unit");
 			speakerPrice = c.CreateEntry("SpeakerPrice", 35f, "Price of a 6.5\" speaker");
 			subwooferPrice = c.CreateEntry("SubwooferPrice", 120f, "Price of the subwoofer box");
 			cdPrice = c.CreateEntry("CdPrice", 5f, "Price of a CD");
 			StoreIntegration.PriceOf = Price;
+			MigrateOldSettings(c);
+			PartSave.MigrateOldSave();
 			MusicLibrary.EnsureFolders();
+		}
+
+		// This mod used to be called Truck Stereo, with settings under [TruckStereo].
+		// Copy any the player changed, once.
+		private void MigrateOldSettings(MelonPreferences_Category current)
+		{
+			MelonPreferences_Entry<bool> migrated = current.CreateEntry("MigratedFromTruckStereo", false, "Settings copied from Truck Stereo", null, true);
+			if (migrated.Value)
+			{
+				return;
+			}
+			migrated.Value = true;
+			MelonPreferences_Category old = MelonPreferences.CreateCategory("TruckStereo");
+			int copied = 0;
+			copied += Copy(old, useKey) + Copy(old, powerKey) + Copy(old, nextKey) + Copy(old, prevKey) + Copy(old, modeKey) + Copy(old, ejectKey) + Copy(old, shopKey);
+			copied += Copy(old, freeParts) + Copy(old, headUnitPrice) + Copy(old, speakerPrice) + Copy(old, subwooferPrice) + Copy(old, cdPrice);
+			if (copied > 0)
+			{
+				Log("Copied " + copied + " setting(s) from Truck Stereo.");
+			}
+			MelonPreferences.Save();
+		}
+
+		private static int Copy<T>(MelonPreferences_Category old, MelonPreferences_Entry<T> entry)
+		{
+			// Reads the old value from the cfg file if it's there; otherwise it's just
+			// the default and nothing changes.
+			MelonPreferences_Entry<T> previous = old.CreateEntry(entry.Identifier, entry.DefaultValue);
+			if (Equals(previous.Value, entry.DefaultValue))
+			{
+				return 0;
+			}
+			entry.Value = previous.Value;
+			return 1;
 		}
 
 		// After every mod has loaded, so the Parts Store mod is there to find.
 		public override void OnLateInitializeMelon()
 		{
+			foreach (MelonMod mod in MelonMod.RegisteredMelons)
+			{
+				if (mod != this && mod.Info.Name == "Truck Stereo")
+				{
+					LoggerInstance.Error("TruckStereo.dll is still in your Mods folder. Truck Parts QOL replaces it: delete TruckStereo.dll, or every part will be doubled.");
+				}
+			}
 			StoreIntegration.TryInstall(HarmonyInstance);
 		}
 
@@ -91,6 +142,12 @@ namespace TruckStereo
 				return speakerPrice.Value;
 			case PartKind.Subwoofer:
 				return subwooferPrice.Value;
+			case PartKind.Tarp:
+				return tarpPrice.Value;
+			case PartKind.Tonneau:
+				return tonneauPrice.Value;
+			case PartKind.HardTop:
+				return hardTopPrice.Value;
 			default:
 				return cdPrice.Value;
 			}
@@ -126,7 +183,7 @@ namespace TruckStereo
 		{
 			if (!savingDisabled)
 			{
-				StereoSave.Save();
+				PartSave.Save();
 			}
 		}
 
@@ -143,12 +200,12 @@ namespace TruckStereo
 						nextAutosave = Time.time + 60f;
 						try
 						{
-							StereoSave.Load();
+							PartSave.Load();
 						}
 						catch (Exception e)
 						{
 							savingDisabled = true;
-							Log("Couldn't restore stereo parts, so saving is off until restart to protect UserData/TruckStereo.txt: " + e);
+							Log("Couldn't restore your parts, so saving is off until restart to protect UserData/TruckPartsQOL.txt: " + e);
 						}
 					}
 				}
@@ -163,7 +220,7 @@ namespace TruckStereo
 			{
 				if (StoreIntegration.Active)
 				{
-					Log("Stereo parts are in the Junkyard Terminal's Parts Store now.");
+					Log("Truck Parts QOL items are in the Junkyard Terminal's Parts Store now.");
 				}
 				else
 				{
@@ -179,8 +236,8 @@ namespace TruckStereo
 
 		private void HandleLook()
 		{
-			StereoPart held = null;
-			foreach (StereoPart part in StereoPart.All)
+			TruckPart held = null;
+			foreach (TruckPart part in TruckPart.All)
 			{
 				if (part.IsHeld)
 				{
@@ -193,7 +250,7 @@ namespace TruckStereo
 			{
 				return;
 			}
-			StereoPart target = hit.collider.GetComponentInParent<StereoPart>();
+			TruckPart target = hit.collider.GetComponentInParent<TruckPart>();
 			HeadUnit unit = target != null ? target.GetComponent<HeadUnit>() : null;
 
 			if (held != null)
@@ -212,8 +269,15 @@ namespace TruckStereo
 					}
 					return;
 				}
-				// Installing: on any vehicle surface that isn't another stereo part.
-				GameObject vehicle = target == null ? Vehicles.FindRoot(hit.collider.transform) : null;
+				if (BedCover.IsCover(held.kind))
+				{
+					HandleHeldCover(held, hit);
+					return;
+				}
+				// Installing: on any vehicle surface that isn't another of our parts
+				// (a fitted bed cover counts as the vehicle, e.g. speakers in a camper).
+				bool onCover = target != null && target.GetComponent<BedCover>() != null;
+				GameObject vehicle = target == null || onCover ? Vehicles.FindRoot(hit.collider.transform) : null;
 				if (vehicle == null)
 				{
 					return;
@@ -231,6 +295,26 @@ namespace TruckStereo
 
 			if (target == null || !target.installed)
 			{
+				return;
+			}
+			BedCover fittedCover = target.GetComponent<BedCover>();
+			if (fittedCover != null)
+			{
+				string what = target.kind == PartKind.HardTop ? "hatch" : target.DisplayName;
+				hint = Key(openKey) + (fittedCover.open ? " Close " : " Open ") + what + "   " + Key(useKey) + " Remove " + target.DisplayName;
+				if (Input.GetKeyDown(openKey.Value))
+				{
+					string problem;
+					fittedCover.SetOpen(!fittedCover.open, out problem);
+					if (problem != null)
+					{
+						Flash(problem);
+					}
+				}
+				else if (Input.GetKeyDown(useKey.Value))
+				{
+					target.Remove();
+				}
 				return;
 			}
 			if (unit == null)
@@ -274,7 +358,7 @@ namespace TruckStereo
 				if (cd != 0)
 				{
 					Transform t = unit.transform;
-					StereoPart disc = PartFactory.Create(PartKind.CD, cd, t.position + t.forward * (target.halfDepth + 0.08f), t.rotation);
+					TruckPart disc = PartFactory.Create(PartKind.CD, cd, t.position + t.forward * (target.halfDepth + 0.08f), t.rotation);
 					disc.GetComponent<Rigidbody>().velocity = t.forward * 0.8f;
 				}
 			}
@@ -284,8 +368,46 @@ namespace TruckStereo
 			}
 		}
 
+		private void HandleHeldCover(TruckPart held, RaycastHit hit)
+		{
+			GameObject vehicle = Vehicles.FindRoot(hit.collider.transform);
+			if (vehicle == null)
+			{
+				return;
+			}
+			if (BedCover.FindBed(vehicle) == null)
+			{
+				hint = "This vehicle has no bed for a " + held.DisplayName + ".";
+				return;
+			}
+			if (BedCover.CoverOn(vehicle) != null)
+			{
+				hint = "This bed already has a cover.";
+				return;
+			}
+			hint = Key(useKey) + " Fit " + held.DisplayName + " to the bed";
+			if (Input.GetKeyDown(useKey.Value))
+			{
+				string problem;
+				if (!held.GetComponent<BedCover>().Fit(vehicle, true, out problem))
+				{
+					Flash(problem);
+				}
+			}
+		}
+
+		// A message shown in place of the hint for a couple of seconds.
+		private string flash = "";
+		private float flashUntil;
+
+		private void Flash(string message)
+		{
+			flash = message;
+			flashUntil = Time.time + 2.5f;
+		}
+
 		// What the player is looking at, ignoring the item in their hands.
-		private static bool LookAt(StereoPart held, out RaycastHit result)
+		private static bool LookAt(TruckPart held, out RaycastHit result)
 		{
 			result = default(RaycastHit);
 			Transform cam = Camera.main.transform;
@@ -303,7 +425,7 @@ namespace TruckStereo
 				}
 				// Game trigger volumes (snap zones, water...) aren't surfaces, but our
 				// installed parts are triggers too.
-				if (hit.collider.isTrigger && hit.collider.GetComponentInParent<StereoPart>() == null)
+				if (hit.collider.isTrigger && hit.collider.GetComponentInParent<TruckPart>() == null)
 				{
 					continue;
 				}
@@ -320,20 +442,21 @@ namespace TruckStereo
 
 		public override void OnGUI()
 		{
-			if (!string.IsNullOrEmpty(hint) && !shopOpen)
+			string shown = Time.time < flashUntil ? flash : hint;
+			if (!string.IsNullOrEmpty(shown) && !shopOpen)
 			{
 				GUIStyle style = new GUIStyle(GUI.skin.label);
 				style.alignment = TextAnchor.UpperCenter;
 				style.fontSize = 16;
 				Rect rect = new Rect(0f, Screen.height * 0.58f, Screen.width, 60f);
 				GUI.color = Color.black;
-				GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), hint, style);
+				GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), shown, style);
 				GUI.color = Color.white;
-				GUI.Label(rect, hint, style);
+				GUI.Label(rect, shown, style);
 			}
 			if (shopOpen)
 			{
-				shopRect = GUILayout.Window(0x5743, shopRect, DrawShop, "Stereo shop");
+				shopRect = GUILayout.Window(0x5743, shopRect, DrawShop, "Truck parts shop");
 			}
 		}
 
@@ -343,6 +466,10 @@ namespace TruckStereo
 			ShopItem(PartKind.HeadUnit, 0, "CD head unit", Price(PartKind.HeadUnit));
 			ShopItem(PartKind.Speaker, 0, "6.5\" speaker", Price(PartKind.Speaker));
 			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", Price(PartKind.Subwoofer));
+			GUILayout.Space(6f);
+			ShopItem(PartKind.Tarp, 0, "Bed tarp", Price(PartKind.Tarp));
+			ShopItem(PartKind.Tonneau, 0, "Tonneau cover (tri-fold)", Price(PartKind.Tonneau));
+			ShopItem(PartKind.HardTop, 0, "Hard top (camper shell)", Price(PartKind.HardTop));
 			GUILayout.Space(6f);
 			bool anyCd = false;
 			for (int i = 1; i <= MusicLibrary.MaxCds; i++)

@@ -5,9 +5,9 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace TruckStereo
+namespace TruckPartsQOL
 {
-	// Each folder <game>/TruckStereo/CD1, CD2, ... is one CD, played in file-name
+	// Each folder <game>/TruckPartsQOL/CD1, CD2, ... is one CD, played in file-name
 	// order. Like My Summer Car's CD folders.
 	internal static class MusicLibrary
 	{
@@ -21,7 +21,7 @@ namespace TruckStereo
 
 		public static string Root
 		{
-			get { return Path.Combine(Path.GetDirectoryName(Application.dataPath), "TruckStereo"); }
+			get { return Path.Combine(Path.GetDirectoryName(Application.dataPath), "TruckPartsQOL"); }
 		}
 
 		public static string CdFolder(int number)
@@ -33,6 +33,13 @@ namespace TruckStereo
 		{
 			try
 			{
+				// This mod used to be called Truck Stereo; bring its music along.
+				string old = Path.Combine(Path.GetDirectoryName(Application.dataPath), "TruckStereo");
+				if (Directory.Exists(old) && !Directory.Exists(Root))
+				{
+					Directory.Move(old, Root);
+					TruckPartsQOLMod.Log("Moved your music from TruckStereo/ to TruckPartsQOL/.");
+				}
 				for (int i = 1; i <= 3; i++)
 				{
 					Directory.CreateDirectory(CdFolder(i));
@@ -45,7 +52,7 @@ namespace TruckStereo
 			}
 			catch (Exception e)
 			{
-				TruckStereoMod.Log("Could not create music folders: " + e.Message);
+				TruckPartsQOLMod.Log("Could not create music folders: " + e.Message);
 			}
 		}
 
@@ -94,17 +101,17 @@ namespace TruckStereo
 				}
 				catch (Exception e)
 				{
-					TruckStereoMod.Log("Can't decode " + Path.GetFileName(path) + ": " + e.Message);
+					TruckPartsQOLMod.Log("Can't decode " + Path.GetFileName(path) + ": " + e.Message);
 				}
 			}
 			else
 			{
-				TruckStereoMod.Log("Can't load " + Path.GetFileName(path) + ": " + request.error);
+				TruckPartsQOLMod.Log("Can't load " + Path.GetFileName(path) + ": " + request.error);
 			}
 			request.Dispose();
 			if (clip != null && clip.length <= 0f)
 			{
-				TruckStereoMod.Log("Can't play " + Path.GetFileName(path) + " (unsupported format? try .ogg).");
+				TruckPartsQOLMod.Log("Can't play " + Path.GetFileName(path) + " (unsupported format? try .ogg).");
 				UnityEngine.Object.Destroy(clip);
 				clip = null;
 			}

@@ -6,7 +6,7 @@ using HarmonyLib;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace TruckStereo
+namespace TruckPartsQOL
 {
 	// Sells the stereo parts through the Junkyard Terminal's Parts Store (the
 	// ComputerPartStore mod, ComputerFeatures.PartsStoreService) when it's
@@ -80,7 +80,7 @@ namespace TruckStereo
 			entryType = store.GetNestedType("PartEntry", BindingFlags.Public | BindingFlags.NonPublic);
 			if (getCatalog == null || entryType == null)
 			{
-				TruckStereoMod.Log("Found the parts store, but not the GetCatalog/PartEntry it should have; using the F9 shop instead.");
+				TruckPartsQOLMod.Log("Found the parts store, but not the GetCatalog/PartEntry it should have; using the F9 shop instead.");
 				return;
 			}
 			prefabField = entryType.GetField("prefab");
@@ -89,12 +89,12 @@ namespace TruckStereo
 			categoryField = entryType.GetField("category");
 			if (prefabField == null || nameField == null || priceField == null || categoryField == null)
 			{
-				TruckStereoMod.Log("The parts store's PartEntry has changed; using the F9 shop instead.");
+				TruckPartsQOLMod.Log("The parts store's PartEntry has changed; using the F9 shop instead.");
 				return;
 			}
 			harmony.Patch(getCatalog, null, new HarmonyMethod(typeof(StoreIntegration).GetMethod("Postfix", BindingFlags.Static | BindingFlags.NonPublic)));
 			Active = true;
-			TruckStereoMod.Log("Stereo parts are now sold in the Junkyard Terminal's Parts Store.");
+			TruckPartsQOLMod.Log("Truck Parts QOL items are now sold in the Junkyard Terminal's Parts Store.");
 		}
 
 		private static void Postfix(object __result)
@@ -122,7 +122,7 @@ namespace TruckStereo
 				if (!reportedError)
 				{
 					reportedError = true;
-					TruckStereoMod.Log("Couldn't add stereo parts to the store: " + e);
+					TruckPartsQOLMod.Log("Couldn't add stereo parts to the store: " + e);
 				}
 			}
 		}
@@ -138,6 +138,9 @@ namespace TruckStereo
 			now.Add(Make("headunit", PartKind.HeadUnit, 0, "Stereo - CD head unit"));
 			now.Add(Make("speaker", PartKind.Speaker, 0, "Stereo - 6.5\" speaker"));
 			now.Add(Make("subwoofer", PartKind.Subwoofer, 0, "Stereo - 12\" subwoofer box"));
+			now.Add(Make("tarp", PartKind.Tarp, 0, "Bed - Tarp"));
+			now.Add(Make("tonneau", PartKind.Tonneau, 0, "Bed - Tonneau cover (tri-fold)"));
+			now.Add(Make("hardtop", PartKind.HardTop, 0, "Bed - Hard top (camper shell)"));
 			for (int i = 1; i <= MusicLibrary.MaxCds; i++)
 			{
 				int tracks = MusicLibrary.Tracks(i).Count;
@@ -250,7 +253,7 @@ namespace TruckStereo
 		{
 			if (templateRoot == null)
 			{
-				templateRoot = new GameObject("TruckStereo_StoreTemplates");
+				templateRoot = new GameObject("TruckPartsQOL_StoreTemplates");
 				templateRoot.SetActive(false);
 				Object.DontDestroyOnLoad(templateRoot);
 				templates.Clear();

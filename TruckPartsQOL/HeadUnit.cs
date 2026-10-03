@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace TruckStereo
+namespace TruckPartsQOL
 {
 	// Plays a CD or the FM radio through every speaker installed in the same
 	// vehicle. With no speakers you only get the tinny built-in one.
@@ -73,15 +73,15 @@ namespace TruckStereo
 			}
 		}
 
-		private StereoPart Part
+		private TruckPart Part
 		{
-			get { return GetComponent<StereoPart>(); }
+			get { return GetComponent<TruckPart>(); }
 		}
 
 		// Installed in a vehicle whose battery can run accessories.
 		private bool HasPower()
 		{
-			StereoPart part = Part;
+			TruckPart part = Part;
 			if (part == null || !part.installed)
 			{
 				return false;
@@ -90,16 +90,16 @@ namespace TruckStereo
 			return vehicle != null && VehiclePower.CanRunAccessories(vehicle);
 		}
 
-		private List<AudioSource> Speakers(out List<StereoPart> parts)
+		private List<AudioSource> Speakers(out List<TruckPart> parts)
 		{
 			List<AudioSource> sources = new List<AudioSource>();
-			parts = new List<StereoPart>();
+			parts = new List<TruckPart>();
 			GameObject vehicle = Part != null ? Part.Vehicle : null;
 			if (vehicle == null)
 			{
 				return sources;
 			}
-			foreach (StereoPart other in StereoPart.All)
+			foreach (TruckPart other in TruckPart.All)
 			{
 				if (other.IsSpeaker && other.installed && other.Vehicle == vehicle)
 				{
@@ -153,7 +153,7 @@ namespace TruckStereo
 				}
 				return;
 			}
-			List<StereoPart> speakerParts;
+			List<TruckPart> speakerParts;
 			List<AudioSource> speakers = Speakers(out speakerParts);
 			internalSpeaker.volume = speakers.Count == 0 ? volume * 0.15f : 0f;
 			int drift = clip.frequency / 12;
