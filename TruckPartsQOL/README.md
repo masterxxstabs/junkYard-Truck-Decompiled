@@ -128,7 +128,7 @@ across when you unbolt or fit the turbo, and saves it with your game.
 * Mounting a painted wheel (`PickUp.LetGo`) and taking one off (`Interactor.Update`
   spawning the loose wheel) carry the rim's paint across. Mounting an unpainted rim
   where a painted one was restores the original finish.
-* Rim paint is saved to `UserData/TruckPartsQOL.txt` (rims on a vehicle by their
+* Rim paint is saved with your game save (see Saving): rims on a vehicle by their
   place on it; loose wheels by name and position) and restored when the level
   loads.
 
