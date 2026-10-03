@@ -44,15 +44,33 @@ namespace TruckPartsQOL
 
 		private string hint = "";
 
-		// Save/load: parts are restored once per level, after vehicles exist, and
-		// nothing is saved before that (so the main menu never wipes the save).
-		private bool loadedThisScene;
+		// Save/load follows the game's save slots (see PartSave). Parts are restored
+		// once per level, as soon as its vehicles exist. `restoredWith` is an empty
+		// marker object created in the level at that moment: it disappears only
+		// when the level unloads, so the next level restores again, while an extra
+		// scene loading on top (or a vehicle being destroyed) never restores twice.
+		// Nothing is saved before the restore, so a save can never wipe the file
+		// with an empty world.
+		private static GameObject restoredWith;
 		private float nextLoadTry;
-		private float nextAutosave;
 
-		// Set if restoring failed: then the save file is left alone rather than
+		// Set if restoring failed: then the slot's file is left alone rather than
 		// overwritten with whatever (little) is in the world.
-		private bool savingDisabled;
+		private static bool savingDisabled;
+
+		private static int lastSaveFrame = -1;
+		private static int lastSaveSlot = -1;
+
+		// Whether this save owns the OBD scanner (saved per slot).
+		public static bool ScannerOwned;
+
+		// The scanner flag from before ownership was saved per slot.
+		public static bool LegacyScannerOwned;
+
+		private static bool Restored
+		{
+			get { return restoredWith != null; }
+		}
 
 		public static void Log(string message)
 		{
@@ -74,7 +92,8 @@ namespace TruckPartsQOL
 			scannerKey = c.CreateEntry("ScannerKey", KeyCode.Alpha8, "Take out / put away the OBD scanner (the game's tools are on 1-7)");
 			scannerPrice = c.CreateEntry("ScannerPrice", 80f, "Price of the OBD scanner");
 			scannerFree = c.CreateEntry("ScannerFree", false, "Have the OBD scanner without buying it");
-			scannerOwned = c.CreateEntry("ScannerOwned", false, "Bought the OBD scanner", null, true);
+			scannerOwned = c.CreateEntry("ScannerOwned", false, "Bought the OBD scanner (before ownership was saved per save slot)", null, true);
+			LegacyScannerOwned = scannerOwned.Value;
 			tarpPrice = c.CreateEntry("TarpPrice", 40f, "Price of the bed tarp");
 			tonneauPrice = c.CreateEntry("TonneauPrice", 250f, "Price of the tonneau cover");
 			hardTopPrice = c.CreateEntry("HardTopPrice", 600f, "Price of the hard top");
@@ -134,6 +153,7 @@ namespace TruckPartsQOL
 				}
 			}
 			StoreIntegration.TryInstall(HarmonyInstance);
+			SaveHooks.PatchEasySave(HarmonyInstance);
 		}
 
 		private float Price(PartKind kind)
@@ -165,67 +185,63 @@ namespace TruckPartsQOL
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
 		{
-			loadedThisScene = false;
-			nextLoadTry = 0f;
 			shopOpen = false;
 			ObdScanner.Reset();
 			StoreIntegration.TryInstall(HarmonyInstance);
 			MusicLibrary.ClearCache();
 		}
 
-		public override void OnSceneWasUnloaded(int buildIndex, string sceneName)
+		// The game just saved (or is about to save) a slot: save ours with it.
+		// Hooked on both MainMenu.OptionSave* and ES3AutoSaveMgr.Save*, so it can
+		// run twice for one save; the second call in the same frame is skipped.
+		public static void OnGameSave(int slot)
 		{
-			if (loadedThisScene)
+			if (!Restored)
 			{
-				SaveNow();
+				Log("The game saved before Truck Parts QOL restored this level; not saving over " + PartSave.SlotName(slot) + ".");
+				return;
 			}
-			loadedThisScene = false;
-		}
-
-		public override void OnApplicationQuit()
-		{
-			if (loadedThisScene)
+			if (savingDisabled)
 			{
-				SaveNow();
+				Log("Not saving Truck Parts QOL data: restoring it failed earlier this level (see above).");
+				return;
 			}
-		}
-
-		private void SaveNow()
-		{
-			if (!savingDisabled)
+			if (lastSaveFrame == Time.frameCount && lastSaveSlot == slot)
 			{
-				PartSave.Save();
+				return;
 			}
+			lastSaveFrame = Time.frameCount;
+			lastSaveSlot = slot;
+			PartSave.Save(slot);
 		}
 
 		public override void OnUpdate()
 		{
-			if (!loadedThisScene)
+			if (!Restored)
 			{
-				if (Time.time >= nextLoadTry)
+				// Real time: the game's pause menu stops Time.time.
+				if (Time.realtimeSinceStartup >= nextLoadTry)
 				{
-					nextLoadTry = Time.time + 1f;
-					if (Vehicles.AllVehicles().Count > 0)
+					nextLoadTry = Time.realtimeSinceStartup + 1f;
+					List<GameObject> vehicles = Vehicles.AllVehicles();
+					if (vehicles.Count > 0)
 					{
-						loadedThisScene = true;
-						nextAutosave = Time.time + 60f;
+						restoredWith = new GameObject("TruckPartsQOL_Restored");
+						UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(restoredWith, vehicles[0].scene);
+						savingDisabled = false;
+						int slot = PlayerPrefs.GetInt("LoadSlot", 0);
 						try
 						{
-							PartSave.Load();
+							PartSave.Load(slot);
 						}
 						catch (Exception e)
 						{
 							savingDisabled = true;
-							Log("Couldn't restore your parts, so saving is off until restart to protect UserData/TruckPartsQOL.txt: " + e);
+							Log("Couldn't restore your parts, so saving is off for this level to protect " + PartSave.SlotName(slot) + "'s data: " + e);
 						}
 					}
 				}
 				return;
-			}
-			if (Time.time >= nextAutosave)
-			{
-				nextAutosave = Time.time + 60f;
-				SaveNow();
 			}
 			if (Input.GetKeyDown(shopKey.Value))
 			{
@@ -398,15 +414,14 @@ namespace TruckPartsQOL
 				{
 					part.Pick.LetGo(0);
 					Object.Destroy(part.gameObject);
-					scannerOwned.Value = true;
-					MelonPreferences.Save();
+					ScannerOwned = true;
 					Flash("OBD scanner added to your tools: press " + KeyName(scannerKey.Value) + ".");
 					break;
 				}
 			}
 			if (!shopOpen && Input.GetKeyDown(scannerKey.Value))
 			{
-				if (scannerOwned.Value || scannerFree.Value)
+				if (ScannerOwned || scannerFree.Value)
 				{
 					ObdScanner.Toggle();
 				}

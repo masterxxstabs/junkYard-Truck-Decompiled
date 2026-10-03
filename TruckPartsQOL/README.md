@@ -185,12 +185,42 @@ key is `ScannerKey` (default `Alpha8`). `FreeParts = true` makes everything free
 
 ## Saving
 
-Parts are saved on their own, to `UserData/TruckPartsQOL.txt`, every minute and
-when you quit. This includes installed parts with their exact spots, loose parts,
-power, volume, mode, track, the CD in the slot, and whether each bed cover is open. They are restored when a level
-with vehicles loads. Because this save is separate from the game's, it doesn't
-follow the game's save slots, and it keeps changes even if you quit without saving
-the game.
+Truck Parts QOL saves **with the game's save slots**: when you save the game to slot
+1, 2 or 3 (or the game autosaves), the mod saves its parts with it, and loading that
+slot restores them. A new game starts without any.
+
+What's saved: every stereo part, bed cover and parts box (installed parts with their
+exact spot on the vehicle, loose parts where they lie), head unit power, volume,
+mode, track and the CD in the slot, bed cover open/closed and height, painted rims,
+and whether you own the OBD scanner. Turbo paint is saved by the game itself.
+
+Files, in `UserData/TruckPartsQOL/`:
+
+| Game slot | ES3 file | Truck Parts QOL file |
+|---|---|---|
+| 1 | `JY.es3` | `slot1.txt` |
+| 2 | `JY2.es3` | `slot2.txt` |
+| 3 | `JY3.es3` | `slot3.txt` |
+| Autosave | `JYAuto.es3` | `auto.txt` |
+
+* Like the game, quitting without saving keeps your last save.
+* Deleting a slot in the menu (or starting a new game over slot 1) deletes its
+  Truck Parts QOL file too.
+* Each save and load is logged in the MelonLoader console, e.g.
+  `Saved 5 part(s) and 2 painted rim(s) with save slot 1.`
+
+**Upgrading:** older versions kept everything in one file,
+`UserData/TruckPartsQOL.txt`. The first time you load a slot, that file is loaded
+into it once and renamed to `TruckPartsQOL.txt.old`. Save the game to keep the
+parts in that slot.
+
+How it works: the mod hooks the game's save calls (`MainMenu.OptionSave`,
+`OptionSave2`, `OptionSave3`, `OptionSaveAuto`, and Easy Save's
+`ES3AutoSaveMgr.Save1/2/3/SaveAuto`) and saves in a prefix, while everything is
+still in the world. It reads the slot being loaded from the game's
+`PlayerPrefs "LoadSlot"` (0 = new game). Parts are restored once per level, as soon
+as its vehicles exist. Nothing is saved before that, so a save can't wipe the file.
+Files are written to a temp file first, then swapped in.
 
 ## How it fits into the game
 

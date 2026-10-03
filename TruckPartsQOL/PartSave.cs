@@ -7,23 +7,58 @@ using UnityEngine;
 
 namespace TruckPartsQOL
 {
-	// One line per part in UserData/TruckPartsQOL.txt:
+	// Saved alongside the game's own save slots: when the game saves slot N
+	// (MainMenu.OptionSave/2/3/Auto, i.e. ES3 files JY/JY2/JY3/JYAuto.es3), this
+	// writes UserData/TruckPartsQOL/slotN.txt (auto.txt for the autosave); when the
+	// game loads slot N (PlayerPrefs "LoadSlot", 0 = new game) it restores that file.
+	//
+	// One line per part:
 	// kind;cd;vehicle;mountPath;px;py;pz;rx;ry;rz;rw;power;volume;mode;track;insertedCd;coverOpen;coverHeight
 	// (the cover fields were added later; older lines without them still load.)
 	// Installed parts store their pose relative to what they're mounted on and are
 	// re-installed on the first vehicle with that name; loose parts store world pose.
+	// Plus RIM;... lines for painted rims and SCANNER;1 if the OBD scanner is owned.
 	internal static class PartSave
 	{
 		private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+		public const int AutoSlot = 4;
 
 		private static string UserData
 		{
 			get { return Path.Combine(Path.GetDirectoryName(Application.dataPath), "UserData"); }
 		}
 
+		private static string SlotFile(int slot)
+		{
+			return Path.Combine(Path.Combine(UserData, "TruckPartsQOL"), slot == AutoSlot ? "auto.txt" : "slot" + slot + ".txt");
+		}
+
+		// The one shared file used before saves followed the game's slots.
 		private static string FilePath
 		{
 			get { return Path.Combine(UserData, "TruckPartsQOL.txt"); }
+		}
+
+		public static string SlotName(int slot)
+		{
+			return slot == AutoSlot ? "the autosave" : "save slot " + slot;
+		}
+
+		public static void Delete(int slot)
+		{
+			try
+			{
+				if (File.Exists(SlotFile(slot)))
+				{
+					File.Delete(SlotFile(slot));
+					TruckPartsQOLMod.Log("Deleted Truck Parts QOL data for " + SlotName(slot) + ".");
+				}
+			}
+			catch (Exception e)
+			{
+				TruckPartsQOLMod.Log("Couldn't delete Truck Parts QOL data for " + SlotName(slot) + ": " + e.Message);
+			}
 		}
 
 		// Saves from when this mod was called Truck Stereo.
@@ -44,11 +79,12 @@ namespace TruckPartsQOL
 			}
 		}
 
-		public static void Save()
+		public static void Save(int slot)
 		{
 			try
 			{
 				StringBuilder sb = new StringBuilder();
+				int parts = 0;
 				foreach (TruckPart part in TruckPart.All)
 				{
 					if (part == null)
@@ -82,22 +118,54 @@ namespace TruckPartsQOL
 						F(part.GetComponent<BedCover>() != null ? part.GetComponent<BedCover>().heightOffset : 0f)
 					}));
 					sb.Append("\n");
+					parts++;
 				}
-				SaveRims(sb);
-				Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
-				File.WriteAllText(FilePath, sb.ToString());
+				int rims = SaveRims(sb);
+				if (TruckPartsQOLMod.ScannerOwned)
+				{
+					sb.Append("SCANNER;1\n");
+				}
+				// Write to a temp file first so a crash mid-save can't leave half a file.
+				string path = SlotFile(slot);
+				Directory.CreateDirectory(Path.GetDirectoryName(path));
+				string temp = path + ".tmp";
+				File.WriteAllText(temp, sb.ToString());
+				if (File.Exists(path))
+				{
+					File.Delete(path);
+				}
+				File.Move(temp, path);
+				TruckPartsQOLMod.Log("Saved " + parts + " part(s) and " + rims + " painted rim(s) with " + SlotName(slot) + ".");
 			}
 			catch (Exception e)
 			{
-				TruckPartsQOLMod.Log("Saving stereo parts failed: " + e.Message);
+				TruckPartsQOLMod.Log("Saving Truck Parts QOL data failed: " + e.Message);
 			}
 		}
 
-		public static void Load()
+		// slot 0 is a new game: nothing to restore.
+		public static void Load(int slot)
 		{
-			if (!File.Exists(FilePath))
+			TruckPartsQOLMod.ScannerOwned = false;
+			if (slot <= 0)
 			{
+				TruckPartsQOLMod.Log("New game: starting without Truck Parts QOL parts.");
 				return;
+			}
+			string path = SlotFile(slot);
+			bool legacy = false;
+			if (!File.Exists(path))
+			{
+				// First load since saves started following the game's slots: bring the
+				// old shared file into this slot, once.
+				if (!File.Exists(FilePath))
+				{
+					TruckPartsQOLMod.Log("No Truck Parts QOL data saved with " + SlotName(slot) + " yet.");
+					return;
+				}
+				path = FilePath;
+				legacy = true;
+				TruckPartsQOLMod.ScannerOwned = TruckPartsQOLMod.LegacyScannerOwned;
 			}
 			Dictionary<string, GameObject> vehicles = new Dictionary<string, GameObject>();
 			foreach (GameObject vehicle in Vehicles.AllVehicles())
@@ -109,12 +177,17 @@ namespace TruckPartsQOL
 			}
 			int count = 0;
 			int rims = 0;
-			foreach (string line in File.ReadAllLines(FilePath))
+			foreach (string line in File.ReadAllLines(path))
 			{
 				string[] f = line.Split(';');
 				if (f.Length > 0 && f[0] == "RIM")
 				{
 					rims += LoadRim(f, vehicles) ? 1 : 0;
+					continue;
+				}
+				if (f.Length > 1 && f[0] == "SCANNER")
+				{
+					TruckPartsQOLMod.ScannerOwned = f[1] == "1";
 					continue;
 				}
 				if (f.Length < 16)
@@ -174,13 +247,26 @@ namespace TruckPartsQOL
 					TruckPartsQOLMod.Log("Skipping bad stereo save line: " + e.Message);
 				}
 			}
-			TruckPartsQOLMod.Log("Restored " + count + " part(s) and " + rims + " painted rim(s).");
+			TruckPartsQOLMod.Log("Restored " + count + " part(s) and " + rims + " painted rim(s) from " + (legacy ? "the old shared save" : SlotName(slot)) + ".");
+			if (legacy)
+			{
+				try
+				{
+					File.Move(FilePath, FilePath + ".old");
+					TruckPartsQOLMod.Log("Your parts now save with the game's save slots. Save the game to keep them in " + SlotName(slot) + ".");
+				}
+				catch (Exception e)
+				{
+					TruckPartsQOLMod.Log("Couldn't retire the old shared save: " + e.Message);
+				}
+			}
 		}
 
 		// RIM;vehicle;path|name;r;g;b;metallic;smoothness;orig r;g;b;m;s  (on a vehicle)
 		// RIM;;rootName@x,y,z|path|name;...                              (a loose wheel)
-		private static void SaveRims(StringBuilder sb)
+		private static int SaveRims(StringBuilder sb)
 		{
+			int count = 0;
 			foreach (RimPaint rim in Resources.FindObjectsOfTypeAll<RimPaint>())
 			{
 				if (rim == null || !rim.gameObject.scene.IsValid())
@@ -208,7 +294,9 @@ namespace TruckPartsQOL
 					rim.hasOriginal ? "1" : "0", F(rim.or), F(rim.og), F(rim.ob), F(rim.om), F(rim.os)
 				}));
 				sb.Append("\n");
+				count++;
 			}
+			return count;
 		}
 
 		private static bool LoadRim(string[] f, Dictionary<string, GameObject> vehicles)
