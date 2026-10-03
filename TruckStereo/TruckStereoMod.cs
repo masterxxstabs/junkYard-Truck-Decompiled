@@ -38,6 +38,10 @@ namespace TruckStereo
 		private float nextLoadTry;
 		private float nextAutosave;
 
+		// Set if restoring failed: then the save file is left alone rather than
+		// overwritten with whatever (little) is in the world.
+		private bool savingDisabled;
+
 		public static void Log(string message)
 		{
 			log.Msg(message);
@@ -70,7 +74,7 @@ namespace TruckStereo
 		{
 			if (loadedThisScene)
 			{
-				StereoSave.Save();
+				SaveNow();
 			}
 			loadedThisScene = false;
 		}
@@ -78,6 +82,14 @@ namespace TruckStereo
 		public override void OnApplicationQuit()
 		{
 			if (loadedThisScene)
+			{
+				SaveNow();
+			}
+		}
+
+		private void SaveNow()
+		{
+			if (!savingDisabled)
 			{
 				StereoSave.Save();
 			}
@@ -92,9 +104,17 @@ namespace TruckStereo
 					nextLoadTry = Time.time + 1f;
 					if (Vehicles.AllVehicles().Count > 0)
 					{
-						StereoSave.Load();
 						loadedThisScene = true;
 						nextAutosave = Time.time + 60f;
+						try
+						{
+							StereoSave.Load();
+						}
+						catch (Exception e)
+						{
+							savingDisabled = true;
+							Log("Couldn't restore stereo parts, so saving is off until restart to protect UserData/TruckStereo.txt: " + e);
+						}
 					}
 				}
 				return;
@@ -102,7 +122,7 @@ namespace TruckStereo
 			if (Time.time >= nextAutosave)
 			{
 				nextAutosave = Time.time + 60f;
-				StereoSave.Save();
+				SaveNow();
 			}
 			if (Input.GetKeyDown(shopKey.Value))
 			{
