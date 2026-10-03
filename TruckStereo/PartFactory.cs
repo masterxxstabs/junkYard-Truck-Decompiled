@@ -17,9 +17,15 @@ namespace TruckStereo
 
 		private static Font font;
 
-		public static StereoPart Create(PartKind kind, int cdNumber, Vector3 position, Quaternion rotation)
+		// parent: an inactive parent makes a dormant template (nothing runs until a
+		// copy is Instantiated), which is what the Parts Store needs.
+		public static StereoPart Create(PartKind kind, int cdNumber, Vector3 position, Quaternion rotation, Transform parent = null)
 		{
 			GameObject root = new GameObject("TS_" + kind + (kind == PartKind.CD ? cdNumber.ToString() : ""));
+			if (parent != null)
+			{
+				root.transform.SetParent(parent, false);
+			}
 			root.transform.position = position;
 			root.transform.rotation = rotation;
 			StereoPart part = root.AddComponent<StereoPart>();
@@ -49,6 +55,7 @@ namespace TruckStereo
 				break;
 			}
 			part.halfDepth = size.z / 2f;
+			part.halfHeight = size.y / 2f;
 			// PickUp needs a BoxCollider on the root and a Rigidbody.
 			BoxCollider box = root.AddComponent<BoxCollider>();
 			box.size = size;

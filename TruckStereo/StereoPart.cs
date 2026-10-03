@@ -35,6 +35,8 @@ namespace TruckStereo
 		// Distance from the part's center to its back face, so it sits flush.
 		public float halfDepth;
 
+		public float halfHeight;
+
 		// Speakers: set by the head unit each frame it drives this speaker.
 		[NonSerialized]
 		public int drivenFrame = -1;
@@ -42,6 +44,30 @@ namespace TruckStereo
 		private void OnEnable()
 		{
 			All.Add(this);
+		}
+
+		// Shops drop items at the player's feet; a part spawned partly inside the
+		// ground falls through it. Lift loose parts clear of the ground once.
+		private void Start()
+		{
+			if (installed || transform.parent != null)
+			{
+				return;
+			}
+			RaycastHit[] hits = Physics.RaycastAll(transform.position + Vector3.up * 2f, Vector3.down, 6f, ~0, QueryTriggerInteraction.Ignore);
+			float groundY = float.MinValue;
+			foreach (RaycastHit hit in hits)
+			{
+				if (!hit.transform.IsChildOf(transform) && hit.point.y > groundY && hit.collider.GetComponentInParent<CharacterController>() == null)
+				{
+					groundY = hit.point.y;
+				}
+			}
+			float lowest = groundY + Mathf.Max(halfHeight, halfDepth) + 0.05f;
+			if (groundY > float.MinValue && transform.position.y < lowest)
+			{
+				transform.position = new Vector3(transform.position.x, lowest, transform.position.z);
+			}
 		}
 
 		private void OnDisable()

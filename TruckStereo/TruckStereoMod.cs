@@ -24,6 +24,10 @@ namespace TruckStereo
 		private MelonPreferences_Entry<KeyCode> ejectKey;
 		private MelonPreferences_Entry<KeyCode> shopKey;
 		private MelonPreferences_Entry<bool> freeParts;
+		private MelonPreferences_Entry<float> headUnitPrice;
+		private MelonPreferences_Entry<float> speakerPrice;
+		private MelonPreferences_Entry<float> subwooferPrice;
+		private MelonPreferences_Entry<float> cdPrice;
 
 		private bool shopOpen;
 		private Rect shopRect = new Rect(40f, 40f, 320f, 10f);
@@ -59,7 +63,37 @@ namespace TruckStereo
 			ejectKey = c.CreateEntry("EjectKey", KeyCode.J, "Eject CD");
 			shopKey = c.CreateEntry("ShopKey", KeyCode.F9, "Open the stereo shop");
 			freeParts = c.CreateEntry("FreeParts", false, "Shop items cost nothing");
+			headUnitPrice = c.CreateEntry("HeadUnitPrice", 150f, "Price of the CD head unit");
+			speakerPrice = c.CreateEntry("SpeakerPrice", 35f, "Price of a 6.5\" speaker");
+			subwooferPrice = c.CreateEntry("SubwooferPrice", 120f, "Price of the subwoofer box");
+			cdPrice = c.CreateEntry("CdPrice", 5f, "Price of a CD");
+			StoreIntegration.PriceOf = Price;
 			MusicLibrary.EnsureFolders();
+		}
+
+		// After every mod has loaded, so the Parts Store mod is there to find.
+		public override void OnLateInitializeMelon()
+		{
+			StoreIntegration.TryInstall(HarmonyInstance);
+		}
+
+		private float Price(PartKind kind)
+		{
+			if (freeParts.Value)
+			{
+				return 0f;
+			}
+			switch (kind)
+			{
+			case PartKind.HeadUnit:
+				return headUnitPrice.Value;
+			case PartKind.Speaker:
+				return speakerPrice.Value;
+			case PartKind.Subwoofer:
+				return subwooferPrice.Value;
+			default:
+				return cdPrice.Value;
+			}
 		}
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -67,6 +101,7 @@ namespace TruckStereo
 			loadedThisScene = false;
 			nextLoadTry = 0f;
 			shopOpen = false;
+			StoreIntegration.TryInstall(HarmonyInstance);
 			MusicLibrary.ClearCache();
 		}
 
@@ -126,7 +161,14 @@ namespace TruckStereo
 			}
 			if (Input.GetKeyDown(shopKey.Value))
 			{
-				SetShopOpen(!shopOpen);
+				if (StoreIntegration.Active)
+				{
+					Log("Stereo parts are in the Junkyard Terminal's Parts Store now.");
+				}
+				else
+				{
+					SetShopOpen(!shopOpen);
+				}
 			}
 			hint = "";
 			if (!shopOpen && Camera.main != null)
@@ -298,9 +340,9 @@ namespace TruckStereo
 		private void DrawShop(int id)
 		{
 			GUILayout.Label(freeParts.Value ? "Everything is free (FreeParts is on)." : "Cash: $" + Money().ToString("0.00"));
-			ShopItem(PartKind.HeadUnit, 0, "CD head unit", 150f);
-			ShopItem(PartKind.Speaker, 0, "6.5\" speaker", 35f);
-			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", 120f);
+			ShopItem(PartKind.HeadUnit, 0, "CD head unit", Price(PartKind.HeadUnit));
+			ShopItem(PartKind.Speaker, 0, "6.5\" speaker", Price(PartKind.Speaker));
+			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", Price(PartKind.Subwoofer));
 			GUILayout.Space(6f);
 			bool anyCd = false;
 			for (int i = 1; i <= MusicLibrary.MaxCds; i++)
@@ -309,7 +351,7 @@ namespace TruckStereo
 				if (count > 0)
 				{
 					anyCd = true;
-					ShopItem(PartKind.CD, i, "CD " + i + "  (" + count + " tracks)", 5f);
+					ShopItem(PartKind.CD, i, "CD " + i + "  (" + count + " tracks)", Price(PartKind.CD));
 				}
 			}
 			if (!anyCd)

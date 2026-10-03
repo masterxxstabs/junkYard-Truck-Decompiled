@@ -24,12 +24,19 @@ Each folder is one CD, played in file-name order (name them `01 ...`, `02 ...` t
 control the order). Use **.ogg** or **.wav**. MP3 decoding depends on the game's
 Unity version; if a track shows `READ ERROR`, convert it to .ogg.
 
-## Parts
+## Buying parts
 
-Open the stereo shop with **F9**. Items are paid from your wallet like any part and
-drop in front of you.
+**With the Junkyard Terminal (ComputerPartStore mod) installed**, the stereo parts are
+sold in its **Parts Store** tab, listed under *All* and *Truck Parts* as
+`Stereo - ...`. Order them like any other part; they're delivered in front of you.
+The CD entries follow your `CD` folders: add music to a new folder and its CD
+appears within a few seconds.
 
-| Part | Price | Notes |
+**Without it**, press **F9** for the mod's own small shop.
+
+Either way, items are paid from your wallet like any part.
+
+| Part | Default price | Notes |
 |---|---|---|
 | CD head unit | $150 | 1-DIN unit with display, CD slot, FM radio |
 | 6.5" speaker | $35 | Door/dash speaker, cuts deep bass |
@@ -64,8 +71,9 @@ Look at the installed head unit:
 
 FM radio plays the songs the game ships for its own radios, tuned in mid-song.
 
-All keys can be changed in `UserData/MelonPreferences.cfg` under `[TruckStereo]`.
-`FreeParts = true` makes the shop free.
+All keys can be changed in `UserData/MelonPreferences.cfg` under `[TruckStereo]`,
+and so can the prices (`HeadUnitPrice`, `SpeakerPrice`, `SubwooferPrice`,
+`CdPrice`). `FreeParts = true` makes everything free, in both shops.
 
 ## Saving
 
@@ -89,6 +97,15 @@ the game.
   the battery (`engine.Refresh`).
 * **Models** are built from Unity primitives at runtime, so there are no asset
   bundles.
+* **Parts Store integration** is a Harmony postfix on
+  `ComputerFeatures.PartsStoreService.GetCatalog()`. It appends `PartEntry` items
+  (prefab, name, price, category) to the returned list, whether that's the cached
+  catalog or the fresh list built before the junkyard loads, and re-sorts it the way
+  the store does. Everything goes through reflection, so Truck Stereo still loads
+  without the store. The prefabs are dormant templates under an inactive
+  `DontDestroyOnLoad` object, because `TryPurchase` instantiates the prefab and the
+  store caches its catalog across levels. The store drops orders at foot level, so
+  loose stereo parts lift themselves clear of the ground when they spawn.
 * Works with Engine Cloner: clone a vehicle with a stereo and the copy gets its own
   working stereo. Parts on a clone are saved against the vehicle's name, so after a
   reload they appear in the original.
