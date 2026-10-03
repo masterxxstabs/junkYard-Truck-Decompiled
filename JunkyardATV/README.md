@@ -53,6 +53,36 @@ the ATV), it can't be picked up, it's named `250_block_atv` so the game still fi
 the bike's engine by name, and `Refresh()` writes its power loss into a stand-in on
 the ATV instead of the real dirt bike.
 
+## The model: Suzuki Quadzilla 500
+
+The mod ships with a Suzuki LT500R Quadzilla, rigged from a Tinkercad export
+(`quadzilla.obj` + `quadzilla.mtl` in `<game>/JunkyardATV/`). If that file is there
+and no other model is set, the mod sets everything up by itself.
+
+Tinkercad merges every shape of one color into one group, so the original had no
+separate wheels. `tools/rig_quadzilla.py` rigs it:
+
+* **Splits the wheels.** It finds the four tires (dark grey cylinders), measures each
+  wheel's axle, radius and width, and moves every triangle inside each wheel's
+  cylinder (tire, rim, hub) into its own part: `Wheel_FL`, `Wheel_FR`, `Wheel_RL`,
+  `Wheel_RR`. The handlebars become `Handlebars`; the rest is `Body`.
+* **Straightens the wheels.** The model had camber (front wheels 6.5° and 13.2°,
+  rears 3-4°). The game spins wheels about a level axle, so a tilted wheel would
+  wobble. Each wheel is turned so its axle (the tire's thinnest direction) is level,
+  about its own center.
+* **Fixes size and orientation.** Tinkercad millimeters (an 8 cm toy) become
+  meters: 1.87 m long like the real quad, giving 1.29 × 1.12 m and a 0.27 m wheel
+  radius. Z-up becomes Y-up, facing forward. That's a proper rotation, so nothing is
+  mirrored.
+* **Adds normals.** The surfaces have hard edges kept sharp (creases over 35°)
+  instead of everything being smoothed over.
+* **Measures** the seat, fuel filler and engine bay positions used in `atv.cfg`.
+
+The handlebars turn about their own center (the mod gives OBJ parts a pivot there).
+
+To rerun it: `python3 tools/rig_quadzilla.py <folder with tinker.obj and obj.mtl>`
+(needs numpy).
+
 ## Using your own model
 
 Put a model file in `<game>/JunkyardATV/` and set `model=` in `atv.cfg`:
@@ -80,7 +110,7 @@ Put a model file in `<game>/JunkyardATV/` and set `model=` in `atv.cfg`:
 Aim: the model's front points forward, the wheels sit where the colliders are, and
 the seat marker is where you want to sit.
 
-Until a model is set, the ATV uses a simple built-in placeholder.
+With no model file, the ATV uses a simple built-in placeholder.
 
 ## Saving
 

@@ -48,12 +48,36 @@ namespace JunkyardATV
 			get { return model.Length > 0 ? Path.Combine(Folder, model) : null; }
 		}
 
+		// The Suzuki Quadzilla 500 that ships with the mod, rigged by
+		// tools/rig_quadzilla.py: already in meters, Y up and facing forward, with
+		// its wheels and handlebars as separate parts; these points were measured
+		// from it.
+		private const string Quadzilla = "quadzilla.obj";
+
+		private void UseQuadzilla()
+		{
+			model = Quadzilla;
+			scale = 1f;
+			rotation = Vector3.zero;
+			offset = Vector3.zero;
+			wheelRadius = 0f;
+			handlebars = "Handlebars";
+			seat = new Vector3(0f, 0.82f, -0.19f);
+			engine = new Vector3(0f, 0.29f, -0.06f);
+			fuelInlet = new Vector3(0f, 0.87f, 0.19f);
+		}
+
 		public static AtvConfig Load()
 		{
 			AtvConfig c = new AtvConfig();
 			Directory.CreateDirectory(Folder);
+			bool haveQuadzilla = File.Exists(Path.Combine(Folder, Quadzilla));
 			if (!File.Exists(FilePath))
 			{
+				if (haveQuadzilla)
+				{
+					c.UseQuadzilla();
+				}
 				c.Save();
 				return c;
 			}
@@ -113,6 +137,14 @@ namespace JunkyardATV
 				{
 					AtvMod.Log("atv.cfg: bad value for " + key + " (" + value + "): " + e.Message);
 				}
+			}
+			// No model chosen yet (e.g. a config from the placeholder days), but the
+			// Quadzilla is there: use it.
+			if (c.model.Length == 0 && haveQuadzilla)
+			{
+				c.UseQuadzilla();
+				c.Save();
+				AtvMod.Log("Using the Suzuki Quadzilla 500 model.");
 			}
 			return c;
 		}

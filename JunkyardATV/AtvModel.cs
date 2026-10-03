@@ -161,6 +161,23 @@ namespace JunkyardATV
 			{
 				layout.handlebars = FindDeep(model.transform, "Handlebars");
 			}
+			if (layout.handlebars != null)
+			{
+				// Turn the bars about their own middle. OBJ parts (and some glTF
+				// nodes) sit at the model's origin, which would swing them around
+				// the middle of the ATV instead.
+				Renderer[] bars = layout.handlebars.GetComponentsInChildren<Renderer>();
+				if (bars.Length > 0)
+				{
+					Bounds hb = LocalBounds(vehicle, bars);
+					GameObject pivot = new GameObject("HandlebarPivot");
+					pivot.transform.SetParent(layout.handlebars.parent, false);
+					pivot.transform.position = vehicle.TransformPoint(hb.center);
+					pivot.transform.rotation = vehicle.rotation;
+					layout.handlebars.SetParent(pivot.transform, true);
+					layout.handlebars = pivot.transform;
+				}
+			}
 			return layout;
 		}
 
