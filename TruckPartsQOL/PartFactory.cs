@@ -64,6 +64,10 @@ namespace TruckPartsQOL
 				part.mass = 55f;
 				root.AddComponent<BedCover>();
 				break;
+			case PartKind.Scanner:
+				size = BuildKit(root.transform, new Vector3(0.24f, 0.08f, 0.17f), new Color(0.95f, 0.75f, 0.1f), "OBD");
+				part.mass = 0.8f;
+				break;
 			default:
 				size = BuildCd(root.transform, cdNumber);
 				part.mass = 0.1f;

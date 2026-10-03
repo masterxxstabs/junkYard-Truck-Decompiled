@@ -5,7 +5,9 @@ Extra parts for your vehicles, in the spirit of My Summer Car:
 * **Stereo:** a CD head unit, speakers and a subwoofer, playing CDs burned from
   your own music or the game's FM radio.
 * **Bed covers:** a tarp, a tri-fold tonneau cover or a hard top (camper shell),
-  fitted to your pickup's bed.
+  fitted to your pickup's bed. *(Work in progress: fitment is being reworked.)*
+* **OBD scanner:** a handheld tool on key **8**, next to the game's own tools,
+  that reads the condition of every part on an engine.
 
 Formerly **Truck Stereo**. Separate from the Engine Cloner mod; install either or
 both.
@@ -60,6 +62,7 @@ Either way, items are paid from your wallet like any part.
 | Bed tarp | $40 | Strapped-down tarp; rolls up toward the cab |
 | Tonneau cover | $250 | Tri-fold hard cover; folds up against the cab |
 | Hard top | $600 | Camper shell to cab height, with a lifting rear glass hatch |
+| OBD scanner | $80 | Tool: pick up the box and it joins your tools on key 8 |
 
 ## Fitting
 
@@ -73,6 +76,35 @@ Either way, items are paid from your wallet like any part.
 The head unit plays through **every speaker installed in the same vehicle**, all in
 sync. With no speakers you only hear its tiny built-in speaker. It needs the
 vehicle's battery: a flat battery means no music.
+
+## OBD scanner
+
+The game's tools sit on the number keys: 1 hands, 2 ratchet, 3 multimeter,
+4 depth gauge, 5 phone, 6 tire gauge, 7 crowbar. The scanner goes on **8**. Buy it
+(`Tool - OBD scanner`) and pick up its box; from then on it's yours (for every save,
+since it's stored in `MelonPreferences.cfg`). `ScannerFree = true` skips buying it.
+
+Press **8** to take it out. Aim at a vehicle, or at an engine on the stand or the
+floor, and it links to that engine. The readout stays up while you work. Pressing
+any of 1-7 (or 8 again) puts it away.
+
+The readout shows:
+
+* **Status:** whether the engine will run and crank, and the check-engine light, as
+  of the game's last check (it checks when you get in, for example).
+* **Oil level** and any **torque lost** to worn parts.
+* **Trouble codes,** made up from live part condition in OBD-II style: cylinder
+  misfire (P0301...) for a bad piston, knock (P0325) for worn bearings, timing
+  correlation (P0016), low voltage (P0562), alternator (P0620), restricted air
+  filter (P0101), overheat from the head gasket (P0217), ignition (P0340), lean
+  intake or carburetor (P0171), oil filter (P0521) and low oil (P0520).
+* **Every part** on the engine, worst first, with a color-coded condition bar.
+  Missing parts are listed at the top. Scroll with the mouse wheel.
+
+Readings are live: the scanner reads each part's `durability.health` straight from
+the engine script (`engine`, `enginev8`, `enginei6`, `Engine250`). It never calls the
+game's `Refresh()`, which changes battery charge and the truck's torque as a side
+effect.
 
 ## Bed covers
 
@@ -119,7 +151,8 @@ FM radio plays the songs the game ships for its own radios, tuned in mid-song.
 
 All keys can be changed in `UserData/MelonPreferences.cfg` under `[TruckPartsQOL]`,
 and so can the prices (`HeadUnitPrice`, `SpeakerPrice`, `SubwooferPrice`,
-`CdPrice`, `TarpPrice`, `TonneauPrice`, `HardTopPrice`). `FreeParts = true` makes everything free, in both shops.
+`CdPrice`, `TarpPrice`, `TonneauPrice`, `HardTopPrice`, `ScannerPrice`). The scanner
+key is `ScannerKey` (default `Alpha8`). `FreeParts = true` makes everything free, in both shops.
 
 ## Saving
 

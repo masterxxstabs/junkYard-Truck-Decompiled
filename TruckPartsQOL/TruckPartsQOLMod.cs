@@ -24,6 +24,10 @@ namespace TruckPartsQOL
 		private MelonPreferences_Entry<KeyCode> ejectKey;
 		private MelonPreferences_Entry<KeyCode> shopKey;
 		private MelonPreferences_Entry<KeyCode> openKey;
+		private MelonPreferences_Entry<KeyCode> scannerKey;
+		private MelonPreferences_Entry<float> scannerPrice;
+		private MelonPreferences_Entry<bool> scannerFree;
+		private MelonPreferences_Entry<bool> scannerOwned;
 		private MelonPreferences_Entry<float> tarpPrice;
 		private MelonPreferences_Entry<float> tonneauPrice;
 		private MelonPreferences_Entry<float> hardTopPrice;
@@ -67,6 +71,10 @@ namespace TruckPartsQOL
 			ejectKey = c.CreateEntry("EjectKey", KeyCode.J, "Eject CD");
 			shopKey = c.CreateEntry("ShopKey", KeyCode.F9, "Open the parts shop (when the Parts Store mod isn't installed)");
 			openKey = c.CreateEntry("OpenKey", KeyCode.O, "Open / close a bed cover");
+			scannerKey = c.CreateEntry("ScannerKey", KeyCode.Alpha8, "Take out / put away the OBD scanner (the game's tools are on 1-7)");
+			scannerPrice = c.CreateEntry("ScannerPrice", 80f, "Price of the OBD scanner");
+			scannerFree = c.CreateEntry("ScannerFree", false, "Have the OBD scanner without buying it");
+			scannerOwned = c.CreateEntry("ScannerOwned", false, "Bought the OBD scanner", null, true);
 			tarpPrice = c.CreateEntry("TarpPrice", 40f, "Price of the bed tarp");
 			tonneauPrice = c.CreateEntry("TonneauPrice", 250f, "Price of the tonneau cover");
 			hardTopPrice = c.CreateEntry("HardTopPrice", 600f, "Price of the hard top");
@@ -148,6 +156,8 @@ namespace TruckPartsQOL
 				return tonneauPrice.Value;
 			case PartKind.HardTop:
 				return hardTopPrice.Value;
+			case PartKind.Scanner:
+				return scannerPrice.Value;
 			default:
 				return cdPrice.Value;
 			}
@@ -158,6 +168,7 @@ namespace TruckPartsQOL
 			loadedThisScene = false;
 			nextLoadTry = 0f;
 			shopOpen = false;
+			ObdScanner.Reset();
 			StoreIntegration.TryInstall(HarmonyInstance);
 			MusicLibrary.ClearCache();
 		}
@@ -228,7 +239,8 @@ namespace TruckPartsQOL
 				}
 			}
 			hint = "";
-			if (!shopOpen && Camera.main != null)
+			UpdateScanner();
+			if (!shopOpen && Camera.main != null && !ObdScanner.Equipped)
 			{
 				HandleLook();
 			}
@@ -377,6 +389,42 @@ namespace TruckPartsQOL
 			}
 		}
 
+		private void UpdateScanner()
+		{
+			// A bought scanner box joins your tools as soon as you pick it up.
+			foreach (TruckPart part in TruckPart.All)
+			{
+				if (part.kind == PartKind.Scanner && part.IsHeld)
+				{
+					part.Pick.LetGo(0);
+					Object.Destroy(part.gameObject);
+					scannerOwned.Value = true;
+					MelonPreferences.Save();
+					Flash("OBD scanner added to your tools: press " + KeyName(scannerKey.Value) + ".");
+					break;
+				}
+			}
+			if (!shopOpen && Input.GetKeyDown(scannerKey.Value))
+			{
+				if (scannerOwned.Value || scannerFree.Value)
+				{
+					ObdScanner.Toggle();
+				}
+				else
+				{
+					Flash("You don't have an OBD scanner yet. Buy one in the Parts Store.");
+				}
+			}
+			ObdScanner.Update();
+			ObdScanner.Scroll(Input.GetAxis("Mouse ScrollWheel"));
+		}
+
+		private static string KeyName(KeyCode key)
+		{
+			string name = key.ToString();
+			return name.StartsWith("Alpha") ? name.Substring(5) : name;
+		}
+
 		private void HandleHeldCover(TruckPart held, RaycastHit hit)
 		{
 			GameObject vehicle = Vehicles.FindRoot(hit.collider.transform);
@@ -463,6 +511,7 @@ namespace TruckPartsQOL
 				GUI.color = Color.white;
 				GUI.Label(rect, shown, style);
 			}
+			ObdScanner.OnGUI();
 			if (shopOpen)
 			{
 				shopRect = GUILayout.Window(0x5743, shopRect, DrawShop, "Truck parts shop");
@@ -476,6 +525,7 @@ namespace TruckPartsQOL
 			ShopItem(PartKind.Speaker, 0, "6.5\" speaker", Price(PartKind.Speaker));
 			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", Price(PartKind.Subwoofer));
 			GUILayout.Space(6f);
+			ShopItem(PartKind.Scanner, 0, "OBD scanner (tool, key " + KeyName(scannerKey.Value) + ")", Price(PartKind.Scanner));
 			ShopItem(PartKind.Tarp, 0, "Bed tarp", Price(PartKind.Tarp));
 			ShopItem(PartKind.Tonneau, 0, "Tonneau cover (tri-fold)", Price(PartKind.Tonneau));
 			ShopItem(PartKind.HardTop, 0, "Hard top (camper shell)", Price(PartKind.HardTop));

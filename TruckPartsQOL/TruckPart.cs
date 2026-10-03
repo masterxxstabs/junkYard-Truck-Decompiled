@@ -12,7 +12,8 @@ namespace TruckPartsQOL
 		CD,
 		Tarp,
 		Tonneau,
-		HardTop
+		HardTop,
+		Scanner
 	}
 
 	// One stereo item: carried with the game's own PickUp, installed by parenting
@@ -120,6 +121,8 @@ namespace TruckPartsQOL
 					return "tonneau cover";
 				case PartKind.HardTop:
 					return "hard top";
+				case PartKind.Scanner:
+					return "OBD scanner";
 				default:
 					return "CD " + cdNumber;
 				}
