@@ -83,6 +83,7 @@ namespace TruckPartsQOL
 					}));
 					sb.Append("\n");
 				}
+				SaveRims(sb);
 				Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
 				File.WriteAllText(FilePath, sb.ToString());
 			}
@@ -107,9 +108,15 @@ namespace TruckPartsQOL
 				}
 			}
 			int count = 0;
+			int rims = 0;
 			foreach (string line in File.ReadAllLines(FilePath))
 			{
 				string[] f = line.Split(';');
+				if (f.Length > 0 && f[0] == "RIM")
+				{
+					rims += LoadRim(f, vehicles) ? 1 : 0;
+					continue;
+				}
 				if (f.Length < 16)
 				{
 					continue;
@@ -167,7 +174,106 @@ namespace TruckPartsQOL
 					TruckPartsQOLMod.Log("Skipping bad stereo save line: " + e.Message);
 				}
 			}
-			TruckPartsQOLMod.Log("Restored " + count + " stereo part(s).");
+			TruckPartsQOLMod.Log("Restored " + count + " part(s) and " + rims + " painted rim(s).");
+		}
+
+		// RIM;vehicle;path|name;r;g;b;metallic;smoothness;orig r;g;b;m;s  (on a vehicle)
+		// RIM;;rootName@x,y,z|path|name;...                              (a loose wheel)
+		private static void SaveRims(StringBuilder sb)
+		{
+			foreach (RimPaint rim in Resources.FindObjectsOfTypeAll<RimPaint>())
+			{
+				if (rim == null || !rim.gameObject.scene.IsValid())
+				{
+					continue;
+				}
+				Transform t = rim.transform;
+				GameObject vehicle = Vehicles.FindRoot(t);
+				string vehicleName = "";
+				string where;
+				if (vehicle != null)
+				{
+					vehicleName = vehicle.name;
+					where = PathFrom(vehicle.transform, t) + "|" + Clean(t.name);
+				}
+				else
+				{
+					Transform root = t.root;
+					Vector3 p = root.position;
+					where = Clean(root.name) + "@" + F(p.x) + "," + F(p.y) + "," + F(p.z) + "|" + PathFrom(root, t) + "|" + Clean(t.name);
+				}
+				sb.Append(string.Join(";", new[]
+				{
+					"RIM", Clean(vehicleName), where, F(rim.r), F(rim.g), F(rim.b), F(rim.metallic), F(rim.smoothness),
+					rim.hasOriginal ? "1" : "0", F(rim.or), F(rim.og), F(rim.ob), F(rim.om), F(rim.os)
+				}));
+				sb.Append("\n");
+			}
+		}
+
+		private static bool LoadRim(string[] f, Dictionary<string, GameObject> vehicles)
+		{
+			if (f.Length < 14)
+			{
+				return false;
+			}
+			Transform rim = null;
+			GameObject vehicle;
+			if (f[1].Length > 0)
+			{
+				if (vehicles.TryGetValue(f[1], out vehicle))
+				{
+					rim = Find(vehicle.transform, f[2]);
+				}
+			}
+			else
+			{
+				// Loose wheel: the same-named root object nearest the saved spot.
+				string[] parts = f[2].Split('|');
+				int at = parts[0].LastIndexOf('@');
+				if (parts.Length == 3 && at > 0)
+				{
+					string rootName = parts[0].Substring(0, at);
+					string[] xyz = parts[0].Substring(at + 1).Split(',');
+					Vector3 saved = new Vector3(P(xyz[0]), P(xyz[1]), P(xyz[2]));
+					Transform best = null;
+					float bestDistance = 1.5f;
+					foreach (GameObject go in UnityEngine.Object.FindObjectsOfType<GameObject>())
+					{
+						if (go.transform.parent == null && Clean(go.name) == rootName)
+						{
+							float d = Vector3.Distance(go.transform.position, saved);
+							if (d < bestDistance)
+							{
+								bestDistance = d;
+								best = go.transform;
+							}
+						}
+					}
+					if (best != null)
+					{
+						rim = Find(best, parts[1] + "|" + parts[2]);
+					}
+				}
+			}
+			if (rim == null || rim.GetComponent<RimPaint>() != null)
+			{
+				return false;
+			}
+			RimPaint rp = rim.gameObject.AddComponent<RimPaint>();
+			rp.hasOriginal = f[8] == "1";
+			rp.or = P(f[9]);
+			rp.og = P(f[10]);
+			rp.ob = P(f[11]);
+			rp.om = P(f[12]);
+			rp.os = P(f[13]);
+			RimPaint.Set(rim, new PaintColor(P(f[3]), P(f[4]), P(f[5]), P(f[6]), P(f[7])));
+			return true;
+		}
+
+		private static string Clean(string s)
+		{
+			return s.Replace(";", "").Replace("|", "").Replace("@", "");
 		}
 
 		// Child-index path from root to t, e.g. "3/0"; "" when t is root.

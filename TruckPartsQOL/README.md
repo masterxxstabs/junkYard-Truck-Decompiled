@@ -8,6 +8,8 @@ Extra parts for your vehicles, in the spirit of My Summer Car:
   fitted to your pickup's bed. *(Work in progress: fitment is being reworked.)*
 * **OBD scanner:** a handheld tool on key **8**, next to the game's own tools,
   that reads the condition of every part on an engine.
+* **Paintable rims and turbos:** spray them with the game's paint cans, like body
+  panels and valve covers.
 
 Formerly **Truck Stereo**. Separate from the Engine Cloner mod; install either or
 both.
@@ -105,6 +107,33 @@ Readings are live: the scanner reads each part's `durability.health` straight fr
 the engine script (`engine`, `enginev8`, `enginei6`, `Engine250`). It never calls the
 game's `Refresh()`, which changes battery charge and the truck's torque as a side
 effect.
+
+## Painting rims and turbos
+
+Use a paint can on a rim or a turbo the same way you paint the truck: the color,
+metallic and gloss come from the can. Rims can be painted mounted or loose; only the
+rim is painted, never the tire. Turbos can be painted fitted to the engine or loose.
+
+**Turbos** (`turbo`, `turboXL`, the V8's aftermarket turbos, loose turbos) are
+painted exactly the way the game paints a valve cover: through the paint fields on
+the part's `durability` slot or `PickUp`. So the game itself carries the paint
+across when you unbolt or fit the turbo, and saves it with your game.
+
+**Rims** have no paint fields in the game, so the mod keeps track of them:
+
+* A wheel's models (on a loose wheel: child 0 the stock rim, 1-5 the other rims,
+  6+ the tires; on a mounted wheel, the slot's `WHEEL_HOLDER`, laid out the same
+  way) are switched on and off to show the fitted rim and tire. The paint goes on
+  the active rim model.
+* Mounting a painted wheel (`PickUp.LetGo`) and taking one off (`Interactor.Update`
+  spawning the loose wheel) carry the rim's paint across. Mounting an unpainted rim
+  where a painted one was restores the original finish.
+* Rim paint is saved to `UserData/TruckPartsQOL.txt` (rims on a vehicle by their
+  place on it; loose wheels by name and position) and restored when the level
+  loads.
+
+Paint is applied by a prefix on `Interactor.PaintSurface`; anything that isn't a rim
+or a turbo still goes through the game's own painting code.
 
 ## Bed covers
 
