@@ -15,9 +15,10 @@ either of you make are mirrored to the other.
 |---|---|
 | Host / join | Host from inside your save, join from the main menu, using an address and port. |
 | World transfer | The guest gets the host's world as it is when they join (the save file format, sent over the network). |
-| Seeing each other | The other keeper is drawn walking, chopping, digging, planting and climbing, with a name above their head. Carrying shows the carry pose and the body or crate held overhead. Armor and weapons aren't drawn on the other player (they look like their normal clothes). |
+| Seeing each other | The other keeper is drawn walking, chopping, digging, planting and climbing, with a name above their head. Carrying shows the carry pose and the body or crate held overhead. Armor (with or without helmet, in its color) is shown too. |
 | Bodies | Each of you still gets your own body deliveries, and both players see every body. Either player can pick up, carry, drop, bury and work on any body. The unburied-body count is recounted in both games whenever a body moves. |
-| Graves and things you use | Burying, gravestones, fences, and putting things into or taking them out of an object (grave, chest...) show up for the other player. Workbenches only sync when their craft queue is empty, and a running craft stays in the game that started it. |
+| Graves and things you use | Burying, gravestones, fences, and putting things into or taking them out of an object (grave, chest, workbench) show up for the other player. |
+| One player at a time | While one of you has an object's window open, or a craft running on it, it's locked for the other player: they can't select it, and it shows "In use by …" or "… is crafting 40%". When the craft finishes, the results (and anything left in the bench) appear for both of you. |
 | Quests | The host's quest progress and objective arrow are copied to the guest, so both see the same quest markers. |
 | Items on the ground | Things dropped near a player (loot, crates, bodies) appear for both of you, and picking one up removes it for both. |
 | Time of day | The guest's day and clock follow the host's. |
@@ -104,6 +105,12 @@ Guest characters are stored on the host in `BepInEx\config\GYK2Coop\guests\`.
 
 ## Changes
 
+**0.5.0** (update both PCs)
+- Workbench crafting works together: the bench is locked for the other player while a craft runs, they see the progress over it, and the finished items show up in both games.
+- No more "last change wins" on chests and graves: an object is locked for the other player while someone has its window open.
+- Contents sync now includes a bench's craft inventory (inputs and outputs), not only its storage.
+- The other player's armor is drawn (helmet or not, in its color), using a private copy of the armor skin so your own armor color isn't affected.
+
 **0.4.0** (update both PCs)
 - Burying now works for both players: the grave changes (empty, body, filled) and what's in it (body, gravestone, fence) are synced, and the unburied-body count is recounted the way the game does it, including bodies the other player is carrying.
 - Fixed in 0.3.0: when the game changed an object in place (e.g. putting a body in a grave), the other game could *delete* that object. Changes are now applied in place with the game's own function.
@@ -162,6 +169,9 @@ If a bench in your save is still stuck from 0.1.0, save, quit to the menu and lo
 - `Game/DropSync.cs`: Harmony hooks on `GameSceneData.AddDrop` / `RemoveDrop`. Bodies (item groups
   `body`/`corpse`) are always mirrored and never merged; other drops only near the player who
   made them, matched by item id and position.
+- `Game/ObjectLocks.cs`: per-object locks (window open, or craft queued from this game), heartbeat every
+  second with craft progress, expiry after 5 s; locked objects are filtered out of
+  `PlayerInteractionComponent.GetWgoTargetsFromColliders`. Contents are sent before the unlock.
 - `Game/QuestSync.cs`: host → guest copy of quest statuses (data only) and the objective arrow; the guest's
   quest transitions are blocked while connected.
 - `Game/SavePatches.cs`: the guest's `SaveSystem.Save` does nothing while it's in the host's world.

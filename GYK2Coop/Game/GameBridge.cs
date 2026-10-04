@@ -208,6 +208,58 @@ namespace GYK2Coop.Game
             }
         }
 
+        // ---------------------------------------------------------------- armor
+
+        private static FieldInfo armorActiveField, armorHelmetField;
+        private static MethodInfo armorColorMethod;
+
+        /// <summary>Whether the local player shows armor, with or without helmet, and its color.</summary>
+        public static void GetArmorState(out bool active, out bool helmet, out int colorIndex)
+        {
+            active = false;
+            helmet = true;
+            colorIndex = 0;
+            PlayerController p = Player;
+            if (p == null)
+                return;
+            try
+            {
+                if (armorActiveField == null)
+                {
+                    armorActiveField = AccessTools.Field(typeof(PlayerController), "isArmorViewActive");
+                    armorHelmetField = AccessTools.Field(typeof(PlayerController), "armorViewUsesHelmet");
+                    armorColorMethod = AccessTools.Method(typeof(PlayerController), "GetEquippedArmorColorIndex");
+                }
+                active = armorActiveField != null && (bool)armorActiveField.GetValue(p);
+                if (!active)
+                    return;
+                helmet = armorHelmetField == null || (bool)armorHelmetField.GetValue(p);
+                if (armorColorMethod != null)
+                    colorIndex = (int)armorColorMethod.Invoke(p, null);
+            }
+            catch
+            {
+                active = false;
+            }
+        }
+
+        /// <summary>A game window (chest, grave, workbench, ...) is open.</summary>
+        public static bool GameWindowOpen
+        {
+            get
+            {
+                PlayerController p = Player;
+                try
+                {
+                    return p != null && !p.IsControlEnabledByType(TakenControlType.ByUI);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
         public static void SetPlayerControlByUI(bool enabled)
         {
             try

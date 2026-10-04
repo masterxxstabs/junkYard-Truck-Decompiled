@@ -25,6 +25,8 @@ namespace GYK2Coop.Net
         WgoChange = 16,     // both: an object changed in place (empty grave -> grave with body) + its contents
         WgoItems = 17,      // both: contents of an object a player is using changed
         QuestState = 18,    // host -> guest: quest statuses + objective arrow target
+        ObjectLock = 19,    // both: "I'm using / crafting on this object" (heartbeat, with craft progress)
+        ObjectUnlock = 20,  // both: done with it (contents were sent just before)
     }
 
     internal struct Packet

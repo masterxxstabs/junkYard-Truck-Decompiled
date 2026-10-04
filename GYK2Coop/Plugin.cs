@@ -12,10 +12,10 @@ namespace GYK2Coop
     {
         public const string Guid = "gyk2coop.multiplayer";
         public const string Name = "Graveyard Keeper 2 Co-op";
-        public const string Version = "0.4.0";
+        public const string Version = "0.5.0";
 
         // Bump whenever the wire format changes; host and guest must match.
-        public const int ProtocolVersion = 4;
+        public const int ProtocolVersion = 5;
 
         internal static ManualLogSource Log;
 

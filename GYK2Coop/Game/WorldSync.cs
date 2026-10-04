@@ -66,6 +66,7 @@ namespace GYK2Coop.Game
             deferred.Clear();
             BodiesDirty = false;
             DropSync.Reset();
+            ObjectLocks.Reset();
             Active = false;
         }
 
@@ -280,35 +281,84 @@ namespace GYK2Coop.Game
         /// <summary>Set when something that affects the unburied-body count was applied.</summary>
         public static bool BodiesDirty;
 
+        // Contents are the object's storage plus its craft inventory (craft inputs and outputs).
+        private const byte StorageSlot = 0;
+        private const byte CraftSlot = 1;
+
+        private static List<Item> ItemsIn(WgoData w, byte slot)
+        {
+            Inventory inv = slot == CraftSlot ? w.CraftInventory : w.Inventory;
+            return inv?.Data?.Inventory;
+        }
+
         /// <summary>Cheap fingerprint of an object's contents: item ids, counts and identities.</summary>
         private static string ItemsKey(WgoData w)
         {
-            List<Item> items = w.Inventory?.Data?.Inventory;
-            if (items == null || items.Count == 0)
-                return "";
             var sb = new System.Text.StringBuilder();
-            foreach (Item it in items)
+            for (byte slot = StorageSlot; slot <= CraftSlot; slot++)
             {
-                if (it == null || it.IsEmpty)
+                List<Item> items = ItemsIn(w, slot);
+                if (items == null)
                     continue;
-                sb.Append(GameBridge.ItemGuid(it).ToString("N")).Append(':').Append(GameBridge.ItemDefId(it)).Append(':').Append(it.Count).Append(';');
+                sb.Append('#').Append(slot);
+                foreach (Item it in items)
+                {
+                    if (it == null || it.IsEmpty)
+                        continue;
+                    sb.Append(GameBridge.ItemGuid(it).ToString("N")).Append(':').Append(GameBridge.ItemDefId(it)).Append(':').Append(it.Count).Append(';');
+                }
             }
             return sb.ToString();
         }
 
+        /// <summary>Each entry is one byte saying which inventory, followed by the serialized item.</summary>
         private static List<byte[]> SerializeItems(WgoData w)
         {
             var list = new List<byte[]>();
-            List<Item> items = w.Inventory?.Data?.Inventory;
-            if (items == null)
-                return list;
-            foreach (Item it in items)
+            for (byte slot = StorageSlot; slot <= CraftSlot; slot++)
             {
-                if (it == null || it.IsEmpty)
+                List<Item> items = ItemsIn(w, slot);
+                if (items == null)
                     continue;
-                list.Add(GameSerializer.Serialize<Item>(it));
+                foreach (Item it in items)
+                {
+                    if (it == null || it.IsEmpty)
+                        continue;
+                    byte[] data = GameSerializer.Serialize<Item>(it);
+                    var entry = new byte[data.Length + 1];
+                    entry[0] = slot;
+                    Buffer.BlockCopy(data, 0, entry, 1, data.Length);
+                    list.Add(entry);
+                }
             }
             return list;
+        }
+
+        /// <summary>Sends the object's contents right away (used when a lock on it is released).</summary>
+        public static void SendContentsNow(WgoData w)
+        {
+            if (!Active || Send == null || w == null)
+                return;
+            try
+            {
+                List<byte[]> items = SerializeItems(w);
+                SendItems(w, items);
+                if (watched.TryGetValue(GameBridge.WgoGuid(w), out Watched wt))
+                    wt.ItemsKey = ItemsKey(w);
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Not syncing contents of '" + GameBridge.WgoDefId(w) + "': " + e.Message);
+            }
+        }
+
+        /// <summary>Our copy of a remote object id (same id, or one we matched to it).</summary>
+        public static WgoData FindLocalById(Guid remoteId)
+        {
+            WgoData w = GameBridge.FindWgo(remoteId);
+            if (w == null && remoteToLocal.TryGetValue(remoteId, out Guid alias))
+                w = GameBridge.FindWgo(alias);
+            return w;
         }
 
         private static void WriteItems(BinaryWriter w, List<byte[]> items)
@@ -494,7 +544,7 @@ namespace GYK2Coop.Game
         /// <summary>True if changing this object now would pull it out from under the local game.</summary>
         private static bool IsBusyLocally(WgoData w)
         {
-            if (HasCraftQueue(w))
+            if (HasCraftQueue(w) || ObjectLocks.IsHeldLocally(w))
                 return true;
             return GameBridge.WgoUnderInteraction == w && GameBridge.PlayerIsWorkingOrBuilding;
         }
@@ -502,9 +552,7 @@ namespace GYK2Coop.Game
         /// <returns>false if it has to wait.</returns>
         private static bool TryApply(Incoming u)
         {
-            WgoData local = GameBridge.FindWgo(u.Guid);
-            if (local == null && remoteToLocal.TryGetValue(u.Guid, out Guid alias))
-                local = GameBridge.FindWgo(alias);
+            WgoData local = FindLocalById(u.Guid);
             if (local == null)
                 return true; // We don't have this object; nothing to change.
 
@@ -515,13 +563,18 @@ namespace GYK2Coop.Game
             if (IsBusyLocally(local))
                 return false;
 
-            List<Item> items = new List<Item>();
+            var storage = new List<Item>();
+            var craft = new List<Item>();
             foreach (byte[] b in u.Items)
             {
+                if (b == null || b.Length < 2)
+                    continue;
                 Item it;
                 try
                 {
-                    it = b != null ? GameSerializer.Deserialize<Item>(b) : null;
+                    var data = new byte[b.Length - 1];
+                    Buffer.BlockCopy(b, 1, data, 0, data.Length);
+                    it = GameSerializer.Deserialize<Item>(data);
                 }
                 catch (Exception e)
                 {
@@ -529,7 +582,7 @@ namespace GYK2Coop.Game
                     return true;
                 }
                 if (it != null && !it.IsEmpty)
-                    items.Add(it);
+                    (b[0] == CraftSlot ? craft : storage).Add(it);
             }
 
             ApplyingRemote++;
@@ -540,7 +593,8 @@ namespace GYK2Coop.Game
                     // The game's own in-place change: same object, new definition.
                     MainGame.Instance.GameSave.worldData.ChangeWgoData(local, u.NewDef);
                 }
-                ReplaceContents(local, items);
+                ReplaceContents(local.Inventory, storage);
+                ReplaceContents(local.CraftInventory, craft);
                 BodiesDirty = true;
                 // The other game replaced the object with a new one; remember which of ours it is.
                 Guid localGuid = GameBridge.WgoGuid(local);
@@ -560,10 +614,9 @@ namespace GYK2Coop.Game
             return true;
         }
 
-        /// <summary>Makes the object's storage hold exactly <paramref name="items"/>, using the game's own add/remove so views update.</summary>
-        private static void ReplaceContents(WgoData w, List<Item> items)
+        /// <summary>Makes <paramref name="inv"/> hold exactly <paramref name="items"/>, using the game's own add/remove so views update.</summary>
+        private static void ReplaceContents(Inventory inv, List<Item> items)
         {
-            Inventory inv = w.Inventory;
             List<Item> current = inv?.Data?.Inventory;
             if (inv == null || current == null)
                 return;

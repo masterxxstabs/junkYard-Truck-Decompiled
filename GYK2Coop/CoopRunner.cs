@@ -64,11 +64,13 @@ namespace GYK2Coop
         private int lastSentAnim = -1;
         private Vector2 lastSentDir;
         private string lastSentCarry = "";
+        private int lastSentArmor = -1;
         private float[] lastSentLayers = new float[0];
         private readonly List<string> overheadIcons = new List<string>();
         private int remoteCarriedBodies;
         private int localCarriedBodies;
         private float nextBodyRecount;
+        private float nextLockTick;
 
         // UI
         private bool panelOpen;
@@ -88,6 +90,8 @@ namespace GYK2Coop
             portField = CoopPlugin.Port.Value.ToString();
             WorldSync.Send = SendFrame;
             WorldSync.Notice = AddChat;
+            ObjectLocks.Send = SendFrame;
+            ObjectLocks.CoopPanelOpen = () => panelOpen;
             MainGame.OnGameStarted = (Action)Delegate.Combine(MainGame.OnGameStarted, (Action)(() => gameStartedFlag = true));
             // The guest's character must reach the host before the world is torn down.
             Patch_MainGame_GoToMenu.BeforeGoToMenu = () =>
@@ -313,8 +317,10 @@ namespace GYK2Coop
                 float[] layers = GameBridge.GetPlayerLayerWeights();
                 GameBridge.GetOverheadIcons(overheadIcons);
                 string carry = string.Join("|", overheadIcons.ToArray());
+                GameBridge.GetArmorState(out bool armorOn, out bool armorHelmet, out int armorColor);
+                int armorKey = armorOn ? (armorHelmet ? 1000 : 2000) + armorColor : 0;
                 bool changed = (pos - lastSentPos).sqrMagnitude > 0.0004f || anim != lastSentAnim || (dir - lastSentDir).sqrMagnitude > 0.0001f
-                    || carry != lastSentCarry || LayersChanged(layers);
+                    || carry != lastSentCarry || LayersChanged(layers) || armorKey != lastSentArmor;
                 if (changed || now >= nextStateHeartbeat)
                 {
                     nextStateHeartbeat = now + StateHeartbeat;
@@ -322,6 +328,7 @@ namespace GYK2Coop
                     lastSentAnim = anim;
                     lastSentDir = dir;
                     lastSentCarry = carry;
+                    lastSentArmor = armorKey;
                     lastSentLayers = layers;
                     string scene = GameBridge.PlayerSceneId;
                     Send(MsgType.PlayerState, w =>
@@ -336,12 +343,21 @@ namespace GYK2Coop
                             w.Write(layers[i]);
                         w.WriteStr(carry);
                         w.Write((byte)Math.Min(GameBridge.LocalCarriedBodies, 255));
+                        w.Write(armorOn);
+                        w.Write(armorHelmet);
+                        w.Write((byte)Mathf.Clamp(armorColor, 0, 255));
                     });
                 }
             }
 
             if (role == Role.Host)
                 QuestSync.HostTick(SendFrame, now);
+
+            if (now >= nextLockTick)
+            {
+                nextLockTick = now + 0.25f;
+                ObjectLocks.Tick();
+            }
 
             int carriedNow = GameBridge.LocalCarriedBodies;
             if (carriedNow != localCarriedBodies)
@@ -389,8 +405,11 @@ namespace GYK2Coop
         {
             WorldSync.Reset();
             WorldSync.Active = true;
+            ObjectLocks.RemoteName = remoteName;
+            ObjectLocks.CoopRunnerIsHost = role == Role.Host;
             lastSentAnim = -1;
             lastSentCarry = null;
+            lastSentArmor = -1;
             remoteCarriedBodies = 0;
             localCarriedBodies = GameBridge.LocalCarriedBodies;
             nextCharacterUpload = Time.unscaledTime + CharacterUploadInterval;
@@ -458,6 +477,14 @@ namespace GYK2Coop
                     case MsgType.QuestState:
                         if (role == Role.Guest && phase == Phase.Playing)
                             QuestSync.Apply(r);
+                        break;
+                    case MsgType.ObjectLock:
+                        if (phase == Phase.Playing)
+                            ObjectLocks.ApplyLock(r);
+                        break;
+                    case MsgType.ObjectUnlock:
+                        if (phase == Phase.Playing)
+                            ObjectLocks.ApplyUnlock(r);
                         break;
                     case MsgType.DropAdd:
                         if (phase == Phase.Playing)
@@ -636,6 +663,9 @@ namespace GYK2Coop
                 layers[i] = r.ReadSingle();
             string carry = r.ReadString();
             int carriedBodies = r.ReadByte();
+            bool armorOn = r.ReadBoolean();
+            bool armorHelmet = r.ReadBoolean();
+            int armorColor = r.ReadByte();
             if (carriedBodies != remoteCarriedBodies)
             {
                 remoteCarriedBodies = carriedBodies;
@@ -646,6 +676,7 @@ namespace GYK2Coop
                 puppet.PushState(pos, dir, anim, scene);
                 puppet.SetLayerWeights(layers);
                 puppet.SetCarry(carry);
+                puppet.SetArmor(armorOn, armorHelmet, armorColor);
             }
         }
 
@@ -939,6 +970,8 @@ namespace GYK2Coop
             }
 
             DrawNameTag();
+            if (phase == Phase.Playing)
+                ObjectLocks.DrawLabels();
             DrawOverlay();
 
             if (panelOpen)

@@ -231,6 +231,75 @@ namespace GYK2Coop.Game
 
         private static System.Reflection.FieldInfo dropViewField;
 
+        // Only with the armor skin applied (see SetArmor).
+        private static readonly int[] ArmorLayers =
+        {
+            (int)AnimationComponent.Layers.Armor,
+            (int)AnimationComponent.Layers.ArmorWithSword,
+            (int)AnimationComponent.Layers.ArmorWithPike,
+            (int)AnimationComponent.Layers.ArmorWithBow,
+            (int)AnimationComponent.Layers.ArmorNoHelmet,
+        };
+
+        private bool armorShown;
+        private bool armorHelmet = true;
+        private int armorColor = -1;
+        private UnityEngine.Object armorPreset;
+
+        /// <summary>Shows the remote player's armor using the game's armor skin and color palettes.</summary>
+        public void SetArmor(bool active, bool helmet, int colorIndex)
+        {
+            if (anim == null)
+                return;
+            if (active == armorShown && (!active || (helmet == armorHelmet && colorIndex == armorColor)))
+                return;
+            armorShown = active;
+            armorHelmet = helmet;
+            armorColor = colorIndex;
+            try
+            {
+                if (armorPreset != null)
+                {
+                    Destroy(armorPreset);
+                    armorPreset = null;
+                }
+                if (!active)
+                {
+                    ApplySkin();
+                    if (animator != null && animator.isActiveAndEnabled)
+                        foreach (int l in ArmorLayers)
+                            if (l < animator.layerCount)
+                                animator.SetLayerWeight(l, 0f);
+                    return;
+                }
+
+                object source = helmet
+                    ? AccessTools.Property(typeof(PlayerSkinHelper), "ArmorPreset")?.GetValue(null, null)
+                    : AccessTools.Method(typeof(PlayerSkinHelper), "GetArmorNoHelmetPreset")?.Invoke(null, null);
+                if (!(source is UnityEngine.Object src) || src == null)
+                    return;
+                // Our own copy: the palettes are written into the preset, and the local player may
+                // be wearing a different armor color with the same preset asset.
+                armorPreset = Instantiate(src);
+                CallWithArg(anim, "ChangeSkinPreset", armorPreset);
+
+                PlayerColorCustomizationData custom = PlayerSkinHelper.CharacterCustomizationData;
+                ArmorPresetData armor = custom != null ? custom.armorPresetData : null;
+                if (armor == null)
+                    return;
+                Texture2D palette = armor.GetColorReplacePalette(Mathf.Max(0, colorIndex))?.palette;
+                var parts = new List<CustomizablePartType>(armor.affectedPartTypes);
+                if (!helmet)
+                    parts.RemoveAll(t => t != CustomizablePartType.Body && t != CustomizablePartType.Arms);
+                System.Reflection.MethodInfo apply = AccessTools.Method(typeof(PlayerAnimation), "ApplyPlayerColors");
+                apply?.Invoke(anim, new object[] { palette, parts, armorPreset });
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Puppet armor failed: " + e.Message);
+            }
+        }
+
         private float[] layerWeights = new float[0];
         private string carry = "";
         private string shownCarry;
@@ -249,7 +318,7 @@ namespace GYK2Coop.Game
             int n = Mathf.Min(layerWeights.Length, animator.layerCount);
             for (int i = 0; i < n; i++)
             {
-                if (!CopiedLayers.Contains(i))
+                if (!CopiedLayers.Contains(i) && !(armorShown && Array.IndexOf(ArmorLayers, i) >= 0))
                     continue;
                 if (Mathf.Abs(animator.GetLayerWeight(i) - layerWeights[i]) > 0.001f)
                     animator.SetLayerWeight(i, layerWeights[i]);
@@ -345,6 +414,8 @@ namespace GYK2Coop.Game
 
         private void OnDestroy()
         {
+            if (armorPreset != null)
+                Destroy(armorPreset);
             // AnimationComponent.OnDestroy releases its skin preset asset; it is shared with the
             // local player, so make sure the puppet releases nothing.
             try
