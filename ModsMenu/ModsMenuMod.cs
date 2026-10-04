@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 [assembly: MelonInfo(typeof(ModsMenu.ModsMenuMod), "Mods Menu", "1.0.0", "masterxxstabs")]
@@ -32,7 +36,10 @@ namespace ModsMenu
 
 		private float nextLook;
 		private float giveUpAt;
+		private float dumpAt;
 		private bool installed;
+		private string sceneName = "";
+		private string lastStatus = "";
 
 		private Transform column;
 		private GameObject template; // the UPDATES button
@@ -45,10 +52,19 @@ namespace ModsMenu
 		{
 			log = LoggerInstance;
 			giveUpAt = Time.unscaledTime + LookFor;
+			dumpAt = Time.unscaledTime + DumpAfter;
+			log.Msg("Loaded; looking for the main menu.");
 		}
 
-		public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+		// If the button isn't in after this long (seconds), write what the UI looks
+		// like to UserData/ModsMenu/ so it can be worked out from the file.
+		private const float DumpAfter = 10f;
+
+		public override void OnSceneWasInitialized(int buildIndex, string name)
 		{
+			sceneName = name;
+			lastStatus = "";
+			dumpAt = Time.unscaledTime + DumpAfter;
 			installed = false;
 			pageOpen = false;
 			pageItems.Clear();
@@ -67,6 +83,11 @@ namespace ModsMenu
 			if (installed || Time.unscaledTime < nextLook || Time.unscaledTime > giveUpAt)
 			{
 				return;
+			}
+			if (dumpAt > 0f && Time.unscaledTime > dumpAt)
+			{
+				dumpAt = 0f;
+				Dump();
 			}
 			// The menu can appear after a splash screen: keep looking a few times a second.
 			nextLook = Time.unscaledTime + 0.5f;
@@ -116,43 +137,112 @@ namespace ModsMenu
 		{
 			if (!FindTypes())
 			{
+				Status("Unity UI isn't loaded (no UnityEngine.UI.Button / text types found).");
 				return;
 			}
-			Component updatesText = FindLabel("UPDATES");
-			Component settingsText = FindLabel("SETTINGS");
-			if (updatesText == null || settingsText == null)
+			List<Component> texts = VisibleTexts();
+			List<Component> updatesLabels = texts.FindAll(c => Clean(GetText(c)) == "UPDATES");
+			List<Component> settingsLabels = texts.FindAll(c => Clean(GetText(c)) == "SETTINGS");
+			if (updatesLabels.Count == 0 || settingsLabels.Count == 0)
 			{
+				Status("Scene '" + sceneName + "': " + updatesLabels.Count + " UPDATES and " + settingsLabels.Count + " SETTINGS labels among " + texts.Count + " texts.");
 				return;
 			}
-			Transform updates, settings;
-			if (!Entries(updatesText.transform, settingsText.transform, out updates, out settings))
+			// Dark UI keeps every panel active (it fades them), so the Updates and
+			// Settings panels' own titles count as visible too: try every pair and
+			// take the one whose entries sit in the same column. The panels may sit
+			// side by side too, so of all such pairs take the smallest entries:
+			// buttons, not whole panels.
+			Transform bestUpdates = null, bestSettings = null;
+			int bestSize = int.MaxValue;
+			foreach (Component u in updatesLabels)
 			{
-				return; // not the main menu's button column
+				foreach (Component st in settingsLabels)
+				{
+					Transform updates, settings;
+					if (!Entries(u.transform, st.transform, out updates, out settings))
+					{
+						continue;
+					}
+					int size = updates.GetComponentsInChildren<Transform>(true).Length + settings.GetComponentsInChildren<Transform>(true).Length;
+					if (size < bestSize)
+					{
+						bestSize = size;
+						bestUpdates = updates;
+						bestSettings = settings;
+					}
+				}
 			}
+			if (bestUpdates != null)
+			{
+				Install(bestUpdates, bestSettings);
+				return;
+			}
+			Status("Scene '" + sceneName + "': found UPDATES (" + Paths(updatesLabels) + ") and SETTINGS (" + Paths(settingsLabels) + ") but not in one column.");
+		}
+
+		private void Install(Transform updates, Transform settings)
+		{
 			column = updates.parent;
 			template = updates.gameObject;
 			modsButton = MakeButton("MODS", OpenPage);
 			modsButton.name = "MODS (Mods Menu)";
 			InsertBefore(modsButton.transform, settings);
 			installed = true;
-			log.Msg("Added MODS to the main menu.");
+			log.Msg("Added MODS to the main menu (" + PathOf(column) + ", " + (HasLayoutGroup() ? "layout group" : "placed by hand") + ").");
 		}
 
-		// A visible text in a loaded scene that reads exactly `label`.
-		private Component FindLabel(string label)
+		// Log what's in the way, once per change rather than twice a second.
+		private void Status(string status)
 		{
+			if (status != lastStatus)
+			{
+				lastStatus = status;
+				log.Msg(status);
+			}
+		}
+
+		private List<Component> VisibleTexts()
+		{
+			List<Component> found = new List<Component>();
 			foreach (Type type in textTypes)
 			{
 				foreach (Object o in Resources.FindObjectsOfTypeAll(type))
 				{
 					Component c = o as Component;
-					if (c != null && c.gameObject.scene.IsValid() && c.gameObject.activeInHierarchy && GetText(c).Trim().ToUpperInvariant() == label)
+					if (c != null && c.gameObject.scene.IsValid() && c.gameObject.activeInHierarchy)
 					{
-						return c;
+						found.Add(c);
 					}
 				}
 			}
-			return null;
+			return found;
+		}
+
+		// "<b>Updates</b> " -> "UPDATES"
+		private static string Clean(string text)
+		{
+			return Regex.Replace(Regex.Replace(text ?? "", "<[^>]*>", ""), "\\s+", " ").Trim().ToUpperInvariant();
+		}
+
+		private static string PathOf(Transform t)
+		{
+			string path = t.name;
+			for (Transform p = t.parent; p != null; p = p.parent)
+			{
+				path = p.name + "/" + path;
+			}
+			return path;
+		}
+
+		private static string Paths(List<Component> list)
+		{
+			List<string> paths = new List<string>();
+			foreach (Component c in list)
+			{
+				paths.Add(PathOf(c.transform));
+			}
+			return string.Join("; ", paths.ToArray());
 		}
 
 		// The column both labels' entries sit in, and each label's entry in it
@@ -174,7 +264,8 @@ namespace ModsMenu
 					{
 						entryB = entryB.parent;
 					}
-					return Mathf.Abs(entryA.GetSiblingIndex() - entryB.GetSiblingIndex()) <= 3;
+					// Next to each other, give or take a separator or two.
+					return Mathf.Abs(entryA.GetSiblingIndex() - entryB.GetSiblingIndex()) <= 4;
 				}
 			}
 			return false;
@@ -369,6 +460,81 @@ namespace ModsMenu
 			}
 			hiddenForPage.Clear();
 			pageOpen = false;
+		}
+
+		// --- Diagnostics. ---
+
+		// Every UI object in the loaded scenes, with its components and text, to
+		// UserData/ModsMenu/ui_<scene>.txt.
+		private void Dump()
+		{
+			try
+			{
+				StringBuilder sb = new StringBuilder();
+				sb.AppendLine("Mods Menu UI dump, scene '" + sceneName + "', status: " + lastStatus);
+				int lines = 0;
+				for (int i = 0; i < SceneManager.sceneCount; i++)
+				{
+					foreach (GameObject root in SceneManager.GetSceneAt(i).GetRootGameObjects())
+					{
+						if (root.GetComponentInChildren<RectTransform>(true) != null)
+						{
+							DumpObject(root.transform, 0, sb, ref lines);
+						}
+					}
+				}
+				string dir = Path.Combine(Path.Combine(Path.GetDirectoryName(Application.dataPath), "UserData"), "ModsMenu");
+				Directory.CreateDirectory(dir);
+				string file = Path.Combine(dir, "ui_" + Regex.Replace(sceneName, "[^A-Za-z0-9_-]", "_") + ".txt");
+				File.WriteAllText(file, sb.ToString());
+				log.Msg("MODS isn't in yet; wrote the menu layout to " + file);
+			}
+			catch (Exception e)
+			{
+				log.Warning("Couldn't write the UI dump: " + e.Message);
+			}
+		}
+
+		private void DumpObject(Transform t, int depth, StringBuilder sb, ref int lines)
+		{
+			if (lines++ > 20000)
+			{
+				return;
+			}
+			sb.Append(' ', depth * 2).Append(t.gameObject.activeSelf ? "+ " : "- ").Append(t.name).Append("  [");
+			bool first = true;
+			string text = null;
+			foreach (Component c in t.GetComponents<Component>())
+			{
+				if (c == null)
+				{
+					continue;
+				}
+				sb.Append(first ? "" : ", ").Append(c.GetType().Name);
+				first = false;
+				foreach (Type type in textTypes)
+				{
+					if (type.IsInstanceOfType(c))
+					{
+						text = GetText(c);
+					}
+				}
+			}
+			sb.Append(']');
+			RectTransform rt = t as RectTransform;
+			if (rt != null)
+			{
+				sb.Append("  pos ").Append(rt.anchoredPosition.ToString("F0")).Append(" size ").Append(rt.sizeDelta.ToString("F0"));
+			}
+			if (text != null)
+			{
+				sb.Append("  text \"").Append(text.Replace("\n", "\\n")).Append('"');
+			}
+			sb.AppendLine();
+			foreach (Transform child in t)
+			{
+				DumpObject(child, depth + 1, sb, ref lines);
+			}
 		}
 
 		// --- Text by reflection (UnityEngine.UI.Text or TextMeshPro). ---
