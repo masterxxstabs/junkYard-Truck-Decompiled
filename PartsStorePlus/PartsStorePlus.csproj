@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>PartsStorePlus</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Change this if the game is installed somewhere else, or build with: dotnet build -p:GameDir="D:\Games\Junkyard Truck" -->
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Junkyard Truck</GameDir>
+    <ManagedDir>$(GameDir)\JunkyardTruck_Data\Managed</ManagedDir>
+    <!-- MelonLoader 0.6+ keeps its Mono assemblies in MelonLoader\net35; 0.5.x kept them in MelonLoader\ -->
+    <MelonDir>$(GameDir)\MelonLoader\net35</MelonDir>
+    <MelonDir Condition="!Exists('$(MelonDir)\MelonLoader.dll')">$(GameDir)\MelonLoader</MelonDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MelonLoader" HintPath="$(MelonDir)\MelonLoader.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(MelonDir)\0Harmony.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(ManagedDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+
+  <!-- Copy the built mod straight into the game's Mods folder -->
+  <Target Name="CopyToMods" AfterTargets="Build" Condition="Exists('$(GameDir)\Mods')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\Mods" />
+  </Target>
+
+</Project>
