@@ -10,7 +10,7 @@ using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(ModsMenu.ModsMenuMod), "Mods Menu", "1.1.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(ModsMenu.ModsMenuMod), "Mods Menu", "1.2.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace ModsMenu
@@ -32,6 +32,8 @@ namespace ModsMenu
 
 		private Type buttonType;
 		private Type layoutGroupType;
+		private Type canvasType;
+		private Type imageType;
 		private readonly List<Type> textTypes = new List<Type>();
 
 		private float nextLook;
@@ -115,6 +117,14 @@ namespace ModsMenu
 				if ((t = asm.GetType("UnityEngine.UI.LayoutGroup")) != null)
 				{
 					layoutGroupType = t;
+				}
+				if ((t = asm.GetType("UnityEngine.Canvas")) != null)
+				{
+					canvasType = t;
+				}
+				if ((t = asm.GetType("UnityEngine.UI.Image")) != null)
+				{
+					imageType = t;
 				}
 				if ((t = asm.GetType("UnityEngine.UI.Text")) != null)
 				{
@@ -276,9 +286,9 @@ namespace ModsMenu
 
 		// --- Building entries. ---
 
-		private GameObject MakeButton(string label, UnityAction onClick)
+		private GameObject MakeButton(string label, UnityAction onClick, Transform parent = null)
 		{
-			GameObject copy = Object.Instantiate(template, column, false);
+			GameObject copy = Object.Instantiate(template, parent ?? column, false);
 			copy.SetActive(true);
 			foreach (Component text in Texts(copy))
 			{

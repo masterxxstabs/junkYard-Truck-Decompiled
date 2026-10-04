@@ -33,12 +33,16 @@ namespace ModsMenu
 		private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
 		private MelonPreferences_Entry<int> linesPerPage;
+		private MelonPreferences_Entry<float> textScale;
+		private MelonPreferences_Entry<float> panelWidth;
 
 		private Page page = Page.None;
 		private readonly List<GameObject> pageItems = new List<GameObject>();
 		private readonly List<GameObject> hiddenForPage = new List<GameObject>();
-		private Vector2 firstPos;
-		private Vector2 slot;
+		// The panel the pages are drawn on, in the middle of the screen.
+		private RectTransform panel;
+		private float lineHeight;
+		private readonly List<KeyValuePair<RectTransform, Vector2>> rows = new List<KeyValuePair<RectTransform, Vector2>>(); // (row, (height, gap after))
 
 		// Settings page state.
 		private string pageTitle = "";
@@ -55,6 +59,8 @@ namespace ModsMenu
 		{
 			MelonPreferences_Category c = MelonPreferences.CreateCategory("ModsMenu", "Mods Menu");
 			linesPerPage = c.CreateEntry("LinesPerPage", 8, "Settings per page", "How many settings a mod's page shows before NEXT PAGE.");
+			textScale = c.CreateEntry("TextScale", 1f, "Text size", "Size of the mods and settings pages' text (1 = normal; try 0.8 to 1.4).");
+			panelWidth = c.CreateEntry("PanelWidth", 0.7f, "Panel width", "Width of the mods and settings panel as a share of the screen (0.4 to 0.95).");
 		}
 
 		private void ResetPages()
@@ -62,6 +68,8 @@ namespace ModsMenu
 			page = Page.None;
 			pageItems.Clear();
 			hiddenForPage.Clear();
+			rows.Clear();
+			panel = null;
 			editing = null;
 		}
 
@@ -74,9 +82,7 @@ namespace ModsMenu
 				return;
 			}
 			hiddenForPage.Clear();
-			RectTransform first = template.transform as RectTransform;
-			firstPos = first != null ? first.anchoredPosition : Vector2.zero;
-			slot = Slot();
+			MakePanel();
 			foreach (Transform child in column)
 			{
 				if (child.gameObject.activeSelf)
@@ -94,6 +100,11 @@ namespace ModsMenu
 		private void ClosePage()
 		{
 			ClearItems();
+			if (panel != null)
+			{
+				Object.Destroy(panel.gameObject);
+				panel = null;
+			}
 			foreach (GameObject g in hiddenForPage)
 			{
 				if (g != null)
@@ -118,6 +129,7 @@ namespace ModsMenu
 				}
 			}
 			pageItems.Clear();
+			rows.Clear();
 			editingLine = null;
 		}
 
@@ -237,9 +249,8 @@ namespace ModsMenu
 			}
 			mods.Sort((a, b) => string.Compare(a.Info.Name, b.Info.Name, StringComparison.OrdinalIgnoreCase));
 
-			Vector2 pos = firstPos;
-			Place(Line(mods.Count + (mods.Count == 1 ? " MOD INSTALLED" : " MODS INSTALLED"), 0.65f, null), ref pos, slot * 0.75f);
-			Place(Line("CLICK A MOD TO CHANGE ITS SETTINGS", 0.38f, null), ref pos, slot * 0.5f);
+			Place(Line(mods.Count + (mods.Count == 1 ? " MOD INSTALLED" : " MODS INSTALLED"), TitleSize, null), 0.25f);
+			Place(Line("CLICK A MOD TO CHANGE ITS SETTINGS", InfoSize, null), 0.45f);
 			foreach (MelonBase melon in mods)
 			{
 				string text = melon.Info.Name.ToUpperInvariant() + "  " + melon.Info.Version;
@@ -265,7 +276,7 @@ namespace ModsMenu
 				{
 					text += "   (NO SETTINGS)";
 				}
-				Place(Line(text, 0.5f, click), ref pos, slot * 0.55f);
+				Place(Line(text, LineSize, click), 0.1f);
 			}
 			// Settings no installed mod's name matches (a plugin's, or a mod that
 			// names its category differently): still reachable.
@@ -273,10 +284,11 @@ namespace ModsMenu
 			{
 				string title = CategoryName(cat);
 				List<object> one = new List<object> { cat };
-				Place(Line("SETTINGS: " + title.ToUpperInvariant() + "   >", 0.5f, delegate { ShowSettings(title, one); }), ref pos, slot * 0.55f);
+				Place(Line("SETTINGS: " + title.ToUpperInvariant() + "   >", LineSize, delegate { ShowSettings(title, one); }), 0.1f);
 			}
-			pos += slot * 0.35f;
-			Place(Button("BACK", ClosePage), ref pos, slot);
+			Gap(0.4f);
+			Place(Line("BACK", ButtonSize, ClosePage), 0f);
+			Finish();
 		}
 
 		// Each visible category goes to the mod whose name, namespace or assembly
@@ -369,31 +381,31 @@ namespace ModsMenu
 			int pages = Mathf.Max(1, (entries.Count + per - 1) / per);
 			scroll = Mathf.Clamp(scroll, 0, pages - 1);
 
-			Vector2 pos = firstPos;
-			Place(Line(pageTitle.ToUpperInvariant() + (pages > 1 ? "  (" + (scroll + 1) + "/" + pages + ")" : ""), 0.65f, null), ref pos, slot * 0.7f);
-			Place(Line(info, 0.38f, null), ref pos, slot * 0.5f);
+			Place(Line(pageTitle.ToUpperInvariant() + (pages > 1 ? "  (" + (scroll + 1) + "/" + pages + ")" : ""), TitleSize, null), 0.25f);
+			Place(Line(info, InfoSize, null), 0.45f);
 			for (int i = scroll * per; i < entries.Count && i < (scroll + 1) * per; i++)
 			{
 				object entry = entries[i];
 				GameObject line = null;
-				line = Line(EntryName(entry) + ": " + ValueText(entry), 0.5f, delegate { Edit(entry, line); });
-				Place(line, ref pos, slot * 0.55f);
+				line = Line(EntryName(entry) + ": " + ValueText(entry), LineSize, delegate { Edit(entry, line); });
+				Place(line, 0.1f);
 			}
-			pos += slot * 0.2f;
+			Gap(0.3f);
 			if (pages > 1)
 			{
 				if (scroll < pages - 1)
 				{
-					Place(Line("NEXT PAGE  >", 0.5f, delegate { Scroll(1); }), ref pos, slot * 0.55f);
+					Place(Line("NEXT PAGE  >", LineSize, delegate { Scroll(1); }), 0.1f);
 				}
 				if (scroll > 0)
 				{
-					Place(Line("<  PREVIOUS PAGE", 0.5f, delegate { Scroll(-1); }), ref pos, slot * 0.55f);
+					Place(Line("<  PREVIOUS PAGE", LineSize, delegate { Scroll(-1); }), 0.1f);
 				}
 			}
-			Place(Line("RESET THESE TO DEFAULTS", 0.5f, ResetAll), ref pos, slot * 0.55f);
-			pos += slot * 0.2f;
-			Place(Button("BACK", ShowMods), ref pos, slot);
+			Place(Line("RESET THESE TO DEFAULTS", LineSize, ResetAll), 0.1f);
+			Gap(0.4f);
+			Place(Line("BACK", ButtonSize, ShowMods), 0f);
+			Finish();
 		}
 
 		private void Scroll(int by)
@@ -579,28 +591,120 @@ namespace ModsMenu
 			return t == typeof(int) || t == typeof(float) || t == typeof(double) || t == typeof(long) || t == typeof(short) || t == typeof(byte) || t == typeof(uint) || t == typeof(ulong) || t == typeof(ushort) || t == typeof(sbyte) || t == typeof(decimal);
 		}
 
-		// --- Lines. ---
+		// --- The panel and its lines. ---
 
-		// A line of the page: a copy of the menu button in smaller type. Without a
-		// click it's just text (its hover look stays, it does nothing).
+		// Sizes relative to the menu's own buttons (times the TextScale setting).
+		private const float TitleSize = 0.85f;
+		private const float InfoSize = 0.5f;
+		private const float LineSize = 0.62f;
+		private const float ButtonSize = 0.85f;
+
+		// A dark panel in the middle of the screen, on the menu's canvas, so the
+		// pages read well over the busy background whatever the column looks like.
+		private void MakePanel()
+		{
+			Transform canvas = column;
+			if (canvasType != null)
+			{
+				Component c = column.GetComponentInParent(canvasType);
+				if (c != null)
+				{
+					PropertyInfo root = canvasType.GetProperty("rootCanvas");
+					Component top = root != null ? root.GetValue(c, null) as Component : null;
+					canvas = (top ?? c).transform;
+				}
+			}
+			GameObject go = new GameObject("Mods Menu Panel", typeof(RectTransform));
+			go.layer = column.gameObject.layer;
+			panel = (RectTransform)go.transform;
+			panel.SetParent(canvas, false);
+			panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f, 0.5f);
+			panel.anchoredPosition = Vector2.zero;
+			panel.SetAsLastSibling();
+			if (imageType != null)
+			{
+				// Also catches clicks so nothing behind the panel reacts.
+				Component image = go.AddComponent(imageType);
+				PropertyInfo color = imageType.GetProperty("color");
+				if (color != null)
+				{
+					color.SetValue(image, new Color(0f, 0f, 0f, 0.82f), null);
+				}
+			}
+			RectTransform t = template.transform as RectTransform;
+			lineHeight = t != null && t.rect.height > 1f ? t.rect.height : 60f;
+		}
+
+		private float PanelWidth()
+		{
+			RectTransform canvas = panel.parent as RectTransform;
+			float screen = canvas != null && canvas.rect.width > 1f ? canvas.rect.width : 1920f;
+			return screen * Mathf.Clamp(panelWidth.Value, 0.4f, 0.95f);
+		}
+
+		private float Scale()
+		{
+			return Mathf.Clamp(textScale.Value, 0.4f, 2.5f);
+		}
+
+		// A line: a copy of the menu button (same font, hover and click sound),
+		// centered on the panel. Without a click it's just text.
 		private GameObject Line(string label, float size, UnityAction onClick)
 		{
-			GameObject line = MakeButton(label, onClick ?? delegate { });
-			foreach (Component text in Texts(line))
-			{
-				ScaleFont(text, size);
-			}
+			size *= Scale();
+			GameObject line = MakeButton(label, onClick ?? delegate { }, panel);
 			RectTransform rt = line.transform as RectTransform;
 			if (rt != null)
 			{
-				rt.sizeDelta = new Vector2(rt.sizeDelta.x, rt.sizeDelta.y * size);
+				rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+				rt.localScale = Vector3.one;
+				rt.localRotation = Quaternion.identity;
 			}
+			foreach (Component text in Texts(line))
+			{
+				ScaleFont(text, size);
+				CenterText(text);
+			}
+			rows.Add(new KeyValuePair<RectTransform, Vector2>(rt, new Vector2(lineHeight * size, 0f)));
 			return line;
 		}
 
-		private GameObject Button(string label, UnityAction onClick)
+		// Text fills its line and sits in the middle, on one line.
+		private static void CenterText(Component text)
 		{
-			return MakeButton(label, onClick);
+			RectTransform rt = text.transform as RectTransform;
+			if (rt != null)
+			{
+				rt.anchorMin = Vector2.zero;
+				rt.anchorMax = Vector2.one;
+				rt.pivot = new Vector2(0.5f, 0.5f);
+				rt.offsetMin = rt.offsetMax = Vector2.zero;
+				rt.anchoredPosition = Vector2.zero;
+			}
+			Type type = text.GetType();
+			PropertyInfo align = type.GetProperty("alignment", BindingFlags.Instance | BindingFlags.Public);
+			if (align != null && align.CanWrite && align.PropertyType.IsEnum)
+			{
+				// TextMeshPro: Center; UI Text: MiddleCenter.
+				foreach (string name in new[] { "Center", "MiddleCenter" })
+				{
+					if (Enum.IsDefined(align.PropertyType, name))
+					{
+						align.SetValue(text, Enum.Parse(align.PropertyType, name), null);
+						break;
+					}
+				}
+			}
+			PropertyInfo wrap = type.GetProperty("enableWordWrapping", BindingFlags.Instance | BindingFlags.Public);
+			if (wrap != null && wrap.CanWrite)
+			{
+				wrap.SetValue(text, false, null);
+			}
+			PropertyInfo overflow = type.GetProperty("horizontalOverflow", BindingFlags.Instance | BindingFlags.Public);
+			if (overflow != null && overflow.CanWrite && overflow.PropertyType.IsEnum && Enum.IsDefined(overflow.PropertyType, "Overflow"))
+			{
+				overflow.SetValue(text, Enum.Parse(overflow.PropertyType, "Overflow"), null);
+			}
 		}
 
 		private void SetLineText(GameObject line, string text)
@@ -611,32 +715,48 @@ namespace ModsMenu
 			}
 		}
 
-		private void Place(GameObject item, ref Vector2 pos, Vector2 advance)
+		// Add the line just made, with `gap` (in line heights) after it.
+		private void Place(GameObject item, float gap)
 		{
 			pageItems.Add(item);
-			item.transform.SetAsLastSibling();
-			if (HasLayoutGroup())
+			int i = rows.Count - 1;
+			if (i >= 0)
 			{
-				return;
+				rows[i] = new KeyValuePair<RectTransform, Vector2>(rows[i].Key, new Vector2(rows[i].Value.x, lineHeight * gap * Scale()));
 			}
-			RectTransform r = item.transform as RectTransform;
-			if (r != null)
-			{
-				r.anchoredPosition = pos;
-			}
-			pos += advance;
 		}
 
-		// The distance between two menu entries (UPDATES to MODS).
-		private Vector2 Slot()
+		private void Gap(float lines)
 		{
-			RectTransform a = template.transform as RectTransform;
-			RectTransform b = modsButton != null ? modsButton.transform as RectTransform : null;
-			if (a != null && b != null && (b.anchoredPosition - a.anchoredPosition).sqrMagnitude > 1f)
+			int i = rows.Count - 1;
+			if (i >= 0)
 			{
-				return b.anchoredPosition - a.anchoredPosition;
+				rows[i] = new KeyValuePair<RectTransform, Vector2>(rows[i].Key, new Vector2(rows[i].Value.x, rows[i].Value.y + lineHeight * lines * Scale()));
 			}
-			return new Vector2(0f, -60f);
+		}
+
+		// Stack the lines top to bottom, centered, and fit the panel around them.
+		private void Finish()
+		{
+			float width = PanelWidth();
+			float pad = lineHeight * 0.5f * Scale();
+			float total = 0f;
+			for (int i = 0; i < rows.Count; i++)
+			{
+				total += rows[i].Value.x + (i < rows.Count - 1 ? rows[i].Value.y : 0f);
+			}
+			panel.sizeDelta = new Vector2(width, total + pad * 2f);
+			float y = total / 2f;
+			foreach (KeyValuePair<RectTransform, Vector2> row in rows)
+			{
+				if (row.Key != null)
+				{
+					row.Key.sizeDelta = new Vector2(width - pad * 2f, row.Value.x);
+					row.Key.anchoredPosition = new Vector2(0f, y - row.Value.x / 2f);
+				}
+				y -= row.Value.x + row.Value.y;
+			}
+			panel.SetAsLastSibling();
 		}
 
 		// --- MelonPreferences by reflection: Categories and Entries are fields in

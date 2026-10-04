@@ -5,8 +5,9 @@ UPDATES and SETTINGS.
 
 * The button is a copy of the game's own UPDATES button, so it has the same font,
   hover animation and click sound.
-* Clicking it turns the menu column into a list of every installed MelonLoader mod
-  (name, version, author) in the same font, with **BACK** (or Esc) to return.
+* Clicking it opens a panel in the middle of the screen (dark backdrop, centered
+  text in the menu's font) listing every installed MelonLoader mod (name, version,
+  author), with **BACK** (or Esc) to return.
 * **Mod settings:** click a mod to see and change its settings, one per line as
   `NAME: VALUE`:
   * **On/off:** click to flip it.
@@ -32,7 +33,10 @@ For a new mod, create the category with the mod's name (`EngineCloner` for
 "Engine Cloner") and give each entry a display name and description, and it shows
 up with readable names and help text.
 
-The Mods Menu has one setting of its own: how many settings a page shows (8).
+The Mods Menu's own settings (under MODS → MODS MENU):
+* **Text size** (1): scale the panel's text, e.g. 1.2 for bigger.
+* **Panel width** (0.7): share of the screen the panel spans.
+* **Settings per page** (8).
 
 ## Install
 
