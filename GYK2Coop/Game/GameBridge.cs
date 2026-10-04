@@ -198,7 +198,7 @@ namespace GYK2Coop.Game
                     BuildController bc = BuildController.Instance;
                     if (bc != null && bc.IsBuildModeActive)
                         return true;
-                    PlayerInteractionComponent ic = p.GetComponentInChildren<PlayerInteractionComponent>();
+                    PlayerInteractionComponent ic = InteractionOf(p);
                     return ic != null && ic.IsPaused;
                 }
                 catch
@@ -217,6 +217,142 @@ namespace GYK2Coop.Game
             catch (Exception e)
             {
                 CoopPlugin.Log.LogWarning("SetControlTakenType failed: " + e.Message);
+            }
+        }
+
+        private static PlayerController cachedInteractionOwner;
+        private static PlayerInteractionComponent cachedInteraction;
+
+        private static PlayerInteractionComponent InteractionOf(PlayerController p)
+        {
+            if (p != cachedInteractionOwner || cachedInteraction == null)
+            {
+                cachedInteractionOwner = p;
+                cachedInteraction = p != null ? p.GetComponentInChildren<PlayerInteractionComponent>() : null;
+            }
+            return cachedInteraction;
+        }
+
+        // ---------------------------------------------------------------- bodies
+
+        public const string CorpseItemId = "body_corpse";
+
+        /// <summary>Corpses the local player is carrying overhead.</summary>
+        public static int LocalCarriedBodies
+        {
+            get
+            {
+                PlayerData d = LocalPlayerData;
+                if (d == null || !d.HasOverheadItem)
+                    return 0;
+                int n = 0;
+                foreach (Item item in d.OverheadItems)
+                    if (item != null && !item.IsEmpty && ItemDefId(item) == CorpseItemId)
+                        n += item.Count;
+                return n;
+            }
+        }
+
+        private static MethodInfo countBodyCorpses;
+
+        /// <summary>
+        /// Recomputes the "unburied bodies" counter the same way the game's own save fixer does
+        /// (bodies on the ground, open graves, morgue tables, carried bodies), plus the bodies the
+        /// other player is carrying, which only they can see in their game.
+        /// </summary>
+        public static void RecountBodies(int remoteCarried)
+        {
+            try
+            {
+                GameSave save = MainGame.Instance?.GameSave;
+                if (save == null || save.playerData == null)
+                    return;
+                if (countBodyCorpses == null)
+                    countBodyCorpses = AccessTools.Method(typeof(SaveCodeFixes_Helper), "CountBodyCorpses", new[] { typeof(WorldData) });
+                if (countBodyCorpses == null)
+                    return;
+                int n = (int)countBodyCorpses.Invoke(null, new object[] { save.worldData }) + LocalCarriedBodies + Math.Max(0, remoteCarried);
+                if (save.playerData.GetResInt("cur_bodies_count") != n)
+                {
+                    CoopPlugin.Log.LogInfo("Unburied bodies recounted: " + save.playerData.GetResInt("cur_bodies_count") + " -> " + n);
+                    save.playerData.SetRes("cur_bodies_count", n);
+                }
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Body recount failed: " + e.Message);
+            }
+        }
+
+        /// <summary>Removes anything carried overhead from a character that was copied from the host.</summary>
+        public static void ClearOverheadItems(PlayerData d)
+        {
+            try
+            {
+                AccessTools.Field(typeof(PlayerData), "overheadItems")?.SetValue(d, new List<Item>());
+                AccessTools.Field(typeof(PlayerData), "overheadItemLegacy")?.SetValue(d, null);
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Could not clear copied overhead items: " + e.Message);
+            }
+        }
+
+        // ---------------------------------------------------------------- quests / objective arrow
+
+        private static FieldInfo arrowField;
+        private static object tutorialArrow;
+
+        /// <summary>Id of the object the objective arrow points at (Guid.Empty if none).</summary>
+        public static Guid ObjectiveArrowTarget
+        {
+            get
+            {
+                PlayerData d = LocalPlayerData;
+                if (d == null)
+                    return Guid.Empty;
+                if (arrowField == null)
+                    arrowField = AccessTools.Field(typeof(PlayerData), "tutorialArrowWgoId");
+                return SGuidToGuid(arrowField?.GetValue(d));
+            }
+        }
+
+        private static object TutorialArrow
+        {
+            get
+            {
+                if (tutorialArrow is UnityEngine.Object uo && uo != null)
+                    return tutorialArrow;
+                // UITutorialArrow is a LazySingleton<UITutorialArrow>; read its Instance.
+                Type t = AccessTools.TypeByName("UITutorialArrow");
+                PropertyInfo inst = t?.BaseType != null ? AccessTools.Property(t.BaseType, "Instance") : null;
+                tutorialArrow = inst?.GetValue(null, null);
+                return tutorialArrow;
+            }
+        }
+
+        public static void SetObjectiveArrow(Guid target)
+        {
+            object arrow = TutorialArrow;
+            if (arrow == null)
+                return;
+            try
+            {
+                if (target == Guid.Empty)
+                {
+                    if (ObjectiveArrowTarget != Guid.Empty)
+                        AccessTools.Method(arrow.GetType(), "UnAttach")?.Invoke(arrow, null);
+                    return;
+                }
+                if (ObjectiveArrowTarget == target)
+                    return;
+                WgoData w = FindWgo(target);
+                if (w != null)
+                    AccessTools.Method(arrow.GetType(), "Attach", new[] { typeof(WgoData) })?.Invoke(arrow, new object[] { w });
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Objective arrow sync failed: " + e.Message);
             }
         }
 
@@ -484,7 +620,7 @@ namespace GYK2Coop.Game
                 PlayerController p = Player;
                 if (p == null)
                     return null;
-                PlayerInteractionComponent ic = p.GetComponentInChildren<PlayerInteractionComponent>();
+                PlayerInteractionComponent ic = InteractionOf(p);
                 if (ic == null || !ic.HasWgoUnderInteraction)
                     return null;
                 Wgo wgo = ic.WgoUnderInteraction;

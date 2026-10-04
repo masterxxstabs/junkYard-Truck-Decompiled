@@ -15,17 +15,19 @@ either of you make are mirrored to the other.
 |---|---|
 | Host / join | Host from inside your save, join from the main menu, using an address and port. |
 | World transfer | The guest gets the host's world as it is when they join (the save file format, sent over the network). |
-| Seeing each other | The other keeper is drawn walking, chopping, digging, planting and climbing, with a name above their head. Carrying shows the carry pose and the body or crate held overhead. |
-| Bodies | Each of you still gets your own body deliveries, and both players see every body. Either player can pick up, carry, drop and work on any body. |
+| Seeing each other | The other keeper is drawn walking, chopping, digging, planting and climbing, with a name above their head. Carrying shows the carry pose and the body or crate held overhead. Armor and weapons aren't drawn on the other player (they look like their normal clothes). |
+| Bodies | Each of you still gets your own body deliveries, and both players see every body. Either player can pick up, carry, drop, bury and work on any body. The unburied-body count is recounted in both games whenever a body moves. |
+| Graves and things you use | Burying, gravestones, fences, and putting things into or taking them out of an object (grave, chest...) show up for the other player. Workbenches only sync when their craft queue is empty, and a running craft stays in the game that started it. |
+| Quests | The host's quest progress and objective arrow are copied to the guest, so both see the same quest markers. |
 | Items on the ground | Things dropped near a player (loot, crates, bodies) appear for both of you, and picking one up removes it for both. |
 | Time of day | The guest's day and clock follow the host's. |
-| World objects | New objects that appear near a player are added for the other player (stumps, things built or placed). Removals are mirrored only when the player was chopping, mining, digging or building at the time. Nothing that already exists is ever replaced. |
+| World objects | New objects that appear near a player are added for the other player (things built or placed). Changes and removals the player causes are mirrored (a tree becoming a stump, an empty grave becoming a filled one). Objects are changed in place, with the game's own function, and never deleted to be replaced. |
 | Guest's character | The guest's inventory, stats and position are stored on the host's PC (every 30 s and when they leave) and given back the next time they join that save. |
 | Chat | Small text chat in the panel. |
 
 ## What doesn't (yet)
 
-- **Story, quests, dialogue and cutscenes are host-only.** The guest's quest progress isn't saved. Leave the story to the host.
+- **Story, quests, dialogue and cutscenes are host-only.** The guest sees the host's quests, but the guest's game can't start or finish quests while connected. Hand-ins and story talks have to be done by the host.
 - **Combat isn't synced.** Enemies, attacks and damage happen separately in each game.
 - **Crafting at the same bench at the same time:** a craft runs only in the game of the player who started it. The other player sees the bench's result after the queue finishes. Don't both queue crafts on one bench at once.
 - **NPCs, zombie workers and walking creatures** are simulated separately by each game. They mostly line up because both games start from the same save, but not exactly.
@@ -102,6 +104,16 @@ Guest characters are stored on the host in `BepInEx\config\GYK2Coop\guests\`.
 
 ## Changes
 
+**0.4.0** (update both PCs)
+- Burying now works for both players: the grave changes (empty, body, filled) and what's in it (body, gravestone, fence) are synced, and the unburied-body count is recounted the way the game does it, including bodies the other player is carrying.
+- Fixed in 0.3.0: when the game changed an object in place (e.g. putting a body in a grave), the other game could *delete* that object. Changes are now applied in place with the game's own function.
+- Fixed the other player's arms disappearing (armor/weapon animation layers were copied without the armor skin).
+- Quest markers: the host's quest statuses and objective arrow are shown to the guest. The guest's own game no longer moves quests while connected.
+- Fixed: a first-time guest started out carrying a copy of whatever the host was carrying.
+- Fixed: the guest's character is now sent to the host right before "exit to menu", not after.
+- Items picked up off the ground are only reported to the other game under the same rules as dropping (no flood of resource pickups).
+- Small speed-ups (cached lookups used every frame).
+
 **0.3.0: safety release. Update both PCs.**
 - 0.1/0.2 could replace existing objects with a copy from the other game (remove, then re-add),
   and trusted every removal the other game reported. That could delete crafting tables or leave
@@ -150,6 +162,8 @@ If a bench in your save is still stuck from 0.1.0, save, quit to the menu and lo
 - `Game/DropSync.cs`: Harmony hooks on `GameSceneData.AddDrop` / `RemoveDrop`. Bodies (item groups
   `body`/`corpse`) are always mirrored and never merged; other drops only near the player who
   made them, matched by item id and position.
+- `Game/QuestSync.cs`: host → guest copy of quest statuses (data only) and the objective arrow; the guest's
+  quest transitions are blocked while connected.
 - `Game/SavePatches.cs`: the guest's `SaveSystem.Save` does nothing while it's in the host's world.
 - Anything typed by `LazyBearTechnology.dll` (the game's engine library) is reached by
   reflection in `Game/GameBridge.cs`, so a game patch breaks one lookup instead of the whole mod.

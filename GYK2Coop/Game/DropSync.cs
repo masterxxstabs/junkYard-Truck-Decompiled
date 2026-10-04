@@ -83,9 +83,9 @@ namespace GYK2Coop.Game
 
         internal static void OnLocalRemove(GameSceneData scene, DropData drop)
         {
-            if (!WorldSync.Active || WorldSync.ApplyingRemote > 0 || drop == null || drop.Item == null)
+            // Same rules as adding: bodies anywhere, other drops near the player, never resource sparks.
+            if (!ShouldSend(drop))
                 return;
-            // Removal is sent for every drop (cheap); the other side ignores ids it doesn't have.
             Guid g = GameBridge.ItemGuid(drop.Item);
             string def = GameBridge.ItemDefId(drop.Item);
             Vector3 pos = drop.Position;
@@ -184,6 +184,8 @@ namespace GYK2Coop.Game
                     scene.AddDrop(item, pos);
                 else
                     scene.AddDropToQueue(item, pos);
+                if (body)
+                    WorldSync.BodiesDirty = true;
             }
             catch (Exception e)
             {
@@ -213,6 +215,8 @@ namespace GYK2Coop.Game
             WorldSync.ApplyingRemote++;
             try
             {
+                if (d.Item != null && GameBridge.ItemDefId(d.Item) == GameBridge.CorpseItemId)
+                    WorldSync.BodiesDirty = true;
                 scene.RemoveDrop(d);
             }
             catch (Exception e)

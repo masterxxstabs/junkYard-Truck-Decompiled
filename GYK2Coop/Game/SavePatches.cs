@@ -29,3 +29,25 @@ namespace GYK2Coop.Game
         }
     }
 }
+
+namespace GYK2Coop.Game
+{
+    /// <summary>Lets the session react before the game leaves the world (pause menu "exit to menu").</summary>
+    [HarmonyLib.HarmonyPatch(typeof(MainGame), nameof(MainGame.GoToMenu))]
+    internal static class Patch_MainGame_GoToMenu
+    {
+        internal static System.Action BeforeGoToMenu;
+
+        private static void Prefix()
+        {
+            try
+            {
+                BeforeGoToMenu?.Invoke();
+            }
+            catch (System.Exception e)
+            {
+                CoopPlugin.Log.LogWarning("GoToMenu hook: " + e.Message);
+            }
+        }
+    }
+}

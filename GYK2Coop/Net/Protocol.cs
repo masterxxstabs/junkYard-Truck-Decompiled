@@ -22,6 +22,9 @@ namespace GYK2Coop.Net
         Bye = 13,           // both: clean disconnect, reason
         DropAdd = 14,       // both: an item was put on the ground (bodies, crates, loot)
         DropRemove = 15,    // both: an item on the ground was picked up / removed
+        WgoChange = 16,     // both: an object changed in place (empty grave -> grave with body) + its contents
+        WgoItems = 17,      // both: contents of an object a player is using changed
+        QuestState = 18,    // host -> guest: quest statuses + objective arrow target
     }
 
     internal struct Packet

@@ -219,14 +219,17 @@ namespace GYK2Coop.Game
             }
         }
 
-        // Layers the puppet drives itself or that only matter for the local player's gameplay.
-        private static readonly HashSet<int> SkippedLayers = new HashSet<int>
+        // Only layers that work with the normal skin. Armor and weapon layers switch the arms to
+        // armor/weapon sprites the puppet's skin doesn't have, which made the arms vanish.
+        private static readonly HashSet<int> CopiedLayers = new HashSet<int>
         {
-            (int)AnimationComponent.Layers.OverheadInteracting,
-            (int)AnimationComponent.Layers.WeaponHitBox,
-            (int)AnimationComponent.Layers.SwordAttackHitbox,
-            (int)AnimationComponent.Layers.Eyes,
+            (int)AnimationComponent.Layers.Breath,
+            (int)AnimationComponent.Layers.Overhead,
+            (int)AnimationComponent.Layers.Backpack,
+            (int)AnimationComponent.Layers.StanceWalk,
         };
+
+        private static System.Reflection.FieldInfo dropViewField;
 
         private float[] layerWeights = new float[0];
         private string carry = "";
@@ -246,7 +249,7 @@ namespace GYK2Coop.Game
             int n = Mathf.Min(layerWeights.Length, animator.layerCount);
             for (int i = 0; i < n; i++)
             {
-                if (SkippedLayers.Contains(i))
+                if (!CopiedLayers.Contains(i))
                     continue;
                 if (Mathf.Abs(animator.GetLayerWeight(i) - layerWeights[i]) > 0.001f)
                     animator.SetLayerWeight(i, layerWeights[i]);
@@ -267,7 +270,9 @@ namespace GYK2Coop.Game
             shownCarry = carry;
             try
             {
-                var view = AccessTools.Field(typeof(AnimationComponentBase), "dropView")?.GetValue(anim) as DropViewAtomMesh;
+                if (dropViewField == null)
+                    dropViewField = AccessTools.Field(typeof(AnimationComponentBase), "dropView");
+                var view = dropViewField?.GetValue(anim) as DropViewAtomMesh;
                 if (view == null)
                     return;
                 if (carry.Length == 0)

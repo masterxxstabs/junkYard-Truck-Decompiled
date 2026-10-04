@@ -66,6 +66,9 @@ namespace GYK2Coop
         private string lastSentCarry = "";
         private float[] lastSentLayers = new float[0];
         private readonly List<string> overheadIcons = new List<string>();
+        private int remoteCarriedBodies;
+        private int localCarriedBodies;
+        private float nextBodyRecount;
 
         // UI
         private bool panelOpen;
@@ -86,6 +89,12 @@ namespace GYK2Coop
             WorldSync.Send = SendFrame;
             WorldSync.Notice = AddChat;
             MainGame.OnGameStarted = (Action)Delegate.Combine(MainGame.OnGameStarted, (Action)(() => gameStartedFlag = true));
+            // The guest's character must reach the host before the world is torn down.
+            Patch_MainGame_GoToMenu.BeforeGoToMenu = () =>
+            {
+                if (role == Role.Guest && phase == Phase.Playing)
+                    UploadCharacter();
+            };
         }
 
         // ================================================================ frame loop
@@ -253,12 +262,12 @@ namespace GYK2Coop
                     status = "Playing in " + remoteName + "'s world.";
                     Send(MsgType.Ready, null);
                     BeginPlaying();
+                    QuestSync.GuestLocked = true;
                     AddChat("You joined " + remoteName + "'s world.");
                 }
                 else if (phase == Phase.Playing && !GameBridge.InGame)
                 {
-                    // The guest quit to the main menu on their own.
-                    UploadCharacter();
+                    // The guest quit to the main menu on their own (character was sent in the GoToMenu hook).
                     Disconnect("left the world", goToMenu: false);
                 }
             }
@@ -326,8 +335,26 @@ namespace GYK2Coop
                         for (int i = 0; i < layers.Length && i < 255; i++)
                             w.Write(layers[i]);
                         w.WriteStr(carry);
+                        w.Write((byte)Math.Min(GameBridge.LocalCarriedBodies, 255));
                     });
                 }
+            }
+
+            if (role == Role.Host)
+                QuestSync.HostTick(SendFrame, now);
+
+            int carriedNow = GameBridge.LocalCarriedBodies;
+            if (carriedNow != localCarriedBodies)
+            {
+                localCarriedBodies = carriedNow;
+                WorldSync.BodiesDirty = true;
+            }
+            if (WorldSync.BodiesDirty && now >= nextBodyRecount)
+            {
+                // Give the other player's state a moment to arrive, then recount once.
+                nextBodyRecount = now + 1f;
+                WorldSync.BodiesDirty = false;
+                GameBridge.RecountBodies(remoteCarriedBodies);
             }
 
             if (role == Role.Host && CoopPlugin.SyncTime.Value && now >= nextTime)
@@ -364,6 +391,8 @@ namespace GYK2Coop
             WorldSync.Active = true;
             lastSentAnim = -1;
             lastSentCarry = null;
+            remoteCarriedBodies = 0;
+            localCarriedBodies = GameBridge.LocalCarriedBodies;
             nextCharacterUpload = Time.unscaledTime + CharacterUploadInterval;
         }
 
@@ -397,6 +426,7 @@ namespace GYK2Coop
                             phase = Phase.Playing;
                             status = remoteName + " is in your world.";
                             BeginPlaying();
+                            QuestSync.ForceResend();
                             AddChat(remoteName + " joined your world.");
                         }
                         break;
@@ -416,6 +446,18 @@ namespace GYK2Coop
                     case MsgType.WgoRemove:
                         if (phase == Phase.Playing)
                             WorldSync.ApplyRemove(r);
+                        break;
+                    case MsgType.WgoChange:
+                        if (phase == Phase.Playing)
+                            WorldSync.ApplyChange(r);
+                        break;
+                    case MsgType.WgoItems:
+                        if (phase == Phase.Playing)
+                            WorldSync.ApplyItems(r);
+                        break;
+                    case MsgType.QuestState:
+                        if (role == Role.Guest && phase == Phase.Playing)
+                            QuestSync.Apply(r);
                         break;
                     case MsgType.DropAdd:
                         if (phase == Phase.Playing)
@@ -531,18 +573,28 @@ namespace GYK2Coop
                 return;
             }
 
+            bool restored = false;
             if (character != null)
             {
                 try
                 {
                     PlayerData mine = GameSerializer.Deserialize<PlayerData>(character);
                     if (mine != null)
+                    {
                         save.playerData = mine;
+                        restored = true;
+                    }
                 }
                 catch (Exception e)
                 {
                     CoopPlugin.Log.LogWarning("Could not restore your saved character, starting as a copy of the host's: " + e.Message);
                 }
+            }
+            if (!restored)
+            {
+                // The character is a copy of the host's. Don't also copy whatever the host is
+                // carrying (a body would exist twice).
+                GameBridge.ClearOverheadItems(save.playerData);
             }
             // Start next to the host.
             try
@@ -583,6 +635,12 @@ namespace GYK2Coop
             for (int i = 0; i < layerCount; i++)
                 layers[i] = r.ReadSingle();
             string carry = r.ReadString();
+            int carriedBodies = r.ReadByte();
+            if (carriedBodies != remoteCarriedBodies)
+            {
+                remoteCarriedBodies = carriedBodies;
+                WorldSync.BodiesDirty = true;
+            }
             if (phase == Phase.Playing && puppet != null)
             {
                 puppet.PushState(pos, dir, anim, scene);
@@ -750,6 +808,9 @@ namespace GYK2Coop
                 DestroyPuppet();
                 WorldSync.Reset();
                 remoteName = "";
+                remoteCarriedBodies = 0;
+                if (GameBridge.InGame)
+                    GameBridge.RecountBodies(0);
                 status = "Hosting. Waiting for your guest...";
                 return;
             }
@@ -793,6 +854,7 @@ namespace GYK2Coop
             listener = null;
             DestroyPuppet();
             WorldSync.Reset();
+            QuestSync.Reset();
 
             bool wasGuest = role == Role.Guest;
             role = Role.None;
