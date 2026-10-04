@@ -8,30 +8,28 @@ using UnityEngine;
 namespace GYK2Coop.Game
 {
     /// <summary>
-    /// Mirrors world objects (WgoData: trees, rocks, buildings, chests, crafting stations,
-    /// garden beds...) between the two games.
+    /// Mirrors world objects (WgoData: trees, rocks, things built or torn down) between the two
+    /// games.
     ///
-    /// Both games keep simulating the same world, so only changes made near the player who
-    /// caused them are sent, and incoming additions are matched against objects the receiver
-    /// already has (same definition, same spot) so things both games spawn on their own are
-    /// not doubled.
+    /// Safety rules (0.3.0, after 0.1/0.2 damaged a save):
+    ///  - Objects that already exist are never replaced. Only brand-new objects are added.
+    ///  - A removal is only sent when the local player has just been working or building, and
+    ///    never in bursts (the game removes whole groups of objects when it unloads content).
+    ///  - A removal is only applied to an object with exactly the same id and definition, and
+    ///    never to an object that holds items or has a craft queued.
+    ///  - Bursts of incoming removals are refused.
     /// </summary>
     internal static class WorldSync
     {
         private const float MatchDistance = 0.35f;
         private const int MaxObjectBytes = 512 * 1024;
-        private const float WatchSeconds = 8f;
-        private const float WatchInterval = 0.5f;
-
-        private enum OpKind
-        {
-            Upsert,
-            Remove,
-        }
+        private const float PlayerActionWindow = 3f;
+        private const int BurstLimit = 6;
+        private const float BurstWindow = 2f;
 
         private struct PendingOp
         {
-            public OpKind Kind;
+            public bool IsRemove;
             public WgoData Wgo;
             public Guid Guid;
             public string SceneId;
@@ -39,38 +37,43 @@ namespace GYK2Coop.Game
             public Vector3 Position;
         }
 
-        private class Watched
-        {
-            public WgoData Wgo;
-            public float Until;
-            public ulong Hash;
-            public Vector3 LastPosition;
-        }
-
         private static readonly List<PendingOp> pending = new List<PendingOp>();
-        private static readonly Dictionary<Guid, Watched> watched = new Dictionary<Guid, Watched>();
-        // Remote object id -> local object id, for objects matched by definition + position.
+        // Remote object id -> local object id, for objects both games created on their own.
         private static readonly Dictionary<Guid, Guid> remoteToLocal = new Dictionary<Guid, Guid>();
         private static readonly HashSet<string> warnedDefs = new HashSet<string>();
+        private static readonly Queue<float> recentLocalRemoves = new Queue<float>();
+        private static readonly Queue<float> recentRemoteRemoves = new Queue<float>();
         private static HashSet<string> excludedTypes;
-        private static float nextWatchTick;
+        private static float lastPlayerAction = -100f;
+        private static float remoteRemovesBlockedUntil;
 
         internal static int ApplyingRemote;
 
         public static Action<byte[]> Send;
+        public static Action<string> Notice;
         public static bool Active;
 
         public static void Reset()
         {
             pending.Clear();
-            watched.Clear();
             remoteToLocal.Clear();
-            deferred.Clear();
+            recentLocalRemoves.Clear();
+            recentRemoteRemoves.Clear();
+            remoteRemovesBlockedUntil = 0f;
             DropSync.Reset();
             Active = false;
         }
 
-        private static bool ShouldTrack(WgoData w, string sceneId)
+        /// <summary>Called every frame while playing; remembers when the player last worked or built.</summary>
+        public static void TrackPlayerActivity()
+        {
+            if (GameBridge.PlayerIsWorkingOrBuilding)
+                lastPlayerAction = Time.unscaledTime;
+        }
+
+        private static bool PlayerActedRecently => Time.unscaledTime - lastPlayerAction <= PlayerActionWindow;
+
+        private static bool ShouldTrack(WgoData w)
         {
             if (!Active || ApplyingRemote > 0 || w == null || !CoopPlugin.SyncWorldObjects.Value || !GameBridge.InGame)
                 return false;
@@ -87,8 +90,7 @@ namespace GYK2Coop.Game
             MovementComponent mc = w.MovementComponent;
             if (mc != null && mc.IsMoving)
                 return false;
-            Vector3 p = GameBridge.PlayerVisualPosition;
-            Vector3 d = w.Position - p;
+            Vector3 d = w.Position - GameBridge.PlayerVisualPosition;
             d.y = 0f;
             float r = CoopPlugin.SyncRadius.Value;
             return d.sqrMagnitude <= r * r;
@@ -98,33 +100,34 @@ namespace GYK2Coop.Game
 
         internal static void OnLocalAdd(GameSceneData scene, WgoData w)
         {
-            if (!ShouldTrack(w, scene.id))
+            if (!ShouldTrack(w))
                 return;
             // Serialize at end of frame: callers often set more fields after adding.
-            pending.Add(new PendingOp { Kind = OpKind.Upsert, Wgo = w, Guid = GameBridge.WgoGuid(w), SceneId = scene.id });
+            pending.Add(new PendingOp { Wgo = w, Guid = GameBridge.WgoGuid(w), SceneId = scene.id });
         }
 
         internal static void OnLocalRemove(GameSceneData scene, WgoData w)
         {
-            if (!ShouldTrack(w, scene.id))
+            if (!ShouldTrack(w))
                 return;
             Guid g = GameBridge.WgoGuid(w);
             // Added and removed in the same frame: nobody needs to hear about it.
-            int idx = pending.FindIndex(o => o.Kind == OpKind.Upsert && o.Guid == g);
+            int idx = pending.FindIndex(o => !o.IsRemove && o.Guid == g);
             if (idx >= 0)
             {
                 pending.RemoveAt(idx);
                 return;
             }
+            if (!PlayerActedRecently)
+                return; // Not something the player did (story, simulation, content unload...).
             pending.Add(new PendingOp
             {
-                Kind = OpKind.Remove,
+                IsRemove = true,
                 Guid = g,
                 SceneId = scene.id,
                 DefId = GameBridge.WgoDefId(w),
                 Position = w.Position,
             });
-            watched.Remove(g);
         }
 
         /// <summary>Called once per frame (LateUpdate) while playing together.</summary>
@@ -135,124 +138,63 @@ namespace GYK2Coop.Game
                 pending.Clear();
                 return;
             }
-
-            if (pending.Count > 0)
-            {
-                foreach (PendingOp op in pending)
-                {
-                    try
-                    {
-                        if (op.Kind == OpKind.Upsert)
-                        {
-                            if (GameBridge.FindWgo(op.Guid) == op.Wgo)
-                                SendUpsert(op.Wgo, op.SceneId, isNew: true);
-                        }
-                        else
-                        {
-                            Send(Protocol.Build(MsgType.WgoRemove, w =>
-                            {
-                                w.WriteStr(op.SceneId);
-                                w.Write(op.Guid.ToByteArray());
-                                w.WriteStr(op.DefId);
-                                w.WriteVec3(op.Position);
-                            }));
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        CoopPlugin.Log.LogWarning("World sync send failed: " + e.Message);
-                    }
-                }
-                pending.Clear();
-            }
-
-            if (Time.unscaledTime >= nextWatchTick)
-            {
-                nextWatchTick = Time.unscaledTime + WatchInterval;
-                TickWatched();
-                RetryDeferred();
-            }
-        }
-
-        /// <summary>
-        /// Objects the local player is aiming at / working on get their full state re-sent
-        /// whenever it changes (chest contents, chopping progress, crafting queues, crops...).
-        /// </summary>
-        private static void TickWatched()
-        {
-            if (!CoopPlugin.SyncWorldObjects.Value)
+            if (pending.Count == 0)
                 return;
+
             float now = Time.unscaledTime;
+            int removes = 0;
+            foreach (PendingOp op in pending)
+                if (op.IsRemove)
+                    removes++;
+            while (recentLocalRemoves.Count > 0 && now - recentLocalRemoves.Peek() > BurstWindow)
+                recentLocalRemoves.Dequeue();
+            bool burst = removes > 0 && recentLocalRemoves.Count + removes > BurstLimit;
+            if (burst)
+                CoopPlugin.Log.LogWarning("Not mirroring " + removes + " removals at once (looks like the game, not the player).");
 
-            WgoData target = GameBridge.WgoUnderInteraction;
-            if (target != null && ShouldTrack(target, target.WorldId))
+            foreach (PendingOp op in pending)
             {
-                Guid g = GameBridge.WgoGuid(target);
-                if (watched.TryGetValue(g, out Watched existing))
+                try
                 {
-                    existing.Wgo = target;
-                    existing.Until = now + WatchSeconds;
-                }
-                else
-                {
-                    byte[] b = TrySerialize(target);
-                    if (b != null)
-                        watched[g] = new Watched { Wgo = target, Until = now + WatchSeconds, Hash = Hash(b), LastPosition = target.Position };
-                }
-            }
-
-            if (watched.Count == 0)
-                return;
-            var expired = new List<Guid>();
-            foreach (KeyValuePair<Guid, Watched> kv in watched)
-            {
-                Watched wt = kv.Value;
-                if (GameBridge.FindWgo(kv.Key) != wt.Wgo)
-                {
-                    expired.Add(kv.Key);
-                    continue;
-                }
-                if (IsCrafting(wt.Wgo))
-                {
-                    // A running craft lives in the game's global active-craft list; replacing the
-                    // object on the other side mid-craft orphans it there forever. Stay quiet until
-                    // the queue is empty, then send the finished state.
-                    wt.Until = Mathf.Max(wt.Until, now + WatchSeconds);
-                    continue;
-                }
-                bool moved = (wt.Wgo.Position - wt.LastPosition).sqrMagnitude > 0.0001f;
-                wt.LastPosition = wt.Wgo.Position;
-                byte[] b = TrySerialize(wt.Wgo);
-                if (b != null)
-                {
-                    ulong h = Hash(b);
-                    if (moved)
-                        wt.Hash = h; // Something that walks around: both games simulate it.
-                    else if (h != wt.Hash)
+                    if (!op.IsRemove)
                     {
-                        wt.Hash = h;
-                        SendUpsert(wt.Wgo, wt.Wgo.WorldId, isNew: false, bytes: b);
+                        if (GameBridge.FindWgo(op.Guid) == op.Wgo)
+                            SendAdd(op.Wgo, op.SceneId);
+                    }
+                    else if (!burst)
+                    {
+                        recentLocalRemoves.Enqueue(now);
+                        Send(Protocol.Build(MsgType.WgoRemove, w =>
+                        {
+                            w.WriteStr(op.SceneId);
+                            w.Write(op.Guid.ToByteArray());
+                            w.WriteStr(op.DefId);
+                            w.WriteVec3(op.Position);
+                        }));
                     }
                 }
-                if (now > wt.Until)
-                    expired.Add(kv.Key);
+                catch (Exception e)
+                {
+                    CoopPlugin.Log.LogWarning("World sync send failed: " + e.Message);
+                }
             }
-            foreach (Guid g in expired)
-                watched.Remove(g);
+            pending.Clear();
         }
 
-        private static void SendUpsert(WgoData w, string sceneId, bool isNew, byte[] bytes = null)
+        private static void SendAdd(WgoData w, string sceneId)
         {
-            if (bytes == null)
-                bytes = TrySerialize(w);
+            // Containers and crafting stations with contents are never sent: the items would then
+            // exist in both games.
+            if (GameBridge.HasStoredItems(w) || HasCraftQueue(w))
+                return;
+            byte[] bytes = TrySerialize(w);
             if (bytes == null)
                 return;
             Guid g = GameBridge.WgoGuid(w);
             string def = GameBridge.WgoDefId(w);
             Vector3 pos = w.Position;
-            Send(Protocol.Build(MsgType.WgoUpsert, wr =>
+            Send(Protocol.Build(MsgType.WgoAdd, wr =>
             {
-                wr.Write(isNew);
                 wr.WriteStr(sceneId);
                 wr.Write(g.ToByteArray());
                 wr.WriteStr(def);
@@ -283,74 +225,7 @@ namespace GYK2Coop.Game
             }
         }
 
-        private static ulong Hash(byte[] b)
-        {
-            // FNV-1a 64
-            ulong h = 14695981039346656037UL;
-            for (int i = 0; i < b.Length; i++)
-            {
-                h ^= b[i];
-                h *= 1099511628211UL;
-            }
-            return h;
-        }
-
-        // ------------------------------------------------------------ remote changes
-
-        private static WgoData FindLocal(Guid remoteGuid, string defId, string sceneId, Vector3 pos)
-        {
-            WgoData w = GameBridge.FindWgo(remoteGuid);
-            if (w != null)
-                return w;
-            if (remoteToLocal.TryGetValue(remoteGuid, out Guid local))
-            {
-                w = GameBridge.FindWgo(local);
-                if (w != null)
-                    return w;
-            }
-            w = GameBridge.FindWgoByDefAndPosition(defId, sceneId, pos, MatchDistance);
-            if (w != null)
-                remoteToLocal[remoteGuid] = GameBridge.WgoGuid(w);
-            return w;
-        }
-
-        private class IncomingUpsert
-        {
-            public bool IsNew;
-            public string SceneId;
-            public Guid Guid;
-            public string DefId;
-            public Vector3 Position;
-            public byte[] Bytes;
-            public float ReceivedAt;
-        }
-
-        private const float DeferLimitSeconds = 600f;
-
-        // Updates that arrived while the local copy was busy (crafting, or being used by the
-        // local player). Only the latest one per object is kept.
-        private static readonly Dictionary<Guid, IncomingUpsert> deferred = new Dictionary<Guid, IncomingUpsert>();
-
-        public static void ApplyUpsert(BinaryReader r)
-        {
-            var u = new IncomingUpsert
-            {
-                IsNew = r.ReadBoolean(),
-                SceneId = r.ReadString(),
-                Guid = new Guid(r.ReadBytes(16)),
-                DefId = r.ReadString(),
-                Position = r.ReadVec3(),
-                Bytes = r.ReadBlob(),
-                ReceivedAt = Time.unscaledTime,
-            };
-            if (!Active || !GameBridge.InGame || u.Bytes == null)
-                return;
-            deferred.Remove(u.Guid);
-            if (!TryApplyUpsert(u))
-                deferred[u.Guid] = u;
-        }
-
-        private static bool IsCrafting(WgoData w)
+        private static bool HasCraftQueue(WgoData w)
         {
             try
             {
@@ -359,109 +234,76 @@ namespace GYK2Coop.Game
             }
             catch
             {
-                return false;
+                return true;
             }
         }
 
-        /// <summary>True if replacing this object now would pull it out from under the local game.</summary>
-        private static bool IsBusyLocally(WgoData w)
-        {
-            if (IsCrafting(w))
-                return true;
-            WgoData target = GameBridge.WgoUnderInteraction;
-            return target != null && target == w && GameBridge.PlayerIsBusy;
-        }
+        // ------------------------------------------------------------ remote changes
 
-        private static void RetryDeferred()
+        public static void ApplyAdd(BinaryReader r)
         {
-            if (deferred.Count == 0)
+            string sceneId = r.ReadString();
+            var guid = new Guid(r.ReadBytes(16));
+            string defId = r.ReadString();
+            Vector3 pos = r.ReadVec3();
+            byte[] bytes = r.ReadBlob();
+            if (!Active || !GameBridge.InGame || bytes == null)
                 return;
-            float now = Time.unscaledTime;
-            var done = new List<Guid>();
-            foreach (KeyValuePair<Guid, IncomingUpsert> kv in deferred)
-            {
-                if (now - kv.Value.ReceivedAt > DeferLimitSeconds || TryApplyUpsert(kv.Value))
-                    done.Add(kv.Key);
-            }
-            foreach (Guid g in done)
-                deferred.Remove(g);
-        }
 
-        /// <returns>false if the update has to wait.</returns>
-        private static bool TryApplyUpsert(IncomingUpsert u)
-        {
-            GameSceneData scene = GameBridge.FindScene(u.SceneId);
+            GameSceneData scene = GameBridge.FindScene(sceneId);
             if (scene == null)
-                return true;
+                return;
 
-            WgoData existing = FindLocal(u.Guid, u.DefId, u.SceneId, u.Position);
-            if (existing != null && u.IsNew)
-                return true; // Both games already made this object; keep ours.
-            if (existing != null && IsBusyLocally(existing))
-                return false;
+            // Already have it (same id, or the same kind of object on the same spot): keep ours.
+            if (GameBridge.FindWgo(guid) != null)
+                return;
+            WgoData twin = GameBridge.FindWgoByDefAndPosition(defId, sceneId, pos, MatchDistance);
+            if (twin != null)
+            {
+                remoteToLocal[guid] = GameBridge.WgoGuid(twin);
+                return;
+            }
 
             WgoData incoming;
             try
             {
-                incoming = GameSerializer.Deserialize<WgoData>(u.Bytes);
+                incoming = GameSerializer.Deserialize<WgoData>(bytes);
             }
             catch (Exception e)
             {
-                CoopPlugin.Log.LogWarning("Could not read synced object '" + u.DefId + "': " + e.Message);
-                return true;
+                CoopPlugin.Log.LogWarning("Could not read synced object '" + defId + "': " + e.Message);
+                return;
             }
-            if (incoming == null)
-                return true;
-
-            // Never import a running craft: it would run in both games at once.
-            try
+            if (incoming == null || GameBridge.WgoDefId(incoming) != defId || !GameBridge.HasDefinition(incoming))
             {
-                CraftComponent cc = incoming.CraftComponent;
-                if (cc != null && cc.HasCraftsInQueue)
-                {
-                    cc.CraftElementsQueue.Clear();
-                    cc.Status = CraftComponentStatus.None;
-                }
+                CoopPlugin.Log.LogWarning("Synced object '" + defId + "' arrived incomplete; ignored.");
+                return;
             }
-            catch (Exception e)
-            {
-                CoopPlugin.Log.LogWarning("Could not clear synced craft queue on '" + u.DefId + "': " + e.Message);
-            }
+            if (GameBridge.HasStoredItems(incoming) || HasCraftQueue(incoming))
+                return;
 
             ApplyingRemote++;
             try
             {
-                if (existing != null)
-                {
-                    // Keep the local identity so anything else pointing at this object stays valid.
-                    GameBridge.CopyWgoIdentity(existing, incoming);
-                    GameSceneData oldScene = GameBridge.FindScene(existing.WorldId) ?? scene;
-                    oldScene.RemoveWgoData(existing, false);
-                }
                 incoming.PrepareForGame();
                 scene.AddWgoData(incoming, true);
-
-                Guid localGuid = GameBridge.WgoGuid(incoming);
-                if (localGuid != u.Guid)
-                    remoteToLocal[u.Guid] = localGuid;
-                if (watched.TryGetValue(localGuid, out Watched wt))
-                {
-                    // Don't bounce the remote state straight back.
-                    wt.Wgo = incoming;
-                    byte[] b = TrySerialize(incoming);
-                    if (b != null)
-                        wt.Hash = Hash(b);
-                }
             }
             catch (Exception e)
             {
-                CoopPlugin.Log.LogWarning("Applying synced object '" + u.DefId + "' failed: " + e.Message);
+                CoopPlugin.Log.LogWarning("Adding synced object '" + defId + "' failed, rolling back: " + e.Message);
+                try
+                {
+                    if (GameBridge.FindWgo(GameBridge.WgoGuid(incoming)) == incoming)
+                        scene.RemoveWgoData(incoming, true);
+                }
+                catch
+                {
+                }
             }
             finally
             {
                 ApplyingRemote--;
             }
-            return true;
         }
 
         public static void ApplyRemove(BinaryReader r)
@@ -469,14 +311,36 @@ namespace GYK2Coop.Game
             string sceneId = r.ReadString();
             var guid = new Guid(r.ReadBytes(16));
             string defId = r.ReadString();
-            Vector3 pos = r.ReadVec3();
+            r.ReadVec3();
             if (!Active || !GameBridge.InGame)
                 return;
 
-            WgoData existing = FindLocal(guid, defId, sceneId, pos);
-            remoteToLocal.Remove(guid);
-            if (existing == null)
+            float now = Time.unscaledTime;
+            if (now < remoteRemovesBlockedUntil)
                 return;
+            while (recentRemoteRemoves.Count > 0 && now - recentRemoteRemoves.Peek() > BurstWindow)
+                recentRemoteRemoves.Dequeue();
+            recentRemoteRemoves.Enqueue(now);
+            if (recentRemoteRemoves.Count > BurstLimit)
+            {
+                remoteRemovesBlockedUntil = now + 10f;
+                CoopPlugin.Log.LogWarning("Refusing a burst of removals from the other player.");
+                Notice?.Invoke("Blocked a burst of object removals from the other game. Your world was not changed.");
+                return;
+            }
+
+            // Exact id only (or an object we matched ourselves when it was created). No guessing.
+            WgoData existing = GameBridge.FindWgo(guid);
+            if (existing == null && remoteToLocal.TryGetValue(guid, out Guid local))
+                existing = GameBridge.FindWgo(local);
+            remoteToLocal.Remove(guid);
+            if (existing == null || GameBridge.WgoDefId(existing) != defId)
+                return;
+            if (GameBridge.HasStoredItems(existing) || HasCraftQueue(existing))
+            {
+                CoopPlugin.Log.LogInfo("Kept '" + defId + "': it holds items or a craft in this game.");
+                return;
+            }
             GameSceneData scene = GameBridge.FindScene(existing.WorldId);
             if (scene == null)
                 return;
@@ -484,7 +348,6 @@ namespace GYK2Coop.Game
             ApplyingRemote++;
             try
             {
-                watched.Remove(GameBridge.WgoGuid(existing));
                 scene.RemoveWgoData(existing, true);
             }
             catch (Exception e)
@@ -503,6 +366,8 @@ namespace GYK2Coop.Game
     {
         private static void Postfix(GameSceneData __instance, WgoData wgoData)
         {
+            if (!WorldSync.Active)
+                return;
             try
             {
                 WorldSync.OnLocalAdd(__instance, wgoData);
@@ -519,10 +384,11 @@ namespace GYK2Coop.Game
     {
         private static void Postfix(GameSceneData __instance, WgoData __result)
         {
+            if (!WorldSync.Active || __result == null)
+                return;
             try
             {
-                if (__result != null)
-                    WorldSync.OnLocalAdd(__instance, __result);
+                WorldSync.OnLocalAdd(__instance, __result);
             }
             catch (Exception e)
             {

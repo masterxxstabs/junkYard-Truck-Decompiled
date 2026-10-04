@@ -84,6 +84,7 @@ namespace GYK2Coop
             addressField = CoopPlugin.LastAddress.Value;
             portField = CoopPlugin.Port.Value.ToString();
             WorldSync.Send = SendFrame;
+            WorldSync.Notice = AddChat;
             MainGame.OnGameStarted = (Action)Delegate.Combine(MainGame.OnGameStarted, (Action)(() => gameStartedFlag = true));
         }
 
@@ -284,6 +285,7 @@ namespace GYK2Coop
             float now = Time.unscaledTime;
             if (!GameBridge.InGame)
                 return;
+            WorldSync.TrackPlayerActivity();
 
             if (puppet == null && now >= nextPuppetAttempt)
             {
@@ -407,9 +409,9 @@ namespace GYK2Coop
                         if (role == Role.Guest && phase == Phase.Playing && CoopPlugin.SyncTime.Value && GameBridge.InGame)
                             GameBridge.ApplyTime(day, tod);
                         break;
-                    case MsgType.WgoUpsert:
+                    case MsgType.WgoAdd:
                         if (phase == Phase.Playing)
-                            WorldSync.ApplyUpsert(r);
+                            WorldSync.ApplyAdd(r);
                         break;
                     case MsgType.WgoRemove:
                         if (phase == Phase.Playing)

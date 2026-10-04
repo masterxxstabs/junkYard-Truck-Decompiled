@@ -19,8 +19,7 @@ either of you make are mirrored to the other.
 | Bodies | Each of you still gets your own body deliveries, and both players see every body. Either player can pick up, carry, drop and work on any body. |
 | Items on the ground | Things dropped near a player (loot, crates, bodies) appear for both of you, and picking one up removes it for both. |
 | Time of day | The guest's day and clock follow the host's. |
-| World objects | Objects added or removed near the player who did it are mirrored: trees chopped, rocks mined, things built or torn down, things placed. |
-| Things you use | The object you're facing or working on (chest, workbench, garden bed, grave...) has its full state re-sent whenever it changes. Workbenches sync when their craft queue is empty; running crafts are never copied. |
+| World objects | New objects that appear near a player are added for the other player (stumps, things built or placed). Removals are mirrored only when the player was chopping, mining, digging or building at the time. Nothing that already exists is ever replaced. |
 | Guest's character | The guest's inventory, stats and position are stored on the host's PC (every 30 s and when they leave) and given back the next time they join that save. |
 | Chat | Small text chat in the panel. |
 
@@ -102,6 +101,16 @@ host closes the world, the guest is sent back to the main menu.
 Guest characters are stored on the host in `BepInEx\config\GYK2Coop\guests\`.
 
 ## Changes
+
+**0.3.0: safety release. Update both PCs.**
+- 0.1/0.2 could replace existing objects with a copy from the other game (remove, then re-add),
+  and trusted every removal the other game reported. That could delete crafting tables or leave
+  broken objects in the host's save. Both behaviours are gone:
+  - Existing objects are never replaced. Only brand-new objects are added.
+  - Removals are only sent while the player is chopping, mining, digging, planting, fighting or building, and never in bursts.
+  - Removals are only applied to the exact same object, and **never** to anything holding items or a craft.
+  - A burst of incoming removals is refused, with a chat message.
+- Contents of chests and workbenches are no longer synced. Each game keeps its own.
 
 **0.2.0**
 - The other player's carry pose and carried item (bodies, crates) are now visible.

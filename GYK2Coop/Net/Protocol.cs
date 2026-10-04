@@ -14,7 +14,7 @@ namespace GYK2Coop.Net
         Ready = 5,          // guest -> host: guest finished loading
         PlayerState = 6,    // both: position, direction, animation, scene
         Time = 7,           // host -> guest: day + time of day
-        WgoUpsert = 8,      // both: a world object was added or changed
+        WgoAdd = 8,         // both: a new world object appeared near the player who made it
         WgoRemove = 9,      // both: a world object was removed
         GuestCharacter = 10,// guest -> host: guest's PlayerData for safe keeping
         Chat = 11,          // both

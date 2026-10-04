@@ -167,8 +167,22 @@ namespace GYK2Coop.Game
             return p?.GetValue(o, null) as string;
         }
 
-        /// <summary>Working on something (chopping, crafting, digging) or has a game window open.</summary>
-        public static bool PlayerIsBusy
+        private static readonly HashSet<int> WorkStates = new HashSet<int>
+        {
+            (int)AnimationState.ToolAxe,
+            (int)AnimationState.ToolShovel,
+            (int)AnimationState.ToolPickaxe,
+            (int)AnimationState.ToolHammer,
+            (int)AnimationState.WorkHands,
+            (int)AnimationState.Planting,
+            (int)AnimationState.AttackCommon,
+            (int)AnimationState.AttackSpear,
+            (int)AnimationState.AttackBow,
+            (int)AnimationState.AttackMelee,
+        };
+
+        /// <summary>Chopping, digging, mining, planting, fighting, or in build mode right now.</summary>
+        public static bool PlayerIsWorkingOrBuilding
         {
             get
             {
@@ -177,11 +191,19 @@ namespace GYK2Coop.Game
                     return false;
                 try
                 {
-                    return !p.IsControlEnabledByType(TakenControlType.ByWork) || !p.IsControlEnabledByType(TakenControlType.ByUI);
+                    if (WorkStates.Contains(PlayerAnimState))
+                        return true;
+                    if (!p.IsControlEnabledByType(TakenControlType.ByBuilding))
+                        return true;
+                    BuildController bc = BuildController.Instance;
+                    if (bc != null && bc.IsBuildModeActive)
+                        return true;
+                    PlayerInteractionComponent ic = p.GetComponentInChildren<PlayerInteractionComponent>();
+                    return ic != null && ic.IsPaused;
                 }
                 catch
                 {
-                    return true;
+                    return false;
                 }
             }
         }
@@ -340,6 +362,47 @@ namespace GYK2Coop.Game
             if (wgoUniqueIdField == null)
                 wgoUniqueIdField = AccessTools.Field(typeof(WgoData), "uniqueId");
             wgoUniqueIdField.SetValue(target, wgoUniqueIdField.GetValue(source));
+        }
+
+        private static PropertyInfo wgoDefinitionProp;
+
+        /// <summary>The object's definition (from the game's balance data) resolves.</summary>
+        public static bool HasDefinition(WgoData w)
+        {
+            try
+            {
+                if (wgoDefinitionProp == null)
+                    wgoDefinitionProp = AccessTools.Property(typeof(WgoData), "Definition");
+                return wgoDefinitionProp?.GetValue(w, null) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>True if the object's storage or craft inventory holds anything.</summary>
+        public static bool HasStoredItems(WgoData w)
+        {
+            try
+            {
+                return InventoryHasItems(w.Inventory) || InventoryHasItems(w.CraftInventory);
+            }
+            catch
+            {
+                return true; // Unknown: treat as precious.
+            }
+        }
+
+        private static bool InventoryHasItems(Inventory inventory)
+        {
+            List<Item> items = inventory?.Data?.Inventory;
+            if (items == null)
+                return false;
+            foreach (Item it in items)
+                if (it != null && !it.IsEmpty)
+                    return true;
+            return false;
         }
 
         public static string WgoDefId(WgoData w)
