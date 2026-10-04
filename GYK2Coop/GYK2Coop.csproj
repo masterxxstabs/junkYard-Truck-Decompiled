@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>GYK2Coop</AssemblyName>
+    <RootNamespace>GYK2Coop</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Optimize>true</Optimize>
+    <!-- Change this if the game is installed somewhere else, or build with: dotnet build -p:GameDir="D:\Games\Graveyard Keeper 2" -->
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2</GameDir>
+    <BepInExDir Condition="'$(BepInExDir)' == ''">$(GameDir)\BepInEx\core</BepInExDir>
+  </PropertyGroup>
+
+  <!-- Find <Game>_Data\Managed without hard-coding the executable name. -->
+  <ItemGroup Condition="'$(ManagedDir)' == ''">
+    <_GameAsm Include="$(GameDir)\*_Data\Managed\Assembly-CSharp.dll" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(ManagedDir)' == ''">
+    <ManagedDir>@(_GameAsm->'%(RootDir)%(Directory)')</ManagedDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx" HintPath="$(BepInExDir)\BepInEx.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(BepInExDir)\0Harmony.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(ManagedDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="LazyBearTechnology" HintPath="$(ManagedDir)\LazyBearTechnology.dll" Private="false" />
+    <Reference Include="Sirenix.Serialization" HintPath="$(ManagedDir)\Sirenix.Serialization.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(ManagedDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AnimationModule" HintPath="$(ManagedDir)\UnityEngine.AnimationModule.dll" Private="false" />
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(ManagedDir)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(ManagedDir)\UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="UnityEngine.PhysicsModule" HintPath="$(ManagedDir)\UnityEngine.PhysicsModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AudioModule" HintPath="$(ManagedDir)\UnityEngine.AudioModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(ManagedDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
+  </ItemGroup>
+
+  <!-- Copy the built mod straight into BepInEx\plugins -->
+  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="Exists('$(GameDir)\BepInEx\plugins')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\BepInEx\plugins" />
+  </Target>
+
+</Project>
