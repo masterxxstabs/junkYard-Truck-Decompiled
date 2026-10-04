@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.1.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.1.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -119,6 +119,8 @@ namespace TruckPartsQOL
 			}
 			migrated.Value = true;
 			MelonPreferences_Category old = MelonPreferences.CreateCategory("TruckStereo");
+			// Only read for the move; keep it out of settings menus.
+			old.IsHidden = true;
 			int copied = 0;
 			copied += Copy(old, useKey) + Copy(old, powerKey) + Copy(old, nextKey) + Copy(old, prevKey) + Copy(old, modeKey) + Copy(old, ejectKey) + Copy(old, shopKey);
 			copied += Copy(old, freeParts) + Copy(old, headUnitPrice) + Copy(old, speakerPrice) + Copy(old, subwooferPrice) + Copy(old, cdPrice);

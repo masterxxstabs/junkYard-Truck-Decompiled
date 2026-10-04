@@ -10,7 +10,7 @@ using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(ModsMenu.ModsMenuMod), "Mods Menu", "1.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(ModsMenu.ModsMenuMod), "Mods Menu", "1.1.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace ModsMenu
@@ -23,7 +23,7 @@ namespace ModsMenu
 	// The menu is Unity UI (Michsky Dark UI kit) and the game ships its UI and
 	// TextMeshPro assemblies itself, so those types are reached by reflection
 	// instead of compiling against them.
-	public class ModsMenuMod : MelonMod
+	public partial class ModsMenuMod : MelonMod
 	{
 		private static MelonLogger.Instance log;
 
@@ -41,18 +41,18 @@ namespace ModsMenu
 		private string sceneName = "";
 		private string lastStatus = "";
 
+		private const string ModsButtonName = "MODS (Mods Menu)";
+
 		private Transform column;
 		private GameObject template; // the UPDATES button
 		private GameObject modsButton;
-		private readonly List<GameObject> pageItems = new List<GameObject>();
-		private readonly List<GameObject> hiddenForPage = new List<GameObject>();
-		private bool pageOpen;
 
 		public override void OnInitializeMelon()
 		{
 			log = LoggerInstance;
 			giveUpAt = Time.unscaledTime + LookFor;
 			dumpAt = Time.unscaledTime + DumpAfter;
+			InitPrefs();
 			log.Msg("Loaded; looking for the main menu.");
 		}
 
@@ -66,9 +66,7 @@ namespace ModsMenu
 			lastStatus = "";
 			dumpAt = Time.unscaledTime + DumpAfter;
 			installed = false;
-			pageOpen = false;
-			pageItems.Clear();
-			hiddenForPage.Clear();
+			ResetPages();
 			nextLook = 0f;
 			// Only menus need it; stop looking in a scene that has none (the level).
 			giveUpAt = Time.unscaledTime + LookFor;
@@ -76,10 +74,7 @@ namespace ModsMenu
 
 		public override void OnUpdate()
 		{
-			if (pageOpen && Input.GetKeyDown(KeyCode.Escape))
-			{
-				ClosePage();
-			}
+			UpdatePages();
 			if (installed || Time.unscaledTime < nextLook || Time.unscaledTime > giveUpAt)
 			{
 				return;
@@ -185,8 +180,16 @@ namespace ModsMenu
 		{
 			column = updates.parent;
 			template = updates.gameObject;
+			// Already there (the menu can report its scene as loaded twice): keep it.
+			Transform existing = column.Find(ModsButtonName);
+			if (existing != null)
+			{
+				modsButton = existing.gameObject;
+				installed = true;
+				return;
+			}
 			modsButton = MakeButton("MODS", OpenPage);
-			modsButton.name = "MODS (Mods Menu)";
+			modsButton.name = ModsButtonName;
 			InsertBefore(modsButton.transform, settings);
 			installed = true;
 			log.Msg("Added MODS to the main menu (" + PathOf(column) + ", " + (HasLayoutGroup() ? "layout group" : "placed by hand") + ").");
@@ -301,22 +304,6 @@ namespace ModsMenu
 			return copy;
 		}
 
-		// A line on the mods page: a copy of the button in smaller type that does nothing.
-		private GameObject MakeLine(string label, float size)
-		{
-			GameObject line = MakeButton(label, delegate { });
-			foreach (Component text in Texts(line))
-			{
-				ScaleFont(text, size);
-			}
-			RectTransform rt = line.transform as RectTransform;
-			if (rt != null)
-			{
-				rt.sizeDelta = new Vector2(rt.sizeDelta.x, rt.sizeDelta.y * size);
-			}
-			return line;
-		}
-
 		// Put `item` where `before` is and move `before` and what follows down a slot.
 		private void InsertBefore(Transform item, Transform before)
 		{
@@ -354,112 +341,6 @@ namespace ModsMenu
 		private bool HasLayoutGroup()
 		{
 			return layoutGroupType != null && column.GetComponent(layoutGroupType) != null;
-		}
-
-		// --- The mods page. ---
-
-		private void OpenPage()
-		{
-			if (pageOpen)
-			{
-				return;
-			}
-			hiddenForPage.Clear();
-			foreach (Transform child in column)
-			{
-				if (child.gameObject.activeSelf)
-				{
-					hiddenForPage.Add(child.gameObject);
-				}
-			}
-			RectTransform first = template.transform as RectTransform;
-			Vector2 firstPos = first != null ? first.anchoredPosition : Vector2.zero;
-			Vector2 slot = Slot();
-			foreach (GameObject g in hiddenForPage)
-			{
-				g.SetActive(false);
-			}
-
-			List<string> lines = new List<string>();
-			foreach (MelonBase melon in MelonMod.RegisteredMelons)
-			{
-				if (melon == null || melon.Info == null)
-				{
-					continue;
-				}
-				string line = melon.Info.Name.ToUpperInvariant() + "  " + melon.Info.Version;
-				if (!string.IsNullOrEmpty(melon.Info.Author))
-				{
-					line += "  -  " + melon.Info.Author;
-				}
-				lines.Add(line);
-			}
-			lines.Sort(StringComparer.OrdinalIgnoreCase);
-
-			const float LineSize = 0.5f;
-			Vector2 pos = firstPos;
-			GameObject header = MakeLine(lines.Count + (lines.Count == 1 ? " MOD INSTALLED" : " MODS INSTALLED"), 0.65f);
-			Place(header, ref pos, slot * 0.75f);
-			foreach (string line in lines)
-			{
-				Place(MakeLine(line, LineSize), ref pos, slot * 0.55f);
-			}
-			pos += slot * 0.35f;
-			Place(MakeButton("BACK", ClosePage), ref pos, slot);
-			pageOpen = true;
-		}
-
-		private void Place(GameObject item, ref Vector2 pos, Vector2 advance)
-		{
-			pageItems.Add(item);
-			item.transform.SetAsLastSibling();
-			if (HasLayoutGroup())
-			{
-				return;
-			}
-			RectTransform r = item.transform as RectTransform;
-			if (r != null)
-			{
-				r.anchoredPosition = pos;
-			}
-			pos += advance;
-		}
-
-		// The distance between two menu entries (UPDATES to MODS).
-		private Vector2 Slot()
-		{
-			RectTransform a = template.transform as RectTransform;
-			RectTransform b = modsButton != null ? modsButton.transform as RectTransform : null;
-			if (a != null && b != null && (b.anchoredPosition - a.anchoredPosition).sqrMagnitude > 1f)
-			{
-				return b.anchoredPosition - a.anchoredPosition;
-			}
-			return new Vector2(0f, -60f);
-		}
-
-		private void ClosePage()
-		{
-			if (!pageOpen)
-			{
-				return;
-			}
-			foreach (GameObject g in pageItems)
-			{
-				if (g != null)
-				{
-					Object.Destroy(g);
-				}
-			}
-			pageItems.Clear();
-			foreach (GameObject g in hiddenForPage)
-			{
-				if (g != null)
-				{
-					g.SetActive(true);
-				}
-			}
-			hiddenForPage.Clear();
-			pageOpen = false;
 		}
 
 		// --- Diagnostics. ---
