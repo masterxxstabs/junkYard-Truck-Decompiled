@@ -65,6 +65,8 @@ namespace GYK2Coop.Game
             pending.Clear();
             watched.Clear();
             remoteToLocal.Clear();
+            deferred.Clear();
+            DropSync.Reset();
             Active = false;
         }
 
@@ -168,6 +170,7 @@ namespace GYK2Coop.Game
             {
                 nextWatchTick = Time.unscaledTime + WatchInterval;
                 TickWatched();
+                RetryDeferred();
             }
         }
 
@@ -207,6 +210,14 @@ namespace GYK2Coop.Game
                 if (GameBridge.FindWgo(kv.Key) != wt.Wgo)
                 {
                     expired.Add(kv.Key);
+                    continue;
+                }
+                if (IsCrafting(wt.Wgo))
+                {
+                    // A running craft lives in the game's global active-craft list; replacing the
+                    // object on the other side mid-craft orphans it there forever. Stay quiet until
+                    // the queue is empty, then send the finished state.
+                    wt.Until = Mathf.Max(wt.Until, now + WatchSeconds);
                     continue;
                 }
                 bool moved = (wt.Wgo.Position - wt.LastPosition).sqrMagnitude > 0.0001f;
@@ -303,37 +314,119 @@ namespace GYK2Coop.Game
             return w;
         }
 
+        private class IncomingUpsert
+        {
+            public bool IsNew;
+            public string SceneId;
+            public Guid Guid;
+            public string DefId;
+            public Vector3 Position;
+            public byte[] Bytes;
+            public float ReceivedAt;
+        }
+
+        private const float DeferLimitSeconds = 600f;
+
+        // Updates that arrived while the local copy was busy (crafting, or being used by the
+        // local player). Only the latest one per object is kept.
+        private static readonly Dictionary<Guid, IncomingUpsert> deferred = new Dictionary<Guid, IncomingUpsert>();
+
         public static void ApplyUpsert(BinaryReader r)
         {
-            bool isNew = r.ReadBoolean();
-            string sceneId = r.ReadString();
-            var guid = new Guid(r.ReadBytes(16));
-            string defId = r.ReadString();
-            Vector3 pos = r.ReadVec3();
-            byte[] bytes = r.ReadBlob();
-            if (!Active || !GameBridge.InGame || bytes == null)
+            var u = new IncomingUpsert
+            {
+                IsNew = r.ReadBoolean(),
+                SceneId = r.ReadString(),
+                Guid = new Guid(r.ReadBytes(16)),
+                DefId = r.ReadString(),
+                Position = r.ReadVec3(),
+                Bytes = r.ReadBlob(),
+                ReceivedAt = Time.unscaledTime,
+            };
+            if (!Active || !GameBridge.InGame || u.Bytes == null)
                 return;
+            deferred.Remove(u.Guid);
+            if (!TryApplyUpsert(u))
+                deferred[u.Guid] = u;
+        }
 
-            GameSceneData scene = GameBridge.FindScene(sceneId);
+        private static bool IsCrafting(WgoData w)
+        {
+            try
+            {
+                CraftComponent c = w.CraftComponent;
+                return c != null && c.HasCraftsInQueue;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>True if replacing this object now would pull it out from under the local game.</summary>
+        private static bool IsBusyLocally(WgoData w)
+        {
+            if (IsCrafting(w))
+                return true;
+            WgoData target = GameBridge.WgoUnderInteraction;
+            return target != null && target == w && GameBridge.PlayerIsBusy;
+        }
+
+        private static void RetryDeferred()
+        {
+            if (deferred.Count == 0)
+                return;
+            float now = Time.unscaledTime;
+            var done = new List<Guid>();
+            foreach (KeyValuePair<Guid, IncomingUpsert> kv in deferred)
+            {
+                if (now - kv.Value.ReceivedAt > DeferLimitSeconds || TryApplyUpsert(kv.Value))
+                    done.Add(kv.Key);
+            }
+            foreach (Guid g in done)
+                deferred.Remove(g);
+        }
+
+        /// <returns>false if the update has to wait.</returns>
+        private static bool TryApplyUpsert(IncomingUpsert u)
+        {
+            GameSceneData scene = GameBridge.FindScene(u.SceneId);
             if (scene == null)
-                return;
+                return true;
 
-            WgoData existing = FindLocal(guid, defId, sceneId, pos);
-            if (existing != null && isNew)
-                return; // Both games already made this object; keep ours.
+            WgoData existing = FindLocal(u.Guid, u.DefId, u.SceneId, u.Position);
+            if (existing != null && u.IsNew)
+                return true; // Both games already made this object; keep ours.
+            if (existing != null && IsBusyLocally(existing))
+                return false;
 
             WgoData incoming;
             try
             {
-                incoming = GameSerializer.Deserialize<WgoData>(bytes);
+                incoming = GameSerializer.Deserialize<WgoData>(u.Bytes);
             }
             catch (Exception e)
             {
-                CoopPlugin.Log.LogWarning("Could not read synced object '" + defId + "': " + e.Message);
-                return;
+                CoopPlugin.Log.LogWarning("Could not read synced object '" + u.DefId + "': " + e.Message);
+                return true;
             }
             if (incoming == null)
-                return;
+                return true;
+
+            // Never import a running craft: it would run in both games at once.
+            try
+            {
+                CraftComponent cc = incoming.CraftComponent;
+                if (cc != null && cc.HasCraftsInQueue)
+                {
+                    cc.CraftElementsQueue.Clear();
+                    cc.Status = CraftComponentStatus.None;
+                }
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Could not clear synced craft queue on '" + u.DefId + "': " + e.Message);
+            }
 
             ApplyingRemote++;
             try
@@ -349,8 +442,8 @@ namespace GYK2Coop.Game
                 scene.AddWgoData(incoming, true);
 
                 Guid localGuid = GameBridge.WgoGuid(incoming);
-                if (localGuid != guid)
-                    remoteToLocal[guid] = localGuid;
+                if (localGuid != u.Guid)
+                    remoteToLocal[u.Guid] = localGuid;
                 if (watched.TryGetValue(localGuid, out Watched wt))
                 {
                     // Don't bounce the remote state straight back.
@@ -362,12 +455,13 @@ namespace GYK2Coop.Game
             }
             catch (Exception e)
             {
-                CoopPlugin.Log.LogWarning("Applying synced object '" + defId + "' failed: " + e.Message);
+                CoopPlugin.Log.LogWarning("Applying synced object '" + u.DefId + "' failed: " + e.Message);
             }
             finally
             {
                 ApplyingRemote--;
             }
+            return true;
         }
 
         public static void ApplyRemove(BinaryReader r)

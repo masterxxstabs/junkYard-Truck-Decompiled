@@ -15,10 +15,12 @@ either of you make are mirrored to the other.
 |---|---|
 | Host / join | Host from inside your save, join from the main menu, using an address and port. |
 | World transfer | The guest gets the host's world as it is when they join (the save file format, sent over the network). |
-| Seeing each other | The other keeper is drawn walking, chopping, digging, planting and climbing, with a name above their head. |
+| Seeing each other | The other keeper is drawn walking, chopping, digging, planting and climbing, with a name above their head. Carrying shows the carry pose and the body or crate held overhead. |
+| Bodies | Each of you still gets your own body deliveries, and both players see every body. Either player can pick up, carry, drop and work on any body. |
+| Items on the ground | Things dropped near a player (loot, crates, bodies) appear for both of you, and picking one up removes it for both. |
 | Time of day | The guest's day and clock follow the host's. |
 | World objects | Objects added or removed near the player who did it are mirrored: trees chopped, rocks mined, things built or torn down, things placed. |
-| Things you use | The object you're facing or working on (chest, workbench, garden bed, grave...) has its full state re-sent whenever it changes. |
+| Things you use | The object you're facing or working on (chest, workbench, garden bed, grave...) has its full state re-sent whenever it changes. Workbenches sync when their craft queue is empty; running crafts are never copied. |
 | Guest's character | The guest's inventory, stats and position are stored on the host's PC (every 30 s and when they leave) and given back the next time they join that save. |
 | Chat | Small text chat in the panel. |
 
@@ -26,7 +28,7 @@ either of you make are mirrored to the other.
 
 - **Story, quests, dialogue and cutscenes are host-only.** The guest's quest progress isn't saved. Leave the story to the host.
 - **Combat isn't synced.** Enemies, attacks and damage happen separately in each game.
-- **Items lying on the ground aren't synced.** Each player picks up their own loot.
+- **Crafting at the same bench at the same time:** a craft runs only in the game of the player who started it. The other player sees the bench's result after the queue finishes. Don't both queue crafts on one bench at once.
 - **NPCs, zombie workers and walking creatures** are simulated separately by each game. They mostly line up because both games start from the same save, but not exactly.
 - **The guest starts as a copy of the host's character** (same look, same inventory) the first time they join a save. After that they keep their own progress.
 - Two players only (one host, one guest).
@@ -47,7 +49,7 @@ either of you make are mirrored to the other.
      `WINEDLLOVERRIDES="winhttp=n,b" %command%`
 3. Copy **`dist/GYK2Coop.dll`** from this folder into `BepInEx\plugins\`.
 4. Start the game. `BepInEx\LogOutput.log` should contain
-   `Graveyard Keeper 2 Co-op 0.1.0 loaded`.
+   `Graveyard Keeper 2 Co-op 0.2.0 loaded`.
 
 Both of you need the same game version and the same mod version. The mod checks both and
 refuses to connect if they don't match.
@@ -99,6 +101,16 @@ host closes the world, the guest is sent back to the main menu.
 
 Guest characters are stored on the host in `BepInEx\config\GYK2Coop\guests\`.
 
+## Changes
+
+**0.2.0**
+- The other player's carry pose and carried item (bodies, crates) are now visible.
+- Bodies and items on the ground are synced, so either player can carry or work on the other's body.
+- Fixed workbenches getting stuck crafting forever (couldn't change recipe or remove the bench). Running crafts are no longer copied between games, and updates to a bench wait until neither game is crafting on it.
+- Not compatible with 0.1.0. Both players must update.
+
+If a bench in your save is still stuck from 0.1.0, save, quit to the menu and load again.
+
 ## Troubleshooting
 
 - **No panel on F8:** check `BepInEx\LogOutput.log` for the "loaded" line. If BepInEx itself doesn't
@@ -126,6 +138,9 @@ Guest characters are stored on the host in `BepInEx\config\GYK2Coop\guests\`.
   additions are matched to an existing object with the same definition within 0.35 m (and kept
   if one exists), so objects both games spawn on their own aren't doubled.
   Incoming updates replace the local object but keep its local id.
+- `Game/DropSync.cs`: Harmony hooks on `GameSceneData.AddDrop` / `RemoveDrop`. Bodies (item groups
+  `body`/`corpse`) are always mirrored and never merged; other drops only near the player who
+  made them, matched by item id and position.
 - `Game/SavePatches.cs`: the guest's `SaveSystem.Save` does nothing while it's in the host's world.
 - Anything typed by `LazyBearTechnology.dll` (the game's engine library) is reached by
   reflection in `Game/GameBridge.cs`, so a game patch breaks one lookup instead of the whole mod.

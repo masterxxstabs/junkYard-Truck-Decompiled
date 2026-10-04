@@ -63,6 +63,9 @@ namespace GYK2Coop
         private Vector3 lastSentPos;
         private int lastSentAnim = -1;
         private Vector2 lastSentDir;
+        private string lastSentCarry = "";
+        private float[] lastSentLayers = new float[0];
+        private readonly List<string> overheadIcons = new List<string>();
 
         // UI
         private bool panelOpen;
@@ -296,13 +299,19 @@ namespace GYK2Coop
                 Vector3 pos = GameBridge.PlayerVisualPosition;
                 Vector2 dir = GameBridge.PlayerDirection;
                 int anim = GameBridge.PlayerAnimState;
-                bool changed = (pos - lastSentPos).sqrMagnitude > 0.0004f || anim != lastSentAnim || (dir - lastSentDir).sqrMagnitude > 0.0001f;
+                float[] layers = GameBridge.GetPlayerLayerWeights();
+                GameBridge.GetOverheadIcons(overheadIcons);
+                string carry = string.Join("|", overheadIcons.ToArray());
+                bool changed = (pos - lastSentPos).sqrMagnitude > 0.0004f || anim != lastSentAnim || (dir - lastSentDir).sqrMagnitude > 0.0001f
+                    || carry != lastSentCarry || LayersChanged(layers);
                 if (changed || now >= nextStateHeartbeat)
                 {
                     nextStateHeartbeat = now + StateHeartbeat;
                     lastSentPos = pos;
                     lastSentAnim = anim;
                     lastSentDir = dir;
+                    lastSentCarry = carry;
+                    lastSentLayers = layers;
                     string scene = GameBridge.PlayerSceneId;
                     Send(MsgType.PlayerState, w =>
                     {
@@ -311,6 +320,10 @@ namespace GYK2Coop
                         w.Write(dir.y);
                         w.Write(anim);
                         w.WriteStr(scene);
+                        w.Write((byte)Math.Min(layers.Length, 255));
+                        for (int i = 0; i < layers.Length && i < 255; i++)
+                            w.Write(layers[i]);
+                        w.WriteStr(carry);
                     });
                 }
             }
@@ -333,11 +346,22 @@ namespace GYK2Coop
             }
         }
 
+        private bool LayersChanged(float[] layers)
+        {
+            if (layers.Length != lastSentLayers.Length)
+                return true;
+            for (int i = 0; i < layers.Length; i++)
+                if (Mathf.Abs(layers[i] - lastSentLayers[i]) > 0.02f)
+                    return true;
+            return false;
+        }
+
         private void BeginPlaying()
         {
             WorldSync.Reset();
             WorldSync.Active = true;
             lastSentAnim = -1;
+            lastSentCarry = null;
             nextCharacterUpload = Time.unscaledTime + CharacterUploadInterval;
         }
 
@@ -390,6 +414,14 @@ namespace GYK2Coop
                     case MsgType.WgoRemove:
                         if (phase == Phase.Playing)
                             WorldSync.ApplyRemove(r);
+                        break;
+                    case MsgType.DropAdd:
+                        if (phase == Phase.Playing)
+                            DropSync.ApplyAdd(r);
+                        break;
+                    case MsgType.DropRemove:
+                        if (phase == Phase.Playing)
+                            DropSync.ApplyRemove(r);
                         break;
                     case MsgType.GuestCharacter:
                         if (role == Role.Host)
@@ -544,8 +576,17 @@ namespace GYK2Coop
             var dir = new Vector2(r.ReadSingle(), r.ReadSingle());
             int anim = r.ReadInt32();
             string scene = r.ReadString();
+            int layerCount = r.ReadByte();
+            var layers = new float[layerCount];
+            for (int i = 0; i < layerCount; i++)
+                layers[i] = r.ReadSingle();
+            string carry = r.ReadString();
             if (phase == Phase.Playing && puppet != null)
+            {
                 puppet.PushState(pos, dir, anim, scene);
+                puppet.SetLayerWeights(layers);
+                puppet.SetCarry(carry);
+            }
         }
 
         // ================================================================ guest character storage (host side)

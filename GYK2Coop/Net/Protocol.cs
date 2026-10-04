@@ -20,6 +20,8 @@ namespace GYK2Coop.Net
         Chat = 11,          // both
         Ping = 12,          // both
         Bye = 13,           // both: clean disconnect, reason
+        DropAdd = 14,       // both: an item was put on the ground (bodies, crates, loot)
+        DropRemove = 15,    // both: an item on the ground was picked up / removed
     }
 
     internal struct Packet

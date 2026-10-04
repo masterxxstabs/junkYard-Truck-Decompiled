@@ -167,6 +167,25 @@ namespace GYK2Coop.Game
             return p?.GetValue(o, null) as string;
         }
 
+        /// <summary>Working on something (chopping, crafting, digging) or has a game window open.</summary>
+        public static bool PlayerIsBusy
+        {
+            get
+            {
+                PlayerController p = Player;
+                if (p == null)
+                    return false;
+                try
+                {
+                    return !p.IsControlEnabledByType(TakenControlType.ByWork) || !p.IsControlEnabledByType(TakenControlType.ByUI);
+                }
+                catch
+                {
+                    return true;
+                }
+            }
+        }
+
         public static void SetPlayerControlByUI(bool enabled)
         {
             try
@@ -202,7 +221,12 @@ namespace GYK2Coop.Game
         {
             if (wgoUniqueIdField == null)
                 wgoUniqueIdField = AccessTools.Field(typeof(WgoData), "uniqueId");
-            object sguid = wgoUniqueIdField.GetValue(w);
+            return SGuidToGuid(wgoUniqueIdField.GetValue(w));
+        }
+
+        /// <summary>LazyBearTechnology's SGuid wraps a System.Guid.</summary>
+        public static Guid SGuidToGuid(object sguid)
+        {
             if (sguid == null)
                 return Guid.Empty;
             Type t = sguid.GetType();
@@ -213,6 +237,101 @@ namespace GYK2Coop.Game
             }
             object g = m is PropertyInfo pi ? pi.GetValue(sguid, null) : (m as FieldInfo)?.GetValue(sguid);
             return g is Guid guid ? guid : Guid.Empty;
+        }
+
+        // ---------------------------------------------------------------- items
+
+        private static FieldInfo itemUniqueIdField;
+        private static FieldInfo itemDefIdField;
+        private static PropertyInfo itemDefinitionProp;
+        private static FieldInfo itemDefIconField;
+        private static FieldInfo itemDefGroupsField;
+
+        public static Guid ItemGuid(Item item)
+        {
+            if (item == null)
+                return Guid.Empty;
+            if (itemUniqueIdField == null)
+                itemUniqueIdField = AccessTools.Field(typeof(Item), "uniqueId");
+            return SGuidToGuid(itemUniqueIdField?.GetValue(item));
+        }
+
+        public static string ItemDefId(Item item)
+        {
+            if (item == null)
+                return "";
+            if (itemDefIdField == null)
+                itemDefIdField = AccessTools.Field(typeof(Item), "id");
+            return itemDefIdField?.GetValue(item) as string ?? "";
+        }
+
+        private static object ItemDefinition(Item item)
+        {
+            if (item == null)
+                return null;
+            if (itemDefinitionProp == null)
+                itemDefinitionProp = AccessTools.Property(typeof(Item), "Definition");
+            return itemDefinitionProp?.GetValue(item, null);
+        }
+
+        public static string ItemIconId(Item item)
+        {
+            object def = ItemDefinition(item);
+            if (def == null)
+                return "";
+            if (itemDefIconField == null)
+                itemDefIconField = AccessTools.Field(def.GetType(), "iconId");
+            return itemDefIconField?.GetValue(def) as string ?? "";
+        }
+
+        /// <summary>Corpses / bodies (the game tags them with the item groups "body" and "corpse").</summary>
+        public static bool ItemIsBody(Item item)
+        {
+            object def = ItemDefinition(item);
+            if (def == null)
+                return false;
+            if (itemDefGroupsField == null)
+                itemDefGroupsField = AccessTools.Field(def.GetType(), "itemGroupIds");
+            if (itemDefGroupsField?.GetValue(def) is System.Collections.IEnumerable groups)
+            {
+                foreach (object g in groups)
+                {
+                    string s = g as string;
+                    if (s == "body" || s == "corpse")
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Icon ids of whatever the local player is carrying over their head (bodies, crates...).</summary>
+        public static void GetOverheadIcons(List<string> into)
+        {
+            into.Clear();
+            PlayerData d = LocalPlayerData;
+            if (d == null || !d.HasOverheadItem)
+                return;
+            foreach (Item item in d.OverheadItems)
+            {
+                if (item == null || item.IsEmpty)
+                    continue;
+                string icon = ItemIconId(item);
+                if (!string.IsNullOrEmpty(icon))
+                    into.Add(icon);
+            }
+        }
+
+        /// <summary>Current weight of every layer of the local player's animator (carry pose, armor...).</summary>
+        public static float[] GetPlayerLayerWeights()
+        {
+            PlayerController p = Player;
+            Animator a = p?.View?.PlayerAnimation?.Animator;
+            if (a == null || !a.isActiveAndEnabled)
+                return new float[0];
+            var w = new float[a.layerCount];
+            for (int i = 0; i < w.Length; i++)
+                w[i] = a.GetLayerWeight(i);
+            return w;
         }
 
         /// <summary>Gives <paramref name="target"/> the same identity object as <paramref name="source"/>.</summary>

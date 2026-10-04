@@ -112,6 +112,12 @@ namespace GYK2Coop.Game
 
         private static void Strip(GameObject clone)
         {
+            // The overhead item view (what a carried body/crate is drawn with) is kept whole.
+            var keep = new HashSet<GameObject>();
+            foreach (DropViewAtomBase dv in clone.GetComponentsInChildren<DropViewAtomBase>(true))
+                foreach (Transform t in dv.GetComponentsInChildren<Transform>(true))
+                    keep.Add(t.gameObject);
+
             // Destroy behaviours in passes because some have [RequireComponent] dependencies.
             for (int pass = 0; pass < 4; pass++)
             {
@@ -119,6 +125,8 @@ namespace GYK2Coop.Game
                 foreach (Component c in clone.GetComponentsInChildren<Component>(true))
                 {
                     if (c == null || c is Transform || c is Renderer || c is MeshFilter || c is Animator)
+                        continue;
+                    if (keep.Contains(c.gameObject))
                         continue;
                     if (c is AnimationComponentBase || c is DropViewAtomMesh)
                         continue;
@@ -145,6 +153,8 @@ namespace GYK2Coop.Game
             // whose behaviour we just removed but whose renderer would show a frozen leftover.
             foreach (Transform t in clone.GetComponentsInChildren<Transform>(true))
             {
+                if (keep.Contains(t.gameObject))
+                    continue;
                 string n = t.name.ToLowerInvariant();
                 if (n.Contains("wisp") || n.Contains("banner") || n.Contains("fishing") || n.Contains("sermon") || n.Contains("bubble"))
                     t.gameObject.SetActive(false);
@@ -209,6 +219,73 @@ namespace GYK2Coop.Game
             }
         }
 
+        // Layers the puppet drives itself or that only matter for the local player's gameplay.
+        private static readonly HashSet<int> SkippedLayers = new HashSet<int>
+        {
+            (int)AnimationComponent.Layers.OverheadInteracting,
+            (int)AnimationComponent.Layers.WeaponHitBox,
+            (int)AnimationComponent.Layers.SwordAttackHitbox,
+            (int)AnimationComponent.Layers.Eyes,
+        };
+
+        private float[] layerWeights = new float[0];
+        private string carry = "";
+        private string shownCarry;
+
+        /// <summary>Copies the remote animator's layer weights (carry pose, armor, stance...).</summary>
+        public void SetLayerWeights(float[] weights)
+        {
+            layerWeights = weights ?? new float[0];
+            ApplyLayerWeights();
+        }
+
+        private void ApplyLayerWeights()
+        {
+            if (animator == null || !animator.isActiveAndEnabled)
+                return;
+            int n = Mathf.Min(layerWeights.Length, animator.layerCount);
+            for (int i = 0; i < n; i++)
+            {
+                if (SkippedLayers.Contains(i))
+                    continue;
+                if (Mathf.Abs(animator.GetLayerWeight(i) - layerWeights[i]) > 0.001f)
+                    animator.SetLayerWeight(i, layerWeights[i]);
+            }
+        }
+
+        /// <summary>Icon ids of what the remote player carries overhead, '|' separated ("" = nothing).</summary>
+        public void SetCarry(string icons)
+        {
+            carry = icons ?? "";
+            ApplyCarry();
+        }
+
+        private void ApplyCarry()
+        {
+            if (anim == null || visual == null || !visual.activeInHierarchy || carry == shownCarry)
+                return;
+            shownCarry = carry;
+            try
+            {
+                var view = AccessTools.Field(typeof(AnimationComponentBase), "dropView")?.GetValue(anim) as DropViewAtomMesh;
+                if (view == null)
+                    return;
+                if (carry.Length == 0)
+                {
+                    view.Deactivate();
+                    return;
+                }
+                string first = carry.Split('|')[0];
+                view.isOverhead = true;
+                view.Activate(first);
+                view.SetInteractionState(false);
+            }
+            catch (Exception e)
+            {
+                CoopPlugin.Log.LogWarning("Puppet carry view failed: " + e.Message);
+            }
+        }
+
         private void Update()
         {
             if (visual == null)
@@ -227,6 +304,9 @@ namespace GYK2Coop.Game
                     currentDirection = Vector2.zero;
                     if (snapshots.Count > 0)
                         PushState(snapshots[snapshots.Count - 1].Position, d, s, SceneId);
+                    shownCarry = null;
+                    ApplyLayerWeights();
+                    ApplyCarry();
                 }
             }
             if (!visible || snapshots.Count == 0)
