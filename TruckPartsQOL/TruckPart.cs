@@ -13,7 +13,8 @@ namespace TruckPartsQOL
 		Tarp,
 		Tonneau,
 		HardTop,
-		Scanner
+		Scanner,
+		Amplifier
 	}
 
 	// One stereo item: carried with the game's own PickUp, installed by parenting
@@ -40,6 +41,10 @@ namespace TruckPartsQOL
 		public float halfDepth;
 
 		public float halfHeight;
+
+		// How far the part sinks into the surface it's fitted to: door speakers go
+		// in flush, with only their frame standing proud.
+		public float inset;
 
 		// Speakers: set by the head unit each frame it drives this speaker.
 		[NonSerialized]
@@ -98,6 +103,11 @@ namespace TruckPartsQOL
 			get { return kind == PartKind.Speaker || kind == PartKind.Subwoofer; }
 		}
 
+		public PartBolts Bolts
+		{
+			get { return GetComponent<PartBolts>(); }
+		}
+
 		public GameObject Vehicle
 		{
 			get { return installed ? Vehicles.FindRoot(transform) : null; }
@@ -112,7 +122,7 @@ namespace TruckPartsQOL
 				case PartKind.HeadUnit:
 					return "CD head unit";
 				case PartKind.Speaker:
-					return "6.5\" speaker";
+					return "6.5\" door speaker";
 				case PartKind.Subwoofer:
 					return "subwoofer";
 				case PartKind.Tarp:
@@ -123,6 +133,8 @@ namespace TruckPartsQOL
 					return "hard top";
 				case PartKind.Scanner:
 					return "OBD scanner";
+				case PartKind.Amplifier:
+					return "4-channel amplifier";
 				default:
 					return "CD " + cdNumber;
 				}
@@ -145,14 +157,25 @@ namespace TruckPartsQOL
 				body.isKinematic = true;
 				Destroy(body);
 			}
+			PartBolts bolts = Bolts;
 			foreach (Collider collider in GetComponentsInChildren<Collider>())
 			{
-				collider.isTrigger = true;
+				// Bolts stay solid like the game's, so its ratchet can aim at them.
+				if (bolts == null || !bolts.IsBolt(collider))
+				{
+					collider.isTrigger = true;
+				}
 			}
 			transform.SetParent(mountTo, true);
 			Vector3 up = Mathf.Abs(Vector3.Dot(normal, mountTo.up)) > 0.9f ? mountTo.forward : mountTo.up;
 			transform.rotation = Quaternion.LookRotation(normal, up);
-			transform.position = point + normal * halfDepth;
+			transform.position = point + normal * (halfDepth - inset);
+			if (bolts != null)
+			{
+				// Fitted loose: bolt it down with the ratchet.
+				bolts.Show(true);
+				bolts.SetAll(0);
+			}
 			gameObject.layer = 0;
 			if (Pick != null)
 			{
@@ -167,6 +190,10 @@ namespace TruckPartsQOL
 			if (cover != null)
 			{
 				cover.Unfit();
+			}
+			if (Bolts != null)
+			{
+				Bolts.Show(false);
 			}
 			transform.SetParent(null, true);
 			foreach (Collider collider in GetComponentsInChildren<Collider>())

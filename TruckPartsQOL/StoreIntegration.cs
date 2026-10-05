@@ -136,8 +136,9 @@ namespace TruckPartsQOL
 			nextCdScan = Time.realtimeSinceStartup + 5f;
 			List<Wanted> now = new List<Wanted>();
 			now.Add(Make("headunit", PartKind.HeadUnit, 0, "Stereo - CD head unit"));
-			now.Add(Make("speaker", PartKind.Speaker, 0, "Stereo - 6.5\" speaker"));
+			now.Add(Make("speaker", PartKind.Speaker, 0, "Stereo - 6.5\" door speaker"));
 			now.Add(Make("subwoofer", PartKind.Subwoofer, 0, "Stereo - 12\" subwoofer box"));
+			now.Add(Make("amp", PartKind.Amplifier, 0, "Stereo - 4-channel amplifier"));
 			now.Add(Make("scanner", PartKind.Scanner, 0, "Tool - OBD scanner"));
 			now.Add(Make("tarp", PartKind.Tarp, 0, "Bed - Tarp"));
 			now.Add(Make("tonneau", PartKind.Tonneau, 0, "Bed - Tonneau cover (tri-fold)"));

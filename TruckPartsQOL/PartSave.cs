@@ -13,8 +13,9 @@ namespace TruckPartsQOL
 	// game loads slot N (PlayerPrefs "LoadSlot", 0 = new game) it restores that file.
 	//
 	// One line per part:
-	// kind;cd;vehicle;mountPath;px;py;pz;rx;ry;rz;rw;power;volume;mode;track;insertedCd;coverOpen;coverHeight
-	// (the cover fields were added later; older lines without them still load.)
+	// kind;cd;vehicle;mountPath;px;py;pz;rx;ry;rz;rw;power;volume;mode;track;insertedCd;coverOpen;coverHeight;bolts
+	// (the cover and bolt fields were added later; older lines without them still
+	// load. bolts: each bolt's turns, comma-separated, for fitted parts.)
 	// Installed parts store their pose relative to what they're mounted on and are
 	// re-installed on the first vehicle with that name; loose parts store world pose.
 	// Plus RIM;... lines for painted rims and SCANNER;1 if the OBD scanner is owned.
@@ -115,7 +116,8 @@ namespace TruckPartsQOL
 						(unit != null ? unit.track : 0).ToString(Inv),
 						(unit != null ? unit.insertedCd : 0).ToString(Inv),
 						part.GetComponent<BedCover>() != null && part.GetComponent<BedCover>().open ? "1" : "0",
-						F(part.GetComponent<BedCover>() != null ? part.GetComponent<BedCover>().heightOffset : 0f)
+						F(part.GetComponent<BedCover>() != null ? part.GetComponent<BedCover>().heightOffset : 0f),
+						part.Bolts != null && part.installed ? part.Bolts.Save() : ""
 					}));
 					sb.Append("\n");
 					parts++;
@@ -226,6 +228,19 @@ namespace TruckPartsQOL
 						part.Install(mount, mount.TransformPoint(p), mount.rotation * r * Vector3.forward);
 						part.transform.localPosition = p;
 						part.transform.localRotation = r;
+						// Each bolt's turns; parts saved before bolts existed were fitted
+						// for good, so they come back tight.
+						if (part.Bolts != null)
+						{
+							if (f.Length > 18 && f[18].Length > 0)
+							{
+								part.Bolts.Load(f[18]);
+							}
+							else
+							{
+								part.Bolts.SetAll(PartBolts.Tight);
+							}
+						}
 					}
 					else
 					{

@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.1.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.2.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -35,6 +35,7 @@ namespace TruckPartsQOL
 		private MelonPreferences_Entry<float> headUnitPrice;
 		private MelonPreferences_Entry<float> speakerPrice;
 		private MelonPreferences_Entry<float> subwooferPrice;
+		private MelonPreferences_Entry<float> ampPrice;
 		private MelonPreferences_Entry<float> cdPrice;
 
 		private bool shopOpen;
@@ -101,6 +102,7 @@ namespace TruckPartsQOL
 			headUnitPrice = c.CreateEntry("HeadUnitPrice", 150f, "Price of the CD head unit");
 			speakerPrice = c.CreateEntry("SpeakerPrice", 35f, "Price of a 6.5\" speaker");
 			subwooferPrice = c.CreateEntry("SubwooferPrice", 120f, "Price of the subwoofer box");
+			ampPrice = c.CreateEntry("AmpPrice", 220f, "Price of the 4-channel amplifier");
 			cdPrice = c.CreateEntry("CdPrice", 5f, "Price of a CD");
 			StoreIntegration.PriceOf = Price;
 			MigrateOldSettings(c);
@@ -180,6 +182,8 @@ namespace TruckPartsQOL
 				return hardTopPrice.Value;
 			case PartKind.Scanner:
 				return scannerPrice.Value;
+			case PartKind.Amplifier:
+				return ampPrice.Value;
 			default:
 				return cdPrice.Value;
 			}
@@ -362,14 +366,14 @@ namespace TruckPartsQOL
 			}
 			if (unit == null)
 			{
-				hint = Key(useKey) + " Remove " + target.DisplayName;
+				hint = BoltHint(target) ?? Key(useKey) + " Remove " + target.DisplayName;
 				if (Input.GetKeyDown(useKey.Value))
 				{
-					target.Remove();
+					TryRemove(target);
 				}
 				return;
 			}
-			hint = Key(powerKey) + " Power   " + Key(modeKey) + " CD/Radio   " + Key(prevKey) + Key(nextKey) + " Track   Scroll Volume\n" + Key(ejectKey) + " Eject   " + Key(useKey) + " Remove unit";
+			hint = Key(powerKey) + " Power   " + Key(modeKey) + " CD/Radio   " + Key(prevKey) + Key(nextKey) + " Track   Scroll Volume\n" + Key(ejectKey) + " Eject   " + (BoltHint(target) ?? Key(useKey) + " Remove unit");
 			float scroll = Input.GetAxis("Mouse ScrollWheel");
 			if (scroll > 0f)
 			{
@@ -407,8 +411,41 @@ namespace TruckPartsQOL
 			}
 			if (Input.GetKeyDown(useKey.Value))
 			{
-				target.Remove();
+				TryRemove(target);
 			}
+		}
+
+		// Bolted parts come off the vanilla way: every bolt out first.
+		private void TryRemove(TruckPart target)
+		{
+			PartBolts bolts = target.Bolts;
+			if (bolts != null && bolts.Count > 0 && !bolts.AllOut)
+			{
+				Flash("Undo the " + target.DisplayName + "'s bolts with the ratchet (tool 2) first.");
+				return;
+			}
+			target.Remove();
+		}
+
+		// The part's bolt state as a hint ("2/4 bolts tight"), or null for a part
+		// without bolts.
+		private string BoltHint(TruckPart target)
+		{
+			PartBolts bolts = target.Bolts;
+			if (bolts == null || bolts.Count == 0)
+			{
+				return null;
+			}
+			if (bolts.AllOut)
+			{
+				return Key(useKey) + " Remove " + target.DisplayName + "   (not bolted: ratchet, tool 2, scroll up on its bolts)";
+			}
+			int tight = bolts.TightCount;
+			if (tight == bolts.Count)
+			{
+				return "Bolted down. Ratchet (tool 2) to undo its bolts and remove it.";
+			}
+			return tight + "/" + bolts.Count + " bolts tight. Ratchet (tool 2): scroll up on each bolt to tighten, down to undo.";
 		}
 
 		private void UpdateScanner()
@@ -475,13 +512,20 @@ namespace TruckPartsQOL
 		}
 
 		// A message shown in place of the hint for a couple of seconds.
-		private string flash = "";
-		private float flashUntil;
+		private static string flash = "";
+		private static float flashUntil;
 
-		private void Flash(string message)
+		private static void Flash(string message)
 		{
 			flash = message;
 			flashUntil = Time.time + 2.5f;
+		}
+
+		// For parts: a message on screen, a little longer than a hint.
+		public static void Notify(string message)
+		{
+			flash = message;
+			flashUntil = Time.time + 5f;
 		}
 
 		// What the player is looking at, ignoring the item in their hands.
@@ -543,8 +587,9 @@ namespace TruckPartsQOL
 		{
 			GUILayout.Label(freeParts.Value ? "Everything is free (FreeParts is on)." : "Cash: $" + Money().ToString("0.00"));
 			ShopItem(PartKind.HeadUnit, 0, "CD head unit", Price(PartKind.HeadUnit));
-			ShopItem(PartKind.Speaker, 0, "6.5\" speaker", Price(PartKind.Speaker));
+			ShopItem(PartKind.Speaker, 0, "6.5\" door speaker", Price(PartKind.Speaker));
 			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", Price(PartKind.Subwoofer));
+			ShopItem(PartKind.Amplifier, 0, "4-channel amplifier", Price(PartKind.Amplifier));
 			GUILayout.Space(6f);
 			ShopItem(PartKind.Scanner, 0, "OBD scanner (tool, key " + KeyName(scannerKey.Value) + ")", Price(PartKind.Scanner));
 			ShopItem(PartKind.Tarp, 0, "Bed tarp", Price(PartKind.Tarp));

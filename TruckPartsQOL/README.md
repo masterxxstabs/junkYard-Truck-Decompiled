@@ -43,6 +43,12 @@ Each folder is one CD, played in file-name order (name them `01 ...`, `02 ...` t
 control the order). Use **.ogg** or **.wav**. MP3 decoding depends on the game's
 Unity version; if a track shows `READ ERROR`, convert it to .ogg.
 
+**3D models:** copy the `UserData/TruckPartsQOL/models/` folder from the download
+into the game's `UserData` folder (`speaker.obj`, `amp.obj`, their `.mtl` files and
+the amp's `amp_tex*.jpg` textures). Without it the speakers and amp use a simple
+built-in look. `tools/convert_audio_models.py` rebuilds them from the source
+models (a free-to-use door speaker `.blend` and a D4S amp `.usdz`).
+
 ## Buying parts
 
 **With the Junkyard Terminal (ComputerPartStore mod) installed**, everything is
@@ -58,8 +64,9 @@ Either way, items are paid from your wallet like any part.
 | Part | Default price | Notes |
 |---|---|---|
 | CD head unit | $150 | 1-DIN unit with display, CD slot, FM radio |
-| 6.5" speaker | $35 | Door/dash speaker, cuts deep bass |
-| 12" subwoofer box | $120 | Bass only, louder, heavy (14 kg) |
+| 6.5" door speaker | $35 | Sits in the door panel with only its frame proud; cuts deep bass |
+| 12" subwoofer box | $120 | Bass only, heavy (14 kg); needs an amp for full output |
+| 4-channel amplifier | $220 | Drives the speakers harder and the sub at full output |
 | CD *n* | $5 | One per non-empty `CD` folder |
 | Bed tarp | $40 | Strapped-down tarp; rolls up toward the cab |
 | Tonneau cover | $250 | Tri-fold hard cover; folds up against the cab |
@@ -70,14 +77,28 @@ Either way, items are paid from your wallet like any part.
 
 * **Pick up** a part with the normal left click.
 * **Install:** hold it, look at the spot on the vehicle where you want it (dash,
-  doors, rear deck, bed...) and press **Y**. It mounts flush to that surface, facing
-  out. Mounted on a door, it swings with the door.
-* **Remove:** look at an installed part and press **Y**. It drops loose.
+  doors, rear deck, bed, floor...) and press **Y**. It mounts flush to that surface,
+  facing out; door speakers sink into the panel. Mounted on a door, it swings with
+  the door. On a floor the amp lies lengthwise along the vehicle.
+* **Bolt it down** like any part in the game: take out the **ratchet (tool 2)**, aim
+  at each of the part's bolts and **scroll up** until it's tight (the bolts glow
+  when aimed at). Head units have 2 bolts, speakers, the sub and the amp 4. The
+  hint shows how many are tight. A part that's barely bolted **falls off** once
+  the vehicle gets going.
+* **Remove:** **scroll down** on its bolts with the ratchet until they're all out,
+  then look at the part and press **Y**. It drops loose.
+
+The bolts are the game's own kind (its ratchet turns them), so they work and feel
+exactly like vanilla bolts. Parts fitted before bolts existed come back tight.
 * **CDs:** hold a CD, look at the head unit and press **Y** to insert it.
 
 The head unit plays through **every speaker installed in the same vehicle**, all in
 sync. With no speakers you only hear its tiny built-in speaker. It needs the
 vehicle's battery: a flat battery means no music.
+
+**Amplifier:** with an amp fitted in the same vehicle, the speakers play about a
+third louder and the subwoofer gets its full output. Without one, a sub only gets a
+weak signal (half volume).
 
 ## OBD scanner
 

@@ -50,13 +50,24 @@ namespace JunkAutoPC
 			}
 		}
 
+		// Store entries that were renamed: orders saved under the old name still
+		// find the part.
+		private static readonly Dictionary<string, string> Renamed = new Dictionary<string, string>
+		{
+			{ "Truck Part|Stereo - 6.5\" speaker", "Truck Part|Stereo - 6.5\" door speaker" },
+		};
+
 		public static Product Find(string key)
 		{
-			foreach (Product p in All)
+			string renamed;
+			foreach (string k in Renamed.TryGetValue(key, out renamed) ? new[] { key, renamed } : new[] { key })
 			{
-				if (p.key == key)
+				foreach (Product p in All)
 				{
-					return p;
+					if (p.key == k)
+					{
+						return p;
+					}
 				}
 			}
 			return null;

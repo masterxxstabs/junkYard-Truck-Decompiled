@@ -157,11 +157,14 @@ namespace TruckPartsQOL
 			List<AudioSource> speakers = Speakers(out speakerParts);
 			internalSpeaker.volume = speakers.Count == 0 ? volume * 0.15f : 0f;
 			int drift = clip.frequency / 12;
+			bool amp = speakers.Count > 0 && Amplifier.In(Part.Vehicle);
 			for (int i = 0; i < speakers.Count; i++)
 			{
 				AudioSource source = speakers[i];
 				speakerParts[i].drivenFrame = Time.frameCount;
-				source.volume = volume * (speakerParts[i].kind == PartKind.Subwoofer ? 1.2f : 1f);
+				bool sub = speakerParts[i].kind == PartKind.Subwoofer;
+				float gain = amp ? (sub ? Amplifier.SubGain : Amplifier.SpeakerGain) : (sub ? Amplifier.SubWithoutAmp : 1f);
+				source.volume = Mathf.Clamp01(volume * gain);
 				if (source.clip != clip || !source.isPlaying)
 				{
 					source.clip = clip;

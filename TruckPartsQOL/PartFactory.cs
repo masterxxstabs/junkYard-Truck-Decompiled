@@ -42,7 +42,14 @@ namespace TruckPartsQOL
 			case PartKind.Speaker:
 				size = BuildSpeaker(root.transform);
 				part.mass = 1f;
+				// A door speaker sits in the panel; only its frame stands proud.
+				part.inset = Mathf.Max(0f, size.z - 0.006f);
 				AddSpeakerAudio(root, false);
+				break;
+			case PartKind.Amplifier:
+				size = BuildAmp(root.transform);
+				part.mass = 3.5f;
+				root.AddComponent<Amplifier>();
 				break;
 			case PartKind.Subwoofer:
 				size = BuildSubwoofer(root.transform);
@@ -75,6 +82,7 @@ namespace TruckPartsQOL
 			}
 			part.halfDepth = size.z / 2f;
 			part.halfHeight = size.y / 2f;
+			AddBolts(root, kind, size);
 			// PickUp needs a BoxCollider on the root and a Rigidbody.
 			BoxCollider box = root.AddComponent<BoxCollider>();
 			box.size = size;
@@ -140,6 +148,52 @@ namespace TruckPartsQOL
 			}
 		}
 
+		// Bolts like the game's (see PartBolts) for the parts that bolt down.
+		private static void AddBolts(GameObject root, PartKind kind, Vector3 size)
+		{
+			List<Vector3> seats = new List<Vector3>();
+			float front = size.z / 2f;
+			switch (kind)
+			{
+			case PartKind.HeadUnit:
+				// Trim screws at the ends of the faceplate.
+				seats.Add(new Vector3(-0.083f, 0f, front + 0.006f));
+				seats.Add(new Vector3(0.083f, 0f, front + 0.006f));
+				break;
+			case PartKind.Speaker:
+				// Through the holes in the frame.
+				for (int i = 0; i < 4; i++)
+				{
+					float a = 90f * i * Mathf.Deg2Rad;
+					seats.Add(new Vector3(Mathf.Cos(a) * 0.0775f, Mathf.Sin(a) * 0.0775f, front - 0.0015f));
+				}
+				break;
+			case PartKind.Subwoofer:
+				foreach (Vector2 c in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(-1f, 1f), new Vector2(1f, 1f) })
+				{
+					seats.Add(new Vector3(c.x * (size.x / 2f - 0.025f), c.y * (size.y / 2f - 0.025f), front));
+				}
+				break;
+			case PartKind.Amplifier:
+				// The mounting tabs at the corners, just above the base.
+				foreach (Vector2 c in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(-1f, 1f), new Vector2(1f, 1f) })
+				{
+					seats.Add(new Vector3(c.x * size.x * 0.4f, c.y * (size.y / 2f - 0.004f), -front + 0.003f));
+				}
+				break;
+			default:
+				return;
+			}
+			PartBolts bolts = root.AddComponent<PartBolts>();
+			foreach (Vector3 seat in seats)
+			{
+				bolts.seats.Add(seat);
+				bolts.directions.Add(Vector3.back); // into the part / the surface
+			}
+			bolts.Build();
+			bolts.Show(false);
+		}
+
 		// 1-DIN head unit: 18 x 5 cm face, 16 cm deep.
 		private static Vector3 BuildHeadUnit(Transform root)
 		{
@@ -159,9 +213,14 @@ namespace TruckPartsQOL
 			return size;
 		}
 
-		// 6.5" coaxial door speaker.
+		// 6.5" door speaker: the model when it's installed, else a simple one.
 		private static Vector3 BuildSpeaker(Transform root)
 		{
+			Vector3 modelSize;
+			if (PartModels.Attach("speaker.obj", root, out modelSize) != null)
+			{
+				return modelSize;
+			}
 			Vector3 size = new Vector3(0.17f, 0.17f, 0.07f);
 			GameObject basket = Cylinder(root, "Basket", 0.17f, 0.05f, new Vector3(0f, 0f, -0.01f), Black);
 			basket.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
@@ -169,6 +228,25 @@ namespace TruckPartsQOL
 			cone.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 			GameObject cap = Cylinder(root, "DustCap", 0.045f, 0.01f, new Vector3(0f, 0f, 0.03f), Silver);
 			cap.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			return size;
+		}
+
+		// 4-channel amplifier: the model when it's installed, else a finned box.
+		private static Vector3 BuildAmp(Transform root)
+		{
+			Vector3 modelSize;
+			if (PartModels.Attach("amp.obj", root, out modelSize) != null)
+			{
+				return modelSize;
+			}
+			Vector3 size = new Vector3(0.19f, 0.38f, 0.06f);
+			Box(root, "Base", new Vector3(size.x, size.y, 0.02f), new Vector3(0f, 0f, -0.02f), Black);
+			for (int i = 0; i < 9; i++)
+			{
+				Box(root, "Fin" + i, new Vector3(0.008f, size.y - 0.02f, 0.04f), new Vector3(-0.08f + i * 0.02f, 0f, 0.01f), DarkGrey);
+			}
+			TextMesh label = Text(root, "Label", new Vector3(0f, -0.12f, size.z / 2f + 0.002f), 0.003f, Silver);
+			label.text = "AMP";
 			return size;
 		}
 
