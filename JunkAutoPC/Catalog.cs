@@ -97,8 +97,37 @@ namespace JunkAutoPC
 			if (list.Count > 0 || products.Count == 0)
 			{
 				list.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
+				if (list.Count != products.Count)
+				{
+					Report(list, store != null);
+				}
 				products = list;
 			}
+		}
+
+		// What's on the shelves, in the log, whenever the catalog grows or shrinks.
+		private static void Report(List<Product> list, bool fromStore)
+		{
+			SortedDictionary<string, int> shelves = new SortedDictionary<string, int>();
+			List<string> audio = new List<string>();
+			foreach (Product p in list)
+			{
+				string shelf = p.vehicle + " / " + p.category;
+				int n;
+				shelves.TryGetValue(shelf, out n);
+				shelves[shelf] = n + 1;
+				if (p.category == "AUDIO & ELECTRONICS")
+				{
+					audio.Add(p.name);
+				}
+			}
+			List<string> parts = new List<string>();
+			foreach (KeyValuePair<string, int> s in shelves)
+			{
+				parts.Add(s.Key + ": " + s.Value);
+			}
+			JunkAutoMod.Log("Catalog: " + list.Count + " parts from " + (fromStore ? "the Parts Store" : "the junkyard's spawn lists (no Parts Store mod)") + ". " + string.Join("; ", parts.ToArray()));
+			JunkAutoMod.Log("Audio & electronics: " + (audio.Count > 0 ? string.Join(", ", audio.ToArray()) : "none (is Truck Parts QOL installed and up to date?)"));
 		}
 
 		private static void AddAll(List<Product> list, HashSet<string> keys, GameObject[] prefabs, string storeCategory)

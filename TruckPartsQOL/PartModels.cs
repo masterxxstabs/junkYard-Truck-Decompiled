@@ -27,16 +27,27 @@ namespace TruckPartsQOL
 		public static GameObject Attach(string file, Transform parent, out Vector3 size)
 		{
 			size = Vector3.zero;
-			GameObject prototype = Prototype(file);
-			if (prototype == null)
+			try
 			{
+				GameObject prototype = Prototype(file);
+				if (prototype == null)
+				{
+					return null;
+				}
+				GameObject copy = Object.Instantiate(prototype, parent, false);
+				copy.name = "Model";
+				copy.SetActive(true);
+				size = Size(prototype);
+				return copy;
+			}
+			catch (Exception e)
+			{
+				// Whatever goes wrong, the part still gets made with its built-in look.
+				failed.Add(file);
+				TruckPartsQOLMod.Log("Couldn't use the " + file + " model, using the built-in look: " + e);
+				size = Vector3.zero;
 				return null;
 			}
-			GameObject copy = Object.Instantiate(prototype, parent, false);
-			copy.name = "Model";
-			copy.SetActive(true);
-			size = Size(prototype);
-			return copy;
 		}
 
 		private static GameObject Prototype(string file)

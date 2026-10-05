@@ -201,7 +201,20 @@ namespace TruckPartsQOL
 			HashSet<GameObject> keep = new HashSet<GameObject>();
 			foreach (Wanted w in wanted)
 			{
-				GameObject template = Template(w);
+				// One item that can't be made mustn't keep the rest out of the store.
+				GameObject template;
+				try
+				{
+					template = Template(w);
+				}
+				catch (Exception e)
+				{
+					if (failedKeys.Add(w.key))
+					{
+						TruckPartsQOLMod.Log("Couldn't make the store's " + w.name + ": " + e);
+					}
+					continue;
+				}
 				keep.Add(template);
 				object entry;
 				if (!ours.TryGetValue(template, out entry))
@@ -250,6 +263,8 @@ namespace TruckPartsQOL
 				list.Add(item);
 			}
 		}
+
+		private static readonly HashSet<string> failedKeys = new HashSet<string>();
 
 		private static GameObject TemplateRoot()
 		{

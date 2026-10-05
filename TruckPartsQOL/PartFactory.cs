@@ -16,6 +16,7 @@ namespace TruckPartsQOL
 		private static readonly Color Carpet = new Color(0.1f, 0.1f, 0.11f);
 
 		private static Font font;
+		private static bool boltsFailed;
 
 		// parent: an inactive parent makes a dormant template (nothing runs until a
 		// copy is Instantiated), which is what the Parts Store needs.
@@ -185,13 +186,31 @@ namespace TruckPartsQOL
 				return;
 			}
 			PartBolts bolts = root.AddComponent<PartBolts>();
-			foreach (Vector3 seat in seats)
+			try
 			{
-				bolts.seats.Add(seat);
-				bolts.directions.Add(Vector3.back); // into the part / the surface
+				foreach (Vector3 seat in seats)
+				{
+					bolts.seats.Add(seat);
+					bolts.directions.Add(Vector3.back); // into the part / the surface
+				}
+				bolts.Build();
+				bolts.Show(false);
 			}
-			bolts.Build();
-			bolts.Show(false);
+			catch (Exception e)
+			{
+				// No bolts rather than no part.
+				if (!boltsFailed)
+				{
+					boltsFailed = true;
+					TruckPartsQOLMod.Log("Couldn't add bolts to parts; they'll fit without them: " + e);
+				}
+				Transform holder = root.transform.Find("Bolts");
+				if (holder != null)
+				{
+					UnityEngine.Object.DestroyImmediate(holder.gameObject);
+				}
+				UnityEngine.Object.DestroyImmediate(bolts);
+			}
 		}
 
 		// 1-DIN head unit: 18 x 5 cm face, 16 cm deep.
