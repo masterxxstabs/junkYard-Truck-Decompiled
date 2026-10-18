@@ -1,13 +1,61 @@
 # Engine Cloner (MelonLoader mod for Junkyard Truck)
 
-Clone any engine block (4-cyl, V8, I6, 250) or vehicle (Diamondback pickup, F100,
-AMC, golf cart, dirt bike) and use each copy on its own.
+The engine patch behind extra engines in Junkyard Truck, plus new engines you can
+buy. Every extra engine block works on its own: its own physics, and the truck
+drives whichever block is bolted into it. Engines you buy (or clone in debug
+mode) are saved with your save slot.
 
-## Usage
+## Buying a new engine
 
-Look at an engine block or a vehicle and press **F8**.
+New engines are sold in the **Parts Store** (ComputerPartStore mod) and on
+**JunkAuto.com** (JunkAuto PC mod, under 1982 Diamondback Pickup → Engine):
 
-* **Engine:** a loose copy appears in front of you.
+| Engine | Block | Default price |
+|---|---|---|
+| Engine - I4 (new) | `engineblock` | $750 |
+| Engine - V8 (new) | `v8_block` | $1500 |
+| Engine - 2J inline-6 (new) | `i6block` | $1800 |
+
+A new engine is a factory-fresh copy of the **most complete** engine of that type
+in your world:
+* **Parts:** everything it carries is new (100%, no rust). Parts missing from every
+  engine of that type stay missing; buy them separately.
+* **Truck parts:** parts the engine scripts track that live on the truck (battery,
+  radiator, transmission, diffs) aren't touched.
+* **Mounting bolts:** it arrives with its mounting bolts out, ready for the hoist.
+  Mount it in a truck like any engine.
+* **Oil:** it ships **dry**. Add oil before you start it, or turn on "New engines
+  come with oil".
+
+An engine type that isn't anywhere in the level can't be copied, so it isn't for
+sale there (the log says so).
+
+**Saving:** bought engines, and debug clones, are saved per save slot in
+`UserData/EngineCloner/slotN.txt` (`auto.txt` for the autosave):
+* **Placement:** loose, on the engine stand, or bolted in a vehicle.
+* **State:** every part's fitted state, condition and bolts, plus the engine's
+  condition and fluids.
+
+They're kept out of the game's own save, so they can never overwrite your
+original engine's save entry.
+
+## Settings
+
+Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.cfg`:
+
+| Setting | Default | |
+|---|---|---|
+| New I4 / V8 / 2J inline-6 price | 750 / 1500 / 1800 | Shop prices |
+| New engines come with oil | off | Off: shipped dry |
+| Debug: clone key | **off** | Turns on the clone key below |
+| Clone key (debug) | F8 | Copies what you look at (see below) |
+
+## Debug: the clone key
+
+Turn on **Debug: clone key**, then look at an engine block or a vehicle and press
+**F8**. (The Junkyard Dumper mod also uses F8, so pick another key if you have it.)
+
+* **Engine:** a loose copy, in its current state, appears in front of you.
 * **Vehicle:** a copy is placed on solid ground beside you: in front if there's room,
   otherwise to your right, left or behind. If none of those is clear, the console
   says so; move somewhere more open. Get out of the vehicle first. Looking at an engine that's mounted in a truck clones the

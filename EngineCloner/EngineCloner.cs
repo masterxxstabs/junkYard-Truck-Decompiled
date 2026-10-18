@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "1.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.0.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -52,6 +52,17 @@ namespace EngineCloner
 		private static MelonLogger.Instance log;
 
 		private MelonPreferences_Entry<KeyCode> cloneKey;
+		private MelonPreferences_Entry<bool> debugClone;
+		private static MelonPreferences_Entry<float> i4Price;
+		private static MelonPreferences_Entry<float> v8Price;
+		private static MelonPreferences_Entry<float> i6Price;
+		private static MelonPreferences_Entry<bool> shipWithOil;
+
+		// Restore bought engines once per level, when the level's engines are in.
+		private static GameObject restoredWith;
+		private static bool savingDisabled;
+		private static int lastSaveFrame = -1;
+		private static int lastSaveSlot;
 
 		private float nextBlockScan;
 
@@ -59,12 +70,110 @@ namespace EngineCloner
 		{
 			log = LoggerInstance;
 			MelonPreferences_Category category = MelonPreferences.CreateCategory("EngineCloner");
-			cloneKey = category.CreateEntry("CloneKey", KeyCode.F8, "Clone key", "Look at an engine block or a vehicle and press this to clone it.");
+			debugClone = category.CreateEntry("DebugCloneKey", false, "Debug: clone key", "Debug only: lets the clone key copy the engine or vehicle you're looking at. Off: buy new engines in the shops instead.");
+			cloneKey = category.CreateEntry("CloneKey", KeyCode.F8, "Clone key (debug)", "With the debug clone key on: look at an engine block or a vehicle and press this to clone it.");
+			i4Price = category.CreateEntry("I4Price", 750f, "New I4 price", "Price of a new I4 engine in the shops.");
+			v8Price = category.CreateEntry("V8Price", 1500f, "New V8 price", "Price of a new V8 engine in the shops.");
+			i6Price = category.CreateEntry("I6Price", 1800f, "New 2J inline-6 price", "Price of a new 2J inline-6 engine in the shops.");
+			shipWithOil = category.CreateEntry("ShipWithOil", false, "New engines come with oil", "Off: new engines ship dry, like a real crate engine; add oil before starting it.");
+			ShopProviders.Register(EngineShop.ShopItems);
+		}
+
+		public static float PriceOf(string kind)
+		{
+			MelonPreferences_Entry<float> e = kind == "v8" ? v8Price : kind == "i6" ? i6Price : i4Price;
+			return e != null ? e.Value : 1000f;
+		}
+
+		public static bool ShipWithOil
+		{
+			get { return shipWithOil != null && shipWithOil.Value; }
+		}
+
+		// Every engine this mod makes: its own anchor at once, tracked as ours.
+		public static void Adopt(GameObject block)
+		{
+			if (!IsEngineBlock(block))
+			{
+				return;
+			}
+			Release(block);
+			clones.Add(block.GetInstanceID());
+			if (!blocks.Contains(block))
+			{
+				blocks.Add(block);
+			}
+		}
+
+		public static void OnGameSave(string method)
+		{
+			int slot = method == "OptionSave" || method == "Save1" ? 1 : method == "OptionSave2" || method == "Save2" ? 2 : method == "OptionSave3" || method == "Save3" ? 3 : EngineSave.AutoSlot;
+			if (restoredWith == null || savingDisabled || lastSaveFrame == Time.frameCount && lastSaveSlot == slot)
+			{
+				return;
+			}
+			lastSaveFrame = Time.frameCount;
+			lastSaveSlot = slot;
+			EngineSave.Save(slot);
+		}
+
+		private static void PatchEasySave(HarmonyLib.Harmony harmony)
+		{
+			Type manager = AccessTools.TypeByName("ES3AutoSaveMgr");
+			if (manager == null)
+			{
+				return;
+			}
+			HarmonyMethod prefix = new HarmonyMethod(typeof(EngineClonerMod).GetMethod("EasySavePrefix", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic));
+			foreach (string name in new[] { "Save1", "Save2", "Save3", "SaveAuto" })
+			{
+				System.Reflection.MethodInfo m = AccessTools.Method(manager, name);
+				if (m != null)
+				{
+					harmony.Patch(m, prefix);
+				}
+			}
+		}
+
+		private static void EasySavePrefix(System.Reflection.MethodBase __originalMethod)
+		{
+			OnGameSave(__originalMethod.Name);
+		}
+
+		// Once per level, after the game's own engines are in: bring back the
+		// engines bought or cloned in this save slot.
+		private static void TryRestore()
+		{
+			if (restoredWith != null)
+			{
+				return;
+			}
+			Interactor interactor = Object.FindObjectOfType<Interactor>();
+			if (interactor == null || blocks.Count == 0)
+			{
+				return;
+			}
+			restoredWith = new GameObject("EngineCloner_Restored");
+			UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(restoredWith, interactor.gameObject.scene);
+			savingDisabled = false;
+			int slot = EngineOverwritePatch.NewGame ? 0 : PlayerPrefs.GetInt("LoadSlot", 0);
+			EngineOverwritePatch.NewGame = false;
+			try
+			{
+				EngineSave.Load(slot);
+			}
+			catch (Exception e)
+			{
+				savingDisabled = true;
+				log.Msg("Couldn't restore bought engines; saving them is off for this level: " + e);
+			}
 		}
 
 		public override void OnLateInitializeMelon()
 		{
 			AddPartFix.Install(HarmonyInstance);
+			PatchEasySave(HarmonyInstance);
+			EngineShop.HookStore(HarmonyInstance);
 		}
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -75,12 +184,15 @@ namespace EngineCloner
 			clones.Clear();
 			wiredBlock.Clear();
 			VehicleCloner.Reset();
+			EngineShop.Reset();
+			EngineShop.HookStore(HarmonyInstance);
 			nextBlockScan = 0f;
 		}
 
 		public override void OnUpdate()
 		{
-			if (Input.GetKeyDown(cloneKey.Value))
+			// Debug only: copy what you're looking at. Gameplay is buying new engines.
+			if (debugClone.Value && Input.GetKeyDown(cloneKey.Value))
 			{
 				CloneLookedAt();
 			}
@@ -95,6 +207,7 @@ namespace EngineCloner
 			{
 				nextBlockScan = Time.time + 1f;
 				ScanForBlocks();
+				TryRestore();
 				VehicleCloner.Scan();
 				VehicleCloner.RecordSafePoses();
 			}
@@ -388,6 +501,15 @@ namespace EngineCloner
 			Release(clone);
 			clones.Add(clone.GetInstanceID());
 			blocks.Add(clone);
+			// Saved like a bought engine (keeping its state), never over the original.
+			EngineShop.StripGameSave(clone);
+			EngineShop.Kind kind = EngineShop.KindOf(clone);
+			if (kind != null && clone.GetComponent<ShopEngine>() == null)
+			{
+				ShopEngine marker = clone.AddComponent<ShopEngine>();
+				marker.kind = kind.id;
+				marker.ready = true;
+			}
 			log.Msg("Cloned " + original.name + ".");
 		}
 	}

@@ -1,0 +1,432 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using HarmonyLib;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
+
+namespace EngineCloner
+{
+	// New engines for sale: the I4 (the truck's engineblock), the V8 (v8_block) and
+	// the 2J inline-6 (i6block). Sold in the Parts Store (ComputerPartStore) and in
+	// every shop that reads the mods' shared shop list (JunkAuto).
+	//
+	// A bought engine is a factory-fresh copy of the most complete engine of that
+	// type in the level: every part it carries is new (100%, no rust), its mounting
+	// bolts are out, it ships dry (no oil) unless set otherwise. Only parts inside
+	// the block are touched: the engine scripts also point at parts that live on
+	// the truck (battery, radiator, transmission...), which stay as they are.
+	internal static class EngineShop
+	{
+		internal class Kind
+		{
+			public string id;
+			public string name;
+			public string blockName;
+			public Type script;
+		}
+
+		public static readonly Kind[] Kinds =
+		{
+			new Kind { id = "i4", name = "Engine - I4 (new)", blockName = "engineblock", script = typeof(engine) },
+			new Kind { id = "v8", name = "Engine - V8 (new)", blockName = "v8_block", script = typeof(enginev8) },
+			new Kind { id = "i6", name = "Engine - 2J inline-6 (new)", blockName = "i6block", script = typeof(enginei6) },
+		};
+
+		private const string Category = "Truck Part";
+
+		private static GameObject holder;
+		private static readonly Dictionary<string, GameObject> templates = new Dictionary<string, GameObject>();
+		private static readonly HashSet<string> noDonor = new HashSet<string>();
+
+		public static Kind KindOf(string id)
+		{
+			foreach (Kind k in Kinds)
+			{
+				if (k.id == id)
+				{
+					return k;
+				}
+			}
+			return null;
+		}
+
+		public static Kind KindOf(GameObject block)
+		{
+			foreach (Kind k in Kinds)
+			{
+				if (block.GetComponent(k.script) != null)
+				{
+					return k;
+				}
+			}
+			return null;
+		}
+
+		public static void Reset()
+		{
+			holder = null;
+			templates.Clear();
+			noDonor.Clear();
+		}
+
+		public static float Price(Kind k)
+		{
+			return EngineClonerMod.PriceOf(k.id);
+		}
+
+		// The dormant engine shops sell (and saves restore from), made once per level.
+		public static GameObject Template(Kind k)
+		{
+			GameObject template;
+			if (templates.TryGetValue(k.id, out template) && template != null)
+			{
+				return template;
+			}
+			GameObject donor = BestDonor(k);
+			if (donor == null)
+			{
+				if (noDonor.Add(k.id))
+				{
+					EngineClonerMod.Log("No " + k.blockName + " in this level to build a new one from; the " + k.name + " isn't for sale here.");
+				}
+				return null;
+			}
+			if (holder == null)
+			{
+				holder = new GameObject("EngineShop_Templates");
+				holder.SetActive(false);
+				// In the level, like the engines it copies (they point at level objects).
+				SceneManager.MoveGameObjectToScene(holder, donor.scene);
+			}
+			template = Object.Instantiate(donor, holder.transform, false);
+			template.name = k.blockName;
+			StripGameSave(template);
+			Freshen(template, k);
+			ShopEngine marker = template.AddComponent<ShopEngine>();
+			marker.kind = k.id;
+			marker.RecordMountBolts();
+			templates[k.id] = template;
+			EngineClonerMod.Log("New " + k.blockName + " ready for sale (from the most complete one in the level).");
+			return template;
+		}
+
+		// The game's own save tracking (Easy Save's ES3AutoSave) would make a copy
+		// save over the original's entry; ours save on their own (EngineSave).
+		public static void StripGameSave(GameObject root)
+		{
+			foreach (Component c in root.GetComponentsInChildren<Component>(true))
+			{
+				if (c != null && c.GetType().Name.StartsWith("ES3AutoSave", StringComparison.Ordinal))
+				{
+					Object.DestroyImmediate(c);
+				}
+			}
+		}
+
+		// The engine of this type with the most parts on it (not one we made).
+		private static GameObject BestDonor(Kind k)
+		{
+			GameObject best = null;
+			int bestCount = -1;
+			foreach (Object o in Object.FindObjectsOfType(k.script))
+			{
+				GameObject go = ((Component)o).gameObject;
+				if (!EngineClonerMod.IsEngineBlock(go) || go.GetComponent<ShopEngine>() != null)
+				{
+					continue;
+				}
+				int count = 0;
+				foreach (durability d in InBlockParts(go, (Component)o))
+				{
+					Renderer r = d.GetComponent<Renderer>();
+					if (r != null && r.enabled)
+					{
+						count++;
+					}
+				}
+				if (count > bestCount)
+				{
+					best = go;
+					bestCount = count;
+				}
+			}
+			return best;
+		}
+
+		// The engine script's parts (its *_cnd_c durability fields) inside the block.
+		public static List<durability> InBlockParts(GameObject block, Component script)
+		{
+			List<durability> parts = new List<durability>();
+			foreach (FieldInfo f in script.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				if (!f.Name.EndsWith("_cnd_c", StringComparison.Ordinal) || !typeof(durability).IsAssignableFrom(f.FieldType))
+				{
+					continue;
+				}
+				durability d = f.GetValue(script) as durability;
+				if (d != null && d.transform.IsChildOf(block.transform) && !parts.Contains(d))
+				{
+					parts.Add(d);
+				}
+			}
+			return parts;
+		}
+
+		private static void Freshen(GameObject block, Kind k)
+		{
+			Component script = block.GetComponent(k.script);
+			foreach (FieldInfo f in script.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				if (!f.Name.EndsWith("_cnd_c", StringComparison.Ordinal) || !typeof(durability).IsAssignableFrom(f.FieldType))
+				{
+					continue;
+				}
+				durability d = f.GetValue(script) as durability;
+				if (d == null || !d.transform.IsChildOf(block.transform))
+				{
+					continue; // on the truck, not the engine
+				}
+				Renderer r = d.GetComponent<Renderer>();
+				if (r == null || !r.enabled)
+				{
+					continue; // not fitted on the donor: stays off
+				}
+				d.health = 100f;
+				SetField(script, f.Name.Substring(0, f.Name.Length - 2), 100f);
+				foreach (Material m in r.materials)
+				{
+					if (m != null && m.HasProperty("_RustIntensity"))
+					{
+						m.SetFloat("_RustIntensity", 0f);
+					}
+				}
+			}
+			SetField(script, "newOilLevel", EngineClonerMod.ShipWithOil ? 100f : 0f);
+			SetField(script, "oilLoss", 0f);
+			SetField(script, "fire", false);
+			PickUp pick = block.GetComponent<PickUp>();
+			if (pick != null)
+			{
+				pick.pickable = true;
+			}
+		}
+
+		public static void SetField(object o, string name, object value)
+		{
+			FieldInfo f = o.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			if (f != null && f.FieldType.IsInstanceOfType(value))
+			{
+				f.SetValue(o, value);
+			}
+		}
+
+		// --- Selling. ---
+
+		// For the mods' shared shop list (JunkAuto).
+		public static object[][] ShopItems()
+		{
+			List<object[]> items = new List<object[]>();
+			foreach (Kind k in Kinds)
+			{
+				try
+				{
+					GameObject t = Template(k);
+					if (t != null)
+					{
+						items.Add(new object[] { t, k.name, Price(k), Category });
+					}
+				}
+				catch (Exception e)
+				{
+					if (noDonor.Add(k.id))
+					{
+						EngineClonerMod.Log("Couldn't make a new " + k.blockName + " for sale: " + e);
+					}
+				}
+			}
+			return items.ToArray();
+		}
+
+		// The Parts Store (ComputerPartStore mod): a postfix on its GetCatalog.
+		private static FieldInfo prefabField, nameField, priceField, categoryField;
+		private static Type entryType;
+		public static bool StoreHooked { get; private set; }
+
+		public static void HookStore(HarmonyLib.Harmony harmony)
+		{
+			if (StoreHooked)
+			{
+				return;
+			}
+			Type store = null;
+			foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+			{
+				store = a.GetType("ComputerFeatures.PartsStoreService", false);
+				if (store != null)
+				{
+					break;
+				}
+			}
+			if (store == null)
+			{
+				return;
+			}
+			MethodInfo getCatalog = store.GetMethod("GetCatalog", BindingFlags.Static | BindingFlags.Public);
+			entryType = store.GetNestedType("PartEntry", BindingFlags.Public | BindingFlags.NonPublic);
+			if (getCatalog == null || entryType == null)
+			{
+				return;
+			}
+			prefabField = entryType.GetField("prefab");
+			nameField = entryType.GetField("displayName");
+			priceField = entryType.GetField("price");
+			categoryField = entryType.GetField("category");
+			if (prefabField == null || nameField == null || priceField == null || categoryField == null)
+			{
+				return;
+			}
+			harmony.Patch(getCatalog, null, new HarmonyMethod(typeof(EngineShop).GetMethod("StorePostfix", BindingFlags.Static | BindingFlags.NonPublic)));
+			StoreHooked = true;
+			EngineClonerMod.Log("New engines are sold in the Parts Store.");
+		}
+
+		private static bool storeError;
+
+		private static void StorePostfix(object __result)
+		{
+			IList list = __result as IList;
+			if (list == null)
+			{
+				return;
+			}
+			try
+			{
+				foreach (Kind k in Kinds)
+				{
+					// Our entry for this engine (by name: templates are remade per level).
+					object entry = null;
+					foreach (object e in list)
+					{
+						if ((string)nameField.GetValue(e) == k.name)
+						{
+							entry = e;
+							break;
+						}
+					}
+					GameObject t = Template(k);
+					if (t == null)
+					{
+						if (entry != null)
+						{
+							list.Remove(entry);
+						}
+						continue;
+					}
+					if (entry == null)
+					{
+						entry = Activator.CreateInstance(entryType);
+						nameField.SetValue(entry, k.name);
+						categoryField.SetValue(entry, Category);
+						list.Add(entry);
+					}
+					prefabField.SetValue(entry, t);
+					priceField.SetValue(entry, Price(k));
+				}
+			}
+			catch (Exception e)
+			{
+				if (!storeError)
+				{
+					storeError = true;
+					EngineClonerMod.Log("Couldn't add engines to the Parts Store: " + e);
+				}
+			}
+		}
+	}
+
+	// On every engine this mod makes (bought, restored, or a debug clone). A copy
+	// coming out of the shop gets its own anchor at once (before any physics), and
+	// one frame later, after the game's own Start()s, its mounting bolts are put out
+	// so it lifts off the delivery spot. Kept on the engine so saves find it.
+	public class ShopEngine : MonoBehaviour
+	{
+		public string kind = "";
+		// True once set up (and on debug clones, which keep their state).
+		public bool ready;
+		// The block's own mounting bolts and where each sits when tight.
+		public List<Transform> mountBolts = new List<Transform>();
+		public List<Vector3> seats = new List<Vector3>();
+
+		// A saved state to put back once set up (EngineSave).
+		[NonSerialized]
+		public string pendingState;
+
+		private void Awake()
+		{
+			EngineClonerMod.Adopt(gameObject);
+		}
+
+		private void Start()
+		{
+			StartCoroutine(Setup());
+		}
+
+		private IEnumerator Setup()
+		{
+			yield return null;
+			if (!ready)
+			{
+				ready = true;
+				for (int i = 0; i < mountBolts.Count && i < seats.Count; i++)
+				{
+					Transform b = mountBolts[i];
+					BoltScript script = b != null ? b.GetComponent<BoltScript>() : null;
+					if (script == null)
+					{
+						continue;
+					}
+					script.boltturns = 0;
+					b.localPosition = seats[i] - b.localRotation * Vector3.forward * 0.02f;
+				}
+				durability own = GetComponent<durability>();
+				if (own != null)
+				{
+					own.canDetach = true;
+					own.boltStr = 0f;
+				}
+				PickUp pick = GetComponent<PickUp>();
+				if (pick != null)
+				{
+					pick.pickable = true;
+				}
+			}
+			if (pendingState != null)
+			{
+				string state = pendingState;
+				pendingState = null;
+				EngineSave.Apply(this, state);
+			}
+		}
+
+		// Called on the template: the block's direct "bolt" children and their tight
+		// spots (a bolt sits 2 mm further out per turn short of 10).
+		public void RecordMountBolts()
+		{
+			mountBolts.Clear();
+			seats.Clear();
+			foreach (Transform child in transform)
+			{
+				BoltScript script = child.name == "bolt" ? child.GetComponent<BoltScript>() : null;
+				if (script == null)
+				{
+					continue;
+				}
+				mountBolts.Add(child);
+				seats.Add(child.localPosition + child.localRotation * Vector3.forward * (0.002f * (10 - script.boltturns)));
+			}
+		}
+	}
+}
