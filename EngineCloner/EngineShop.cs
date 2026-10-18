@@ -13,9 +13,10 @@ namespace EngineCloner
 	// the 2J inline-6 (i6block). Sold in the Parts Store (ComputerPartStore) and in
 	// every shop that reads the mods' shared shop list (JunkAuto).
 	//
-	// A bought engine is a factory-fresh copy of the most complete engine of that
-	// type in the level: every part it carries is new (100%, no rust), its mounting
-	// bolts are out, it ships dry (no oil) unless set otherwise. Only parts inside
+	// A bought engine is a new bare block by default: a copy of an engine of that
+	// type in the level with every part taken off (the game's own detach steps),
+	// mounting bolts out, dry. With "New engines: bare block" off it's instead a
+	// factory-fresh copy of the most complete one, every part on it new. Only parts inside
 	// the block are touched: the engine scripts also point at parts that live on
 	// the truck (battery, radiator, transmission...), which stay as they are.
 	internal static class EngineShop
@@ -40,6 +41,7 @@ namespace EngineCloner
 		private static GameObject holder;
 		private static readonly Dictionary<string, GameObject> templates = new Dictionary<string, GameObject>();
 		private static readonly HashSet<string> noDonor = new HashSet<string>();
+		private static readonly Dictionary<string, bool> builtBare = new Dictionary<string, bool>();
 
 		public static Kind KindOf(string id)
 		{
@@ -70,6 +72,7 @@ namespace EngineCloner
 			holder = null;
 			templates.Clear();
 			noDonor.Clear();
+			builtBare.Clear();
 		}
 
 		public static float Price(Kind k)
@@ -83,7 +86,13 @@ namespace EngineCloner
 			GameObject template;
 			if (templates.TryGetValue(k.id, out template) && template != null)
 			{
-				return template;
+				if (builtBare.ContainsKey(k.id) && builtBare[k.id] == EngineClonerMod.BareBlocks)
+				{
+					return template;
+				}
+				// "New engines: bare block" was switched: make it again.
+				Object.Destroy(template);
+				templates.Remove(k.id);
 			}
 			GameObject donor = BestDonor(k);
 			if (donor == null)
@@ -109,7 +118,8 @@ namespace EngineCloner
 			marker.kind = k.id;
 			marker.RecordMountBolts();
 			templates[k.id] = template;
-			EngineClonerMod.Log("New " + k.blockName + " ready for sale (from the most complete one in the level).");
+			builtBare[k.id] = EngineClonerMod.BareBlocks;
+			EngineClonerMod.Log("New " + k.blockName + " ready for sale (" + (EngineClonerMod.BareBlocks ? "bare block" : "complete, from the most complete one in the level") + ").");
 			return template;
 		}
 
@@ -178,6 +188,10 @@ namespace EngineCloner
 		private static void Freshen(GameObject block, Kind k)
 		{
 			Component script = block.GetComponent(k.script);
+			if (EngineClonerMod.BareBlocks)
+			{
+				Strip(block, script);
+			}
 			foreach (FieldInfo f in script.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
 			{
 				if (!f.Name.EndsWith("_cnd_c", StringComparison.Ordinal) || !typeof(durability).IsAssignableFrom(f.FieldType))
@@ -204,6 +218,21 @@ namespace EngineCloner
 					}
 				}
 			}
+			// The block casting itself (the I4 has no condition number for it): new metal.
+			foreach (Renderer r in new[] { block.GetComponent<Renderer>() })
+			{
+				if (r == null)
+				{
+					continue;
+				}
+				foreach (Material m in r.materials)
+				{
+					if (m != null && m.HasProperty("_RustIntensity"))
+					{
+						m.SetFloat("_RustIntensity", 0f);
+					}
+				}
+			}
 			SetField(script, "newOilLevel", EngineClonerMod.ShipWithOil ? 100f : 0f);
 			SetField(script, "oilLoss", 0f);
 			SetField(script, "fire", false);
@@ -212,6 +241,97 @@ namespace EngineCloner
 			{
 				pick.pickable = true;
 			}
+		}
+
+		// Children of a part slot the game leaves alone when it takes the part off.
+		private static readonly HashSet<string> KeepColliders = new HashSet<string>
+		{
+			"rocker", "WHEEL_HOLDER", "Primary Drive Gear", "distwire", "OilDrain", "OilDrainV8", "OilDrainI6", "laminarOil", "laminarOilV8",
+			"origin", "altfan", "turbine", "250_kickstarter", "250_cam", "250_gear2", "Plane001.003", "universalpulley", "brokenTurbo", "turbotach", "buddyscreen"
+		};
+
+		private static readonly HashSet<string> HideWithPart = new HashSet<string>
+		{
+			"bolt", "oilcap", "rocker", "Primary Drive Gear", "distwire", "radhose_therm", "altfan", "hookw", "hookwF", "turbine", "universalpulley"
+		};
+
+		// A bare block: every part taken off the way the game does it when you remove
+		// one (Interactor's detach): the part's mesh and solid collider off, its snap
+		// trigger left on so parts go back in, its bolts and bits hidden, condition 0.
+		// Inner parts first, as the game requires. The block itself stays.
+		private static void Strip(GameObject block, Component script)
+		{
+			HashSet<Transform> keep = new HashSet<Transform> { block.transform };
+			FieldInfo body = script.GetType().GetField("block_cnd_c", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			durability bodyPart = body != null ? body.GetValue(script) as durability : null;
+			if (bodyPart != null)
+			{
+				keep.Add(bodyPart.transform);
+			}
+			Dictionary<durability, string> cndFields = new Dictionary<durability, string>();
+			foreach (FieldInfo f in script.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				durability d = f.Name.EndsWith("_cnd_c", StringComparison.Ordinal) ? f.GetValue(script) as durability : null;
+				if (d != null && !cndFields.ContainsKey(d))
+				{
+					cndFields[d] = f.Name.Substring(0, f.Name.Length - 2);
+				}
+			}
+			List<durability> parts = new List<durability>(block.GetComponentsInChildren<durability>(true));
+			parts.Sort((a, b) => Depth(b.transform).CompareTo(Depth(a.transform)));
+			int stripped = 0;
+			foreach (durability d in parts)
+			{
+				Renderer r = d.GetComponent<Renderer>();
+				if (keep.Contains(d.transform) || d.template == null || r == null || !r.enabled)
+				{
+					continue; // the block, not a removable part, or already off
+				}
+				foreach (Transform child in d.transform)
+				{
+					BoxCollider childBox = child.GetComponent<BoxCollider>();
+					if (childBox != null && !KeepColliders.Contains(child.name) && child.tag != "ignoreattach")
+					{
+						childBox.enabled = false;
+					}
+					if (HideWithPart.Contains(child.name))
+					{
+						Renderer cr = child.GetComponent<Renderer>();
+						if (cr != null)
+						{
+							cr.enabled = false;
+						}
+					}
+				}
+				r.enabled = false;
+				BoxCollider[] boxes = d.GetComponents<BoxCollider>();
+				if (boxes.Length > 0 && !boxes[0].isTrigger)
+				{
+					boxes[0].enabled = false;
+				}
+				else if (boxes.Length > 1)
+				{
+					boxes[1].enabled = false;
+				}
+				d.health = 0f;
+				string cnd;
+				if (cndFields.TryGetValue(d, out cnd))
+				{
+					SetField(script, cnd, 0f);
+				}
+				stripped++;
+			}
+			EngineClonerMod.Log("New " + block.name + ": a bare block (" + stripped + " parts taken off the donor copy).");
+		}
+
+		private static int Depth(Transform t)
+		{
+			int n = 0;
+			for (; t.parent != null; t = t.parent)
+			{
+				n++;
+			}
+			return n;
 		}
 
 		public static void SetField(object o, string name, object value)

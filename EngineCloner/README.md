@@ -16,8 +16,11 @@ New engines are sold in the **Parts Store** (ComputerPartStore mod) and on
 | Engine - V8 (new) | `v8_block` | $1500 |
 | Engine - 2J inline-6 (new) | `i6block` | $1800 |
 
-A new engine is a factory-fresh copy of the **most complete** engine of that type
-in your world:
+A new engine is a **bare block** by default: just the block, rust-free, with every
+part off, taken off the same way the game removes a part, so they all bolt back in
+as usual. Fit your own parts. With **New engines: bare block** turned off, it's a
+complete engine instead: a factory-fresh copy of the **most complete** engine of
+that type in your world:
 * **Parts:** everything it carries is new (100%, no rust). Parts missing from every
   engine of that type stay missing; buy them separately.
 * **Truck parts:** parts the engine scripts track that live on the truck (battery,
@@ -59,6 +62,7 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 | Setting | Default | |
 |---|---|---|
 | New I4 / V8 / 2J inline-6 price | 750 / 1500 / 1800 | Shop prices |
+| New engines: bare block | **on** | Off: a complete engine (copy of your most complete one, all parts new) |
 | New engines come with oil | off | Off: shipped dry |
 | Remove speed limits | **on** | No top-speed cut-off for pickup, F100, golf cart |
 | Debug: clone key | **off** | Turns on the clone key below |

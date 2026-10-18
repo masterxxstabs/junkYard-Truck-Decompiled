@@ -133,6 +133,23 @@ namespace EngineCloner
 				Collider c = b.GetComponent<Collider>();
 				items.Add("B=" + PathOf(e.transform, t) + "," + b.boltturns.ToString(Inv) + "," + B(r != null && r.enabled) + "," + B(c != null && c.enabled) + "," + F(t.localPosition.x) + "," + F(t.localPosition.y) + "," + F(t.localPosition.z) + "," + F(t.localRotation.x) + "," + F(t.localRotation.y) + "," + F(t.localRotation.z) + "," + F(t.localRotation.w));
 			}
+			// Everything else that shows or can be clicked (rockers, oil caps, ...):
+			// whether its mesh and each box collider are on.
+			foreach (Transform t in e.GetComponentsInChildren<Transform>(true))
+			{
+				Renderer r = t.GetComponent<Renderer>();
+				BoxCollider[] boxes = t.GetComponents<BoxCollider>();
+				if (t == e.transform || (r == null && boxes.Length == 0))
+				{
+					continue;
+				}
+				StringBuilder cols = new StringBuilder();
+				foreach (BoxCollider c in boxes)
+				{
+					cols.Append(c.enabled ? '1' : '0');
+				}
+				items.Add("C=" + PathOf(e.transform, t) + "," + (r == null ? "-" : B(r.enabled)) + "," + (cols.Length > 0 ? cols.ToString() : "-"));
+			}
 			return string.Join("|", items.ToArray());
 		}
 
@@ -260,6 +277,25 @@ namespace EngineCloner
 					d.health = P(v[5]);
 					d.canDetach = v[6] == "1";
 					d.boltStr = P(v[7]);
+					break;
+				}
+				case 'C':
+				{
+					Transform t = Find(e.transform, v[0]);
+					if (t == null || v.Length < 3)
+					{
+						break;
+					}
+					Renderer r = t.GetComponent<Renderer>();
+					if (r != null && v[1] != "-")
+					{
+						r.enabled = v[1] == "1";
+					}
+					BoxCollider[] boxes = t.GetComponents<BoxCollider>();
+					for (int i = 0; i < boxes.Length && v[2] != "-" && i < v[2].Length; i++)
+					{
+						boxes[i].enabled = v[2][i] == '1';
+					}
 					break;
 				}
 				case 'B':
