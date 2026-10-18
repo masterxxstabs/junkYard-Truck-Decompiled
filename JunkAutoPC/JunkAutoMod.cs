@@ -6,7 +6,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(JunkAutoPC.JunkAutoMod), "JunkAuto PC", "1.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkAutoPC.JunkAutoMod), "JunkAuto PC", "1.1.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkAutoPC

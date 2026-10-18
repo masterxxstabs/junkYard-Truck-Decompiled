@@ -17,6 +17,11 @@ namespace JunkAutoPC
 		public float price;
 		public string vehicle;   // tree level 1
 		public string category;  // tree level 2
+
+		public Product MemberwiseCloneProduct()
+		{
+			return (Product)MemberwiseClone();
+		}
 	}
 
 	// What JunkAuto sells: everything the Junkyard Terminal's Parts Store sells
@@ -28,6 +33,10 @@ namespace JunkAutoPC
 		public const string Truck = "1982 DIAMONDBACK PICKUP";
 		public const string Bike = "250CC DIRT BIKE";
 		public const string Other = "UNIVERSAL / OTHER";
+		public const string I4 = "I4 ENGINE";
+		public const string V8 = "V8 ENGINE";
+		public const string I6 = "2J INLINE-6 ENGINE";
+		public static readonly string[] Engines = { I4, V8, I6 };
 
 		private static MethodInfo getCatalog;
 		private static FieldInfo prefabField, nameField, priceField, categoryField;
@@ -76,6 +85,7 @@ namespace JunkAutoPC
 		private static void Build()
 		{
 			builtAt = Time.realtimeSinceStartup;
+			ScanEngines();
 			List<Product> list = new List<Product>();
 			HashSet<string> keys = new HashSet<string>();
 			IList store = StoreCatalog();
@@ -218,8 +228,92 @@ namespace JunkAutoPC
 			{
 				p.vehicle = "VEHICLES";
 				p.category = "COMPLETE VEHICLES";
+				list.Add(p);
+				return;
+			}
+			// Truck engine parts go under their engine; a part that fits more than
+			// one engine is listed under each, like RockAuto does.
+			List<string> engines = EnginesOf(prefab, storeName);
+			if (storeCategory == "Truck Part" && engines.Count > 0)
+			{
+				for (int i = 0; i < engines.Count; i++)
+				{
+					Product copy = i == 0 ? p : p.MemberwiseCloneProduct();
+					copy.vehicle = engines[i];
+					list.Add(copy);
+				}
+				return;
 			}
 			list.Add(p);
+		}
+
+		// --- Which truck engine a part belongs to. ---
+
+		// Every part slot on a block is a `durability` whose templates are the loose
+		// parts it takes, so the blocks in the level say which part fits which engine.
+		// Kept by part name across scans: the store's prefab and the slot's template
+		// can be different objects for the same part.
+		private static readonly Dictionary<string, List<string>> engineParts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+		private static void ScanEngines()
+		{
+			Scan<engine>(I4);
+			Scan<enginev8>(V8);
+			Scan<enginei6>(I6);
+		}
+
+		private static void Scan<T>(string engineName) where T : Component
+		{
+			foreach (T block in Object.FindObjectsOfType<T>())
+			{
+				foreach (durability slot in block.GetComponentsInChildren<durability>(true))
+				{
+					Note(slot.template, engineName);
+					Note(slot.template2, engineName);
+					Note(slot.template3, engineName);
+					Note(slot.template4, engineName);
+					Note(slot.template5, engineName);
+				}
+			}
+		}
+
+		private static void Note(GameObject template, string engineName)
+		{
+			if (template == null)
+			{
+				return;
+			}
+			string name = template.name.Replace("(Clone)", "").Trim();
+			List<string> engines;
+			if (!engineParts.TryGetValue(name, out engines))
+			{
+				engineParts[name] = engines = new List<string>();
+			}
+			if (!engines.Contains(engineName))
+			{
+				engines.Add(engineName);
+				engines.Sort((a, b) => Array.IndexOf(Engines, a).CompareTo(Array.IndexOf(Engines, b)));
+			}
+		}
+
+		private static List<string> EnginesOf(GameObject prefab, string storeName)
+		{
+			// Engine Cloner's blocks: "Engine - I4 (new)", "Engine - V8 (new)", "Engine - 2J inline-6 (new)".
+			if (storeName.StartsWith("Engine - ", StringComparison.OrdinalIgnoreCase))
+			{
+				string kind = storeName.Substring(9).ToLowerInvariant();
+				string engineName = kind.StartsWith("i4") ? I4 : kind.StartsWith("v8") ? V8 : kind.StartsWith("2j") || kind.StartsWith("i6") ? I6 : null;
+				if (engineName != null)
+				{
+					return new List<string> { engineName };
+				}
+			}
+			List<string> engines;
+			if (engineParts.TryGetValue(prefab.name.Replace("(Clone)", "").Trim(), out engines) || engineParts.TryGetValue(storeName, out engines))
+			{
+				return engines;
+			}
+			return new List<string>();
 		}
 
 		private static IList StoreCatalog()

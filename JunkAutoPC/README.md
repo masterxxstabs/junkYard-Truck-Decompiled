@@ -15,12 +15,16 @@ Click **My Computer** as usual. The mail screen has a new link under
 
 ### The store
 
-* **Catalog:** your vehicles on the left (1982 Diamondback Pickup, 250cc Dirt
-  Bike, Vehicles, Universal/Other). Open one with `[+]`, then pick a category:
+* **Catalog:** your vehicles and engines on the left (1982 Diamondback Pickup,
+  I4 Engine, V8 Engine, 2J Inline-6 Engine, 250cc Dirt Bike, Vehicles,
+  Universal/Other). Open one with `[+]`, then pick a category:
   Engine, Fuel & Air, Ignition & Electrical, Cooling System, Exhaust & Emission,
   Transmission, Driveline & Axle, Brake & Wheel Hub, Suspension & Steering,
   Body & Accessories, Audio & Electronics or Miscellaneous. Parts are listed with
   part number and price; **Add to Cart**.
+* **Engines:** each truck engine's parts are under that engine, found from the
+  part slots on the engine blocks in the level. A part that fits more than one
+  engine is listed under each. Bought engine blocks are under their engine too.
 * **Cart:** change quantities, see subtotal, shipping and total, then **Place
   Order**. It's paid from your cash, the same way the Parts Store pays.
 * **Order Status:** every order with its items, total, and time to arrival or

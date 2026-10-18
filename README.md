@@ -12,7 +12,7 @@ Every mod is separate: install the ones you want. They also work together (see
 | [Engine Cloner](EngineCloner/) | 2.3.0 | Lets extra engines work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits |
 | [Truck Parts QOL](TruckPartsQOL/) | 1.2.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
-| [JunkAuto PC](JunkAutoPC/) | 1.0.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer, with delivery and order emails |
+| [JunkAuto PC](JunkAutoPC/) | 1.1.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
 | [Parts Store Plus](PartsStorePlus/) | 1.1.0 | Sells every dirt bike part and every truck engine part (pistons, bearings, crank...), not just what the junkyard spawns |
 | [Mods Menu](ModsMenu/) | 1.2.0 | A **MODS** button in the main menu: every installed mod and its settings, in the game's own style |
 
@@ -98,7 +98,8 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
 ### JunkAuto PC
 
 * **The site:** click the garage computer, then **[ JunkAuto.com ]**.
-  * **Catalog:** a RockAuto-style parts site, organised by vehicle and category.
+  * **Catalog:** a RockAuto-style parts site, organised by vehicle (each truck engine
+    has its own section) and category.
   * **Ordering:** a cart, checkout and order status.
 * **Delivery:** orders arrive after a few minutes of play, where you placed them.
 * **Email:** confirmation and delivery emails appear in the game's own inbox.

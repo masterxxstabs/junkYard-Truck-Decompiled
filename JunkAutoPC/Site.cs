@@ -473,7 +473,8 @@ namespace JunkAutoPC
 		{
 			private static int Rank(string v)
 			{
-				return v == Catalog.Truck ? 0 : v == Catalog.Bike ? 1 : v == "VEHICLES" ? 2 : 3;
+				int engine = Array.IndexOf(Catalog.Engines, v);
+				return v == Catalog.Truck ? 0 : engine >= 0 ? 1 + engine : v == Catalog.Bike ? 4 : v == "VEHICLES" ? 5 : 6;
 			}
 
 			public int Compare(string a, string b)
