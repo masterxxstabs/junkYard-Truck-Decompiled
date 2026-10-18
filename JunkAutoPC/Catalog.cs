@@ -94,19 +94,65 @@ namespace JunkAutoPC
 					AddAll(list, keys, spawner.spawn250Items, "Dirt Bike Part");
 				}
 			}
+			// Items our other mods sell (stereo parts, the ATV...), published to a
+			// shared list so they're here with or without the Parts Store mod. Ones
+			// the store already lists are skipped by key.
+			int provided = AddProvided(list, keys);
 			if (list.Count > 0 || products.Count == 0)
 			{
 				list.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
 				if (list.Count != products.Count)
 				{
-					Report(list, store != null);
+					Report(list, store != null, provided);
 				}
 				products = list;
 			}
 		}
 
+		// The shared shop list: AppDomain data "JunkyardTruckMods.ShopProviders", a
+		// List<Func<object[][]>>; each item is { GameObject prefab, string name,
+		// float price, string category ("Truck Part" / "Dirt Bike Part") }.
+		// Only mscorlib types, so mods share it without referencing each other.
+		public const string ProvidersKey = "JunkyardTruckMods.ShopProviders";
+		private static readonly HashSet<string> badProviders = new HashSet<string>();
+
+		private static int AddProvided(List<Product> list, HashSet<string> keys)
+		{
+			List<Func<object[][]>> providers = AppDomain.CurrentDomain.GetData(ProvidersKey) as List<Func<object[][]>>;
+			if (providers == null)
+			{
+				return 0;
+			}
+			int added = 0;
+			foreach (Func<object[][]> provider in providers.ToArray())
+			{
+				try
+				{
+					foreach (object[] item in provider() ?? new object[0][])
+					{
+						if (item == null || item.Length < 4)
+						{
+							continue;
+						}
+						int before = list.Count;
+						Add(list, keys, item[0] as GameObject, item[1] as string, item[2] is float ? (float)item[2] : 0f, item[3] as string ?? "Truck Part");
+						added += list.Count - before;
+					}
+				}
+				catch (Exception e)
+				{
+					string who = provider.Method.DeclaringType != null ? provider.Method.DeclaringType.FullName : "a mod";
+					if (badProviders.Add(who))
+					{
+						JunkAutoMod.Log("Couldn't read the items " + who + " sells: " + e);
+					}
+				}
+			}
+			return added;
+		}
+
 		// What's on the shelves, in the log, whenever the catalog grows or shrinks.
-		private static void Report(List<Product> list, bool fromStore)
+		private static void Report(List<Product> list, bool fromStore, int provided)
 		{
 			SortedDictionary<string, int> shelves = new SortedDictionary<string, int>();
 			List<string> audio = new List<string>();
@@ -126,7 +172,7 @@ namespace JunkAutoPC
 			{
 				parts.Add(s.Key + ": " + s.Value);
 			}
-			JunkAutoMod.Log("Catalog: " + list.Count + " parts from " + (fromStore ? "the Parts Store" : "the junkyard's spawn lists (no Parts Store mod)") + ". " + string.Join("; ", parts.ToArray()));
+			JunkAutoMod.Log("Catalog: " + list.Count + " parts from " + (fromStore ? "the Parts Store" : "the junkyard's spawn lists (no Parts Store mod)") + ", " + provided + " of them from other mods. " + string.Join("; ", parts.ToArray()));
 			JunkAutoMod.Log("Audio & electronics: " + (audio.Count > 0 ? string.Join(", ", audio.ToArray()) : "none (is Truck Parts QOL installed and up to date?)"));
 		}
 

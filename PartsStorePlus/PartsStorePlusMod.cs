@@ -57,6 +57,7 @@ namespace PartsStorePlus
 			addBikeParts = c.CreateEntry("AddMissingBikeParts", true, "Sell every dirt bike part", "Add the dirt bike parts the junkyard never spawns to the Parts Store.");
 			priceMultiplier = c.CreateEntry("PriceMultiplier", 1f, "Price multiplier", "Multiplies the price of the parts this mod adds (1 = the game's own part price).");
 			minimumPrice = c.CreateEntry("MinimumPrice", 5f, "Minimum price", "Parts the game prices lower than this (or not at all) cost this much.");
+			ShopProviders.Register(ShopItems);
 		}
 
 		public override void OnLateInitializeMelon()
@@ -264,6 +265,25 @@ namespace PartsStorePlus
 				names.Sort(StringComparer.OrdinalIgnoreCase);
 				log.Msg(added == 0 ? "The Parts Store already sells every dirt bike part found." : "Added " + added + " dirt bike part(s) to the Parts Store: " + string.Join(", ", names.ToArray()));
 			}
+		}
+
+		// For the mods' shared shop list (JunkAuto), with or without the Parts Store.
+		private static object[][] ShopItems()
+		{
+			if (!addBikeParts.Value)
+			{
+				return new object[0][];
+			}
+			Scan();
+			List<object[]> items = new List<object[]>();
+			foreach (KeyValuePair<GameObject, string> part in bikeParts)
+			{
+				if (part.Key != null)
+				{
+					items.Add(new object[] { part.Key, part.Value, PriceOf(part.Key), BikeCategory });
+				}
+			}
+			return items.ToArray();
 		}
 
 		private static float PriceOf(GameObject template)

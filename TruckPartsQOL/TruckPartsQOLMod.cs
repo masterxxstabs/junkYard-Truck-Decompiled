@@ -105,6 +105,7 @@ namespace TruckPartsQOL
 			ampPrice = c.CreateEntry("AmpPrice", 220f, "Price of the 4-channel amplifier");
 			cdPrice = c.CreateEntry("CdPrice", 5f, "Price of a CD");
 			StoreIntegration.PriceOf = Price;
+			ShopProviders.Register(StoreIntegration.ShopItems);
 			MigrateOldSettings(c);
 			PartSave.MigrateOldSave();
 			MusicLibrary.EnsureFolders();

@@ -266,6 +266,29 @@ namespace TruckPartsQOL
 
 		private static readonly HashSet<string> failedKeys = new HashSet<string>();
 
+		// Also published to the mods' shared shop list (see ShopProviders), so
+		// shops like JunkAuto sell these with or without the Parts Store mod.
+		public static object[][] ShopItems()
+		{
+			RefreshWanted();
+			List<object[]> items = new List<object[]>();
+			foreach (Wanted w in wanted)
+			{
+				try
+				{
+					items.Add(new object[] { Template(w), w.name, w.price, Category });
+				}
+				catch (Exception e)
+				{
+					if (failedKeys.Add(w.key))
+					{
+						TruckPartsQOLMod.Log("Couldn't make the shop's " + w.name + ": " + e);
+					}
+				}
+			}
+			return items.ToArray();
+		}
+
 		private static GameObject TemplateRoot()
 		{
 			if (templateRoot == null)

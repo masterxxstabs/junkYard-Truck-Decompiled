@@ -81,7 +81,8 @@ namespace ModsMenu
 			{
 				return;
 			}
-			if (dumpAt > 0f && Time.unscaledTime > dumpAt)
+			// Only where a menu showed up but couldn't be used (a status was logged).
+			if (dumpAt > 0f && Time.unscaledTime > dumpAt && lastStatus.Length > 0)
 			{
 				dumpAt = 0f;
 				Dump();
@@ -148,6 +149,10 @@ namespace ModsMenu
 			List<Component> texts = VisibleTexts();
 			List<Component> updatesLabels = texts.FindAll(c => Clean(GetText(c)) == "UPDATES");
 			List<Component> settingsLabels = texts.FindAll(c => Clean(GetText(c)) == "SETTINGS");
+			if (updatesLabels.Count == 0 && settingsLabels.Count == 0)
+			{
+				return; // no menu in this scene (the level): nothing to say
+			}
 			if (updatesLabels.Count == 0 || settingsLabels.Count == 0)
 			{
 				Status("Scene '" + sceneName + "': " + updatesLabels.Count + " UPDATES and " + settingsLabels.Count + " SETTINGS labels among " + texts.Count + " texts.");

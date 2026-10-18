@@ -58,6 +58,7 @@ namespace JunkyardATV
 
 		public override void OnInitializeMelon()
 		{
+			ShopProviders.Register(AtvStore.ShopItems);
 			log = LoggerInstance;
 			MelonPreferences_Category c = MelonPreferences.CreateCategory("JunkyardATV", "Junkyard ATV");
 			forwardKey = c.CreateEntry("ForwardKey", KeyCode.W, "Throttle");

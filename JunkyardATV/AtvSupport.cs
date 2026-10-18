@@ -281,6 +281,12 @@ namespace JunkyardATV
 			AtvMod.Log("The ATV is now sold in the Junkyard Terminal's Parts Store.");
 		}
 
+		// For the mods' shared shop list (JunkAuto), with or without the Parts Store.
+		public static object[][] ShopItems()
+		{
+			return new[] { new object[] { Marker(), "Vehicle - ATV (250cc)", AtvMod.Price, "Dirt Bike Part" } };
+		}
+
 		private static GameObject Marker()
 		{
 			if (marker == null)
