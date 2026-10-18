@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.2.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.2.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -245,9 +245,18 @@ namespace EngineCloner
 			}
 		}
 
+		// Also called while Harmony patches are applied, which MelonLoader does
+		// before OnInitializeMelon has set up the mod's own logger.
 		public static void Log(string message)
 		{
-			log.Msg(message);
+			if (log != null)
+			{
+				log.Msg(message);
+			}
+			else
+			{
+				MelonLogger.Msg("[Engine Cloner] " + message);
+			}
 		}
 
 		// A vehicle swap also swapped the engines mounted in the two vehicles; keep
