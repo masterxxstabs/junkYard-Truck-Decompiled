@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.1.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -57,6 +57,7 @@ namespace EngineCloner
 		private static MelonPreferences_Entry<float> v8Price;
 		private static MelonPreferences_Entry<float> i6Price;
 		private static MelonPreferences_Entry<bool> shipWithOil;
+		private static MelonPreferences_Entry<bool> removeSpeedLimits;
 
 		// Restore bought engines once per level, when the level's engines are in.
 		private static GameObject restoredWith;
@@ -76,7 +77,13 @@ namespace EngineCloner
 			v8Price = category.CreateEntry("V8Price", 1500f, "New V8 price", "Price of a new V8 engine in the shops.");
 			i6Price = category.CreateEntry("I6Price", 1800f, "New 2J inline-6 price", "Price of a new 2J inline-6 engine in the shops.");
 			shipWithOil = category.CreateEntry("ShipWithOil", false, "New engines come with oil", "Off: new engines ship dry, like a real crate engine; add oil before starting it.");
+			removeSpeedLimits = category.CreateEntry("RemoveSpeedLimits", true, "Remove speed limits", "On: vehicles aren't cut off at the game's top speed (pickup 85/100, F100 95/100, golf cart 100); they go as fast as engine and gearing allow. Off: the game's limits.");
 			ShopProviders.Register(EngineShop.ShopItems);
+		}
+
+		public static bool RemoveSpeedLimits
+		{
+			get { return removeSpeedLimits == null || removeSpeedLimits.Value; }
 		}
 
 		public static float PriceOf(string kind)

@@ -39,6 +39,19 @@ sale there (the log says so).
 They're kept out of the game's own save, so they can never overwrite your
 original engine's save entry.
 
+## No speed limits
+
+The game cuts each vehicle's engine at a fixed top speed: the Diamondback pickup at
+85 (100 with a 5th gear), the F100 at 95/100, and the golf cart at 100 (which also
+brakes hard). With **Remove speed limits** on (the default), those caps are gone and
+vehicles go as fast as their engine, gearing and drag allow. The dirt bike never had
+a hard cap. The AMC's only limit is in reverse, and that stays, as does "no power
+in neutral". Turning the setting off brings the game's limits back immediately.
+
+How: a Harmony transpiler on each vehicle's `control()` turns every
+`maxSpeed = <number>` (other than 0) into `maxSpeed = SpeedLimits.Cap(<number>)`. The
+log shows how many limits were patched per vehicle.
+
 ## Settings
 
 Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.cfg`:
@@ -47,6 +60,7 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 |---|---|---|
 | New I4 / V8 / 2J inline-6 price | 750 / 1500 / 1800 | Shop prices |
 | New engines come with oil | off | Off: shipped dry |
+| Remove speed limits | **on** | No top-speed cut-off for pickup, F100, golf cart |
 | Debug: clone key | **off** | Turns on the clone key below |
 | Clone key (debug) | F8 | Copies what you look at (see below) |
 
