@@ -46,6 +46,8 @@ namespace EngineCloner
 			try
 			{
 				StringBuilder sb = new StringBuilder();
+				// Stands first: engines on them are put back on the nearest stand.
+				StandShop.SaveLines(sb);
 				int n = 0;
 				foreach (ShopEngine e in Object.FindObjectsOfType<ShopEngine>())
 				{
@@ -162,7 +164,13 @@ namespace EngineCloner
 				return;
 			}
 			int count = 0;
-			foreach (string line in System.IO.File.ReadAllLines(File(slot)))
+			string[] all = System.IO.File.ReadAllLines(File(slot));
+			int stands = StandShop.Load(all);
+			if (stands > 0)
+			{
+				EngineClonerMod.Log("Restored " + stands + " bought engine stand(s).");
+			}
+			foreach (string line in all)
 			{
 				string[] f = line.Split(';');
 				if (f.Length < 12 || f[0] != "ENGINE")
@@ -334,10 +342,10 @@ namespace EngineCloner
 			PickUp pick = block.GetComponent<PickUp>();
 			if (place == "stand")
 			{
-				GameObject stand = GameObject.Find("DK_9");
-				if (stand != null && stand.GetComponent<Rigidbody>() != null && joint != null)
+				Rigidbody stand = StandShop.NearestStand(block.transform.position);
+				if (stand != null && joint != null)
 				{
-					joint.connectedBody = stand.GetComponent<Rigidbody>();
+					joint.connectedBody = stand;
 					if (pick != null)
 					{
 						pick.pickable = false;

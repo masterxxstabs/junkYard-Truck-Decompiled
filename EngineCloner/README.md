@@ -42,6 +42,27 @@ sale there (the log says so).
 They're kept out of the game's own save, so they can never overwrite your
 original engine's save entry.
 
+## Extra engine stands
+
+**Tool - Engine stand** ($350) is sold next to the engines. It's a copy of the
+game's own stand, delivered standing upright on the ground in front of you (or
+where JunkAuto drops your order). Use it like the original: drop a block onto it,
+click it to turn the engine, and use its release lever.
+
+* **Moving it:** look at a stand you bought, press **K** (setting "Move stand
+  key"), look where you want it and press **K** again. It must have no engine on it.
+* **Saving:** bought stands are saved with your save slot, and engines on them go
+  back onto them.
+
+The game finds "the" stand by name, so with more than one, three things are
+patched to use the stand you're actually at:
+* **Snapping:** a block snapped onto a stand is jointed to the nearest stand.
+* **Turning:** clicking a stand turns that stand's hinge.
+* **Releasing:** the release lever frees only the engine on its own stand.
+
+If the game's stand can't be copied safely (it's part of a bigger object), stands
+aren't sold, and the log says why.
+
 ## No speed limits
 
 The game cuts each vehicle's engine at a fixed top speed: the Diamondback pickup at
@@ -62,6 +83,8 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 | Setting | Default | |
 |---|---|---|
 | New I4 / V8 / 2J inline-6 price | 750 / 1500 / 1800 | Shop prices |
+| Engine stand price | 350 | |
+| Move stand key | K | Move a stand you bought |
 | New engines: bare block | **on** | Off: a complete engine (copy of your most complete one, all parts new) |
 | New engines come with oil | off | Off: shipped dry |
 | Remove speed limits | **on** | No top-speed cut-off for pickup, F100, golf cart |

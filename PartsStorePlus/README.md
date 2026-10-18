@@ -2,7 +2,8 @@
 
 A MelonLoader add-on for the Junkyard Terminal's **Parts Store** (the
 ComputerPartStore / "Parts Picker" mod). It makes the store sell **every dirt bike
-part**, not just the ones the junkyard happens to spawn.
+part** and **every truck engine part** (pistons, bearings, crank, cam...), not just
+the ones the junkyard happens to spawn.
 
 ## Why parts were missing
 
@@ -33,7 +34,8 @@ under `[PartsStorePlus]`:
 
 | Setting | Default | |
 |---|---|---|
-| Sell every dirt bike part | on | Off removes the added parts again |
+| Sell every dirt bike part | on | Off removes the added bike parts again |
+| Sell every truck engine part | on | Parts of the I4, V8 and 2J engines (from their part slots) |
 | Price multiplier | 1 | Times the part's own game price |
 | Minimum price | 5 | Floor for parts priced lower or at 0 |
 

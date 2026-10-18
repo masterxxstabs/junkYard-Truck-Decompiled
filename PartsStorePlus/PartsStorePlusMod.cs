@@ -7,7 +7,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(PartsStorePlus.PartsStorePlusMod), "Parts Store Plus", "1.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(PartsStorePlus.PartsStorePlusMod), "Parts Store Plus", "1.1.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace PartsStorePlus
@@ -25,9 +25,11 @@ namespace PartsStorePlus
 	{
 		private const string StoreType = "ComputerFeatures.PartsStoreService";
 		private const string BikeCategory = "Dirt Bike Part";
+		private const string TruckCategory = "Truck Part";
 
 		private static MelonLogger.Instance log;
 		private static MelonPreferences_Entry<bool> addBikeParts;
+		private static MelonPreferences_Entry<bool> addEngineParts;
 		private static MelonPreferences_Entry<float> priceMultiplier;
 		private static MelonPreferences_Entry<float> minimumPrice;
 
@@ -41,7 +43,8 @@ namespace PartsStorePlus
 		// The bike part templates found so far (prefab -> name). Kept across scans:
 		// a part that's off the bike right now still has a slot on it, but a bike
 		// that's gone (another scene) shouldn't empty the list.
-		private static readonly Dictionary<GameObject, string> bikeParts = new Dictionary<GameObject, string>();
+		// prefab -> (name, store category)
+		private static readonly Dictionary<GameObject, KeyValuePair<string, string>> bikeParts = new Dictionary<GameObject, KeyValuePair<string, string>>();
 		private static float nextScan;
 		private static int version;
 		private static object lastList;
@@ -55,6 +58,7 @@ namespace PartsStorePlus
 			log = LoggerInstance;
 			MelonPreferences_Category c = MelonPreferences.CreateCategory("PartsStorePlus", "Parts Store Plus");
 			addBikeParts = c.CreateEntry("AddMissingBikeParts", true, "Sell every dirt bike part", "Add the dirt bike parts the junkyard never spawns to the Parts Store.");
+			addEngineParts = c.CreateEntry("AddMissingEngineParts", true, "Sell every truck engine part", "Add the truck engines' parts the junkyard never spawns (pistons, bearings, crank, cam...) to the shops.");
 			priceMultiplier = c.CreateEntry("PriceMultiplier", 1f, "Price multiplier", "Multiplies the price of the parts this mod adds (1 = the game's own part price).");
 			minimumPrice = c.CreateEntry("MinimumPrice", 5f, "Minimum price", "Parts the game prices lower than this (or not at all) cost this much.");
 			ShopProviders.Register(ShopItems);
@@ -127,7 +131,7 @@ namespace PartsStorePlus
 			try
 			{
 				Scan();
-				string settings = addBikeParts.Value + "|" + priceMultiplier.Value + "|" + minimumPrice.Value;
+				string settings = addBikeParts.Value + "|" + addEngineParts.Value + "|" + priceMultiplier.Value + "|" + minimumPrice.Value;
 				if (ReferenceEquals(list, lastList) && lastVersion == version && settings == lastSettings)
 				{
 					return;
@@ -148,7 +152,11 @@ namespace PartsStorePlus
 		}
 
 		// Every few seconds, collect the part templates of every slot on the dirt
-		// bike(s) and every 250 engine (the bike's engine can be out of the bike).
+		// bike(s) and every 250 engine (the bike's engine can be out of the bike),
+		// and on every truck engine (I4, V8, 2J inline-6): pistons, bearings and
+		// the like never spawn in the junkyard, so no shop had them.
+		private static readonly string[] TruckEngines = { "engine", "enginev8", "enginei6" };
+
 		private static void Scan()
 		{
 			if (Time.realtimeSinceStartup < nextScan)
@@ -159,11 +167,23 @@ namespace PartsStorePlus
 			int before = bikeParts.Count;
 			foreach (Dirtbike bike in Object.FindObjectsOfType<Dirtbike>())
 			{
-				Collect(bike.transform);
+				Collect(bike.transform, BikeCategory);
 			}
 			foreach (Engine250 engine in Object.FindObjectsOfType<Engine250>())
 			{
-				Collect(engine.transform);
+				Collect(engine.transform, BikeCategory);
+			}
+			foreach (string name in TruckEngines)
+			{
+				Type type = AccessTools.TypeByName(name);
+				if (type == null)
+				{
+					continue;
+				}
+				foreach (Object o in Object.FindObjectsOfType(type))
+				{
+					Collect(((Component)o).transform, TruckCategory);
+				}
 			}
 			if (bikeParts.Count != before)
 			{
@@ -171,25 +191,30 @@ namespace PartsStorePlus
 			}
 		}
 
-		private static void Collect(Transform root)
+		private static void Collect(Transform root, string category)
 		{
 			foreach (durability slot in root.GetComponentsInChildren<durability>(true))
 			{
-				Add(slot.template);
-				Add(slot.template2);
-				Add(slot.template3);
-				Add(slot.template4);
-				Add(slot.template5);
+				Add(slot.template, category);
+				Add(slot.template2, category);
+				Add(slot.template3, category);
+				Add(slot.template4, category);
+				Add(slot.template5, category);
 			}
 		}
 
-		private static void Add(GameObject template)
+		private static void Add(GameObject template, string category)
 		{
 			if (template == null || bikeParts.ContainsKey(template) || template.GetComponent<PickUp>() == null)
 			{
 				return;
 			}
-			bikeParts[template] = template.name.Replace("(Clone)", "").Trim();
+			bikeParts[template] = new KeyValuePair<string, string>(template.name.Replace("(Clone)", "").Trim(), category);
+		}
+
+		private static bool Selling(string category)
+		{
+			return category == BikeCategory ? addBikeParts.Value : addEngineParts.Value;
 		}
 
 		// Add what's missing, keep our own entries' prices current, drop ours when
@@ -215,38 +240,32 @@ namespace PartsStorePlus
 				{
 					listed.Add(prefab);
 				}
-				if ((string)categoryField.GetValue(entry) == BikeCategory)
-				{
-					listedNames.Add((string)nameField.GetValue(entry));
-				}
+				listedNames.Add((string)categoryField.GetValue(entry) + "|" + (string)nameField.GetValue(entry));
 			}
 			foreach (object entry in ours)
 			{
 				list.Remove(entry);
 				marked.Remove(entry);
 			}
-			if (!addBikeParts.Value)
-			{
-				return;
-			}
 			int added = 0;
 			List<string> names = new List<string>();
-			foreach (KeyValuePair<GameObject, string> part in bikeParts)
+			foreach (KeyValuePair<GameObject, KeyValuePair<string, string>> part in bikeParts)
 			{
-				if (part.Key == null || listed.Contains(part.Key) || listedNames.Contains(part.Value))
+				string name = part.Value.Key;
+				string category = part.Value.Value;
+				if (part.Key == null || !Selling(category) || listed.Contains(part.Key) || !listedNames.Add(category + "|" + name))
 				{
-					continue; // the store already sells it
+					continue; // off, or the store already sells it (two slots, one part: listed once)
 				}
-				listedNames.Add(part.Value); // two slots, same part: list it once
 				object e = Activator.CreateInstance(entryType);
 				prefabField.SetValue(e, part.Key);
-				nameField.SetValue(e, part.Value);
+				nameField.SetValue(e, name);
 				priceField.SetValue(e, PriceOf(part.Key));
-				categoryField.SetValue(e, BikeCategory);
+				categoryField.SetValue(e, category);
 				Mark(e);
 				list.Add(e);
 				added++;
-				names.Add(part.Value);
+				names.Add(name + (category == TruckCategory ? " (truck)" : " (bike)"));
 			}
 			if (added > 0)
 			{
@@ -263,24 +282,22 @@ namespace PartsStorePlus
 			{
 				reportedCount = added;
 				names.Sort(StringComparer.OrdinalIgnoreCase);
-				log.Msg(added == 0 ? "The Parts Store already sells every dirt bike part found." : "Added " + added + " dirt bike part(s) to the Parts Store: " + string.Join(", ", names.ToArray()));
+				log.Msg(added == 0 ? "The Parts Store already sells every part found." : "Added " + added + " part(s) to the Parts Store: " + string.Join(", ", names.ToArray()));
 			}
 		}
 
 		// For the mods' shared shop list (JunkAuto), with or without the Parts Store.
 		private static object[][] ShopItems()
 		{
-			if (!addBikeParts.Value)
-			{
-				return new object[0][];
-			}
 			Scan();
 			List<object[]> items = new List<object[]>();
-			foreach (KeyValuePair<GameObject, string> part in bikeParts)
+			HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (KeyValuePair<GameObject, KeyValuePair<string, string>> part in bikeParts)
 			{
-				if (part.Key != null)
+				string category = part.Value.Value;
+				if (part.Key != null && Selling(category) && seen.Add(category + "|" + part.Value.Key))
 				{
-					items.Add(new object[] { part.Key, part.Value, PriceOf(part.Key), BikeCategory });
+					items.Add(new object[] { part.Key, part.Value.Key, PriceOf(part.Key), category });
 				}
 			}
 			return items.ToArray();

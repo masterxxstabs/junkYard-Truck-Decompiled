@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.2.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.3.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -59,6 +59,10 @@ namespace EngineCloner
 		private static MelonPreferences_Entry<bool> shipWithOil;
 		private static MelonPreferences_Entry<bool> removeSpeedLimits;
 		private static MelonPreferences_Entry<bool> bareBlocks;
+		private static MelonPreferences_Entry<float> standPrice;
+		private MelonPreferences_Entry<KeyCode> moveStandKey;
+		private string hint = "";
+		private float hintUntil;
 
 		// Restore bought engines once per level, when the level's engines are in.
 		private static GameObject restoredWith;
@@ -78,9 +82,17 @@ namespace EngineCloner
 			v8Price = category.CreateEntry("V8Price", 1500f, "New V8 price", "Price of a new V8 engine in the shops.");
 			i6Price = category.CreateEntry("I6Price", 1800f, "New 2J inline-6 price", "Price of a new 2J inline-6 engine in the shops.");
 			shipWithOil = category.CreateEntry("ShipWithOil", false, "New engines come with oil", "Off: new engines ship dry, like a real crate engine; add oil before starting it.");
+			standPrice = category.CreateEntry("StandPrice", 350f, "Engine stand price", "Price of an extra engine stand in the shops.");
+			moveStandKey = category.CreateEntry("MoveStandKey", KeyCode.K, "Move stand key", "Look at an engine stand you bought, press this, look where you want it and press it again.");
+			ShopProviders.Register(StandShop.ShopItems);
 			bareBlocks = category.CreateEntry("BareBlocks", true, "New engines: bare block", "On: a new engine is just the block, every part off (fit your own). Off: a complete engine, a copy of your most complete one with every part new.");
 			removeSpeedLimits = category.CreateEntry("RemoveSpeedLimits", true, "Remove speed limits", "On: vehicles aren't cut off at the game's top speed (pickup 85/100, F100 95/100, golf cart 100); they go as fast as engine and gearing allow. Off: the game's limits.");
 			ShopProviders.Register(EngineShop.ShopItems);
+		}
+
+		public static float StandPrice
+		{
+			get { return standPrice != null ? standPrice.Value : 350f; }
 		}
 
 		public static bool BareBlocks
@@ -199,6 +211,7 @@ namespace EngineCloner
 			wiredBlock.Clear();
 			VehicleCloner.Reset();
 			EngineShop.Reset();
+			StandShop.Reset();
 			EngineShop.HookStore(HarmonyInstance);
 			nextBlockScan = 0f;
 		}
@@ -210,6 +223,33 @@ namespace EngineCloner
 			{
 				CloneLookedAt();
 			}
+			if (restoredWith != null)
+			{
+				string message = StandShop.Update(moveStandKey.Value);
+				if (message != null)
+				{
+					hint = message;
+					hintUntil = Time.time + 2.5f;
+				}
+			}
+		}
+
+		private GUIStyle hintStyle;
+
+		public override void OnGUI()
+		{
+			if (hint.Length == 0 || Time.time > hintUntil)
+			{
+				return;
+			}
+			if (hintStyle == null)
+			{
+				hintStyle = new GUIStyle(GUI.skin.label);
+				hintStyle.alignment = TextAnchor.MiddleCenter;
+				hintStyle.fontSize = Mathf.Max(16, Screen.height / 45);
+				hintStyle.normal.textColor = Color.white;
+			}
+			GUI.Label(new Rect(0f, Screen.height * 0.62f, Screen.width, 40f), hint, hintStyle);
 		}
 
 		// LateUpdate runs after every Update, Start and coroutine of the frame and
@@ -538,13 +578,14 @@ namespace EngineCloner
 	}
 
 	// Stock EngReleaseStand looks blocks up with GameObject.Find(name), which picks
-	// an arbitrary one once clones share the name, and can null-ref. Release every
-	// block that is actually on the stand (DK_9) instead.
+	// an arbitrary one once clones share the name, and can null-ref. Release the
+	// block on the stand whose lever was clicked (the DK_9 nearest the click).
 	[HarmonyPatch(typeof(Interactor), "EngReleaseStand")]
 	internal static class EngReleaseStandPatch
 	{
-		private static bool Prefix()
+		private static bool Prefix(RaycastHit ___hit)
 		{
+			Rigidbody stand = ___hit.collider != null ? StandShop.NearestStand(___hit.point) : null;
 			foreach (PickUp pickUp in Object.FindObjectsOfType<PickUp>())
 			{
 				if (!EngineClonerMod.IsEngineBlock(pickUp.gameObject))
@@ -552,7 +593,7 @@ namespace EngineCloner
 					continue;
 				}
 				FixedJoint joint = pickUp.GetComponent<FixedJoint>();
-				if (joint != null && joint.connectedBody != null && joint.connectedBody.name == "DK_9")
+				if (joint != null && joint.connectedBody != null && joint.connectedBody.name == "DK_9" && (stand == null || joint.connectedBody == stand))
 				{
 					pickUp.pickable = true;
 				}

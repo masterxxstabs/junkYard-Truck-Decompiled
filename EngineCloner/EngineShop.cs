@@ -455,6 +455,36 @@ namespace EngineCloner
 					prefabField.SetValue(entry, t);
 					priceField.SetValue(entry, Price(k));
 				}
+				// The engine stand, too.
+				object[][] stand = StandShop.ShopItems();
+				object standEntry = null;
+				foreach (object e in list)
+				{
+					if ((string)nameField.GetValue(e) == StandShop.ShopName)
+					{
+						standEntry = e;
+						break;
+					}
+				}
+				if (stand.Length == 0)
+				{
+					if (standEntry != null)
+					{
+						list.Remove(standEntry);
+					}
+				}
+				else
+				{
+					if (standEntry == null)
+					{
+						standEntry = Activator.CreateInstance(entryType);
+						nameField.SetValue(standEntry, StandShop.ShopName);
+						categoryField.SetValue(standEntry, Category);
+						list.Add(standEntry);
+					}
+					prefabField.SetValue(standEntry, stand[0][0]);
+					priceField.SetValue(standEntry, (float)stand[0][2]);
+				}
 			}
 			catch (Exception e)
 			{
