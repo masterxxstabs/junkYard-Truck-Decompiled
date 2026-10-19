@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.1.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.2.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger
@@ -34,6 +34,7 @@ namespace JunkyardRanger
 		private static MelonPreferences_Entry<bool> completeEngine;
 		private static MelonPreferences_Entry<string> paintColor;
 		private static MelonPreferences_Entry<bool> weathered;
+		private static MelonPreferences_Entry<KeyCode> spawnKey;
 
 		private static string hint = "";
 		private static float hintUntil;
@@ -52,6 +53,7 @@ namespace JunkyardRanger
 			completeEngine = c.CreateEntry("CompleteEngine", true, "Engine: complete", "On: the engine comes with every part on, ready to run. Off: a bare block to build up.");
 			paintColor = c.CreateEntry("PaintColor", "#C8102E", "Paint color", "A new Ranger's color, as #RRGGBB. Repaint it in game with the spray cans.");
 			weathered = c.CreateEntry("Weathered", false, "Weathered paint", "On: the paint is worn through to rust in places, like the game's other trucks. Off: clean paint.");
+			spawnKey = c.CreateEntry("SpawnKey", KeyCode.F7, "Spawn key", "Press in the level for a free Ranger in front of you, with an empty engine bay to fit your own engine. None turns it off.");
 			ShopProviders.Register(RangerShop.ShopItems);
 			VehicleApi.Saving += RangerSave.Save;
 			VehicleApi.Loading += RangerSave.Load;
@@ -72,6 +74,10 @@ namespace JunkyardRanger
 
 		public override void OnUpdate()
 		{
+			if (spawnKey != null && spawnKey.Value != KeyCode.None && Input.GetKeyDown(spawnKey.Value))
+			{
+				RangerBuilder.Spawn();
+			}
 			RangerBuilder.Update();
 		}
 

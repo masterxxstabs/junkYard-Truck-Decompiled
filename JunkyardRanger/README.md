@@ -24,7 +24,12 @@ and in the **Parts Store** (Junkyard Terminal mod). It's delivered on open groun
 near where the shop delivers. If you're sitting in a vehicle at the time, it arrives
 when you get out.
 
-A new Ranger comes:
+**Or spawn one: press F7** (on foot, in the level). A free Ranger appears on open
+ground in front of you with an **empty engine bay**, ready for an engine you've built
+yourself (a V8, say). Everything else is as below. The key can be changed or turned
+off in settings.
+
+A new Ranger from the shops comes:
 
 * with a full tank, fresh fluids, every part new, a hood, and stock wheels;
 * with a new engine bolted in: the I4 by default, complete and with oil (see
@@ -55,6 +60,7 @@ In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
 | Engine: complete | on | On: every part on, ready to run. Off: a bare block to build up |
 | Paint color | #C8102E | A new Ranger's color (#RRGGBB) |
 | Weathered paint | off | On: the paint wears through to rust in places, like the game's other trucks |
+| Spawn key | F7 | Spawns a free Ranger in front of you, no engine in it. None: off |
 
 ## Saving
 

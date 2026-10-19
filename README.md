@@ -11,7 +11,7 @@ Every mod is separate: install the ones you want. They also work together (see
 | Mod | Version | What it does |
 |---|---|---|
 | [Engine Cloner](EngineCloner/) | 2.4.0 | Lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits |
-| [Junkyard Ranger](JunkyardRanger/) | 1.1.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
+| [Junkyard Ranger](JunkyardRanger/) | 1.2.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
 | [Truck Parts QOL](TruckPartsQOL/) | 1.2.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.1.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
@@ -104,6 +104,8 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
     in the cab.
 * **Comes with:** a new engine (I4 by default, complete, or pick V8, 2J or none), a
   full tank, and Ranger red paint.
+* **Spawn key (F7):** a free Ranger in front of you with an empty engine bay, for
+  an engine you build yourself.
 * **Like the game's trucks:** doors, hood and tailgate open; fuel on the driver's
   side; paint it with the spray cans, panel by panel.
 * **Saving:** saved with your save slot, including the engine bolted in it.

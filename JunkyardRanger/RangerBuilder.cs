@@ -26,8 +26,17 @@ namespace JunkyardRanger
 		// own logic is unchanged; colliders, doors, hood and lights all still work).
 		private static readonly string[] Panels = { "body_low", "cabin_low" };
 
-		private static readonly List<Vector3> pending = new List<Vector3>();
+		// A bought Ranger waiting for you to get out of a vehicle, with the engine
+		// chosen when it was bought.
+		private struct Delivery
+		{
+			public Vector3 near;
+			public string engine;
+		}
+
+		private static readonly List<Delivery> pending = new List<Delivery>();
 		private static float nextTry;
+		private static float nextSpawn;
 
 		public static void Reset()
 		{
@@ -46,9 +55,9 @@ namespace JunkyardRanger
 			{
 				return;
 			}
-			Vector3 at = pending[0];
+			Delivery d = pending[0];
 			pending.RemoveAt(0);
-			Deliver(at);
+			Deliver(d.near, d.engine, "Your 2004 Ford Ranger has been delivered.");
 		}
 
 		// Bought: a new Ranger on open ground near where the shop delivered it. Not
@@ -56,16 +65,46 @@ namespace JunkyardRanger
 		// comes when you get out.
 		public static void Order(Vector3 near)
 		{
+			string engine = RangerMod.EngineKind;
 			if (VehicleApi.PlayerInVehicle())
 			{
-				pending.Add(near);
+				pending.Add(new Delivery { near = near, engine = engine });
 				RangerMod.Hint("Your Ranger will be delivered when you get out of the vehicle.");
 				return;
 			}
-			Deliver(near);
+			Deliver(near, engine, "Your 2004 Ford Ranger has been delivered.");
 		}
 
-		private static void Deliver(Vector3 near)
+		// The spawn key: a free Ranger on open ground in front of you, with nothing
+		// in the engine bay, to build your own engine into.
+		public static void Spawn()
+		{
+			if (Time.time < nextSpawn)
+			{
+				return;
+			}
+			nextSpawn = Time.time + 2f;
+			if (VehicleApi.PlayerInVehicle())
+			{
+				RangerMod.Hint("Get out of the vehicle to spawn a Ranger.");
+				return;
+			}
+			Camera cam = Camera.main;
+			if (cam == null || VehicleApi.Original("car") == null)
+			{
+				RangerMod.Hint("Rangers can only be spawned in the level.");
+				return;
+			}
+			Vector3 ahead = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up);
+			if (ahead.sqrMagnitude < 0.01f)
+			{
+				ahead = Vector3.ProjectOnPlane(cam.transform.up, Vector3.up);   // looking straight down
+			}
+			Deliver(cam.transform.position + ahead.normalized * 7f, null, "Here's your Ranger, with an empty engine bay.");
+		}
+
+		// engine: "i4"/"v8"/"i6" for a new engine bolted in, or null for none.
+		private static void Deliver(Vector3 near, string engine, string done)
 		{
 			GameObject original = VehicleApi.Original("car");
 			if (original == null)
@@ -90,16 +129,16 @@ namespace JunkyardRanger
 			Camera cam = Camera.main;
 			Vector3 toPlayer = cam != null ? Vector3.ProjectOnPlane(cam.transform.position - position, Vector3.up) : Vector3.back;
 			Vector3 forward = toPlayer.sqrMagnitude > 0.01f ? Vector3.Cross(Vector3.up, toPlayer.normalized) : Vector3.forward;
-			GameObject ranger = Build(original, position, Quaternion.LookRotation(forward, Vector3.up), null);
+			GameObject ranger = Build(original, position, Quaternion.LookRotation(forward, Vector3.up), null, engine);
 			if (ranger != null)
 			{
-				RangerMod.Hint("Your 2004 Ford Ranger has been delivered.");
+				RangerMod.Hint(done);
 			}
 		}
 
-		// A Ranger: a copy of the Diamondback in the Ranger's body. New (state null)
-		// or as saved.
-		public static GameObject Build(GameObject original, Vector3 position, Quaternion rotation, RangerState state)
+		// A Ranger: a copy of the Diamondback in the Ranger's body. New (state null,
+		// with a new engine of that kind, or none) or as saved.
+		public static GameObject Build(GameObject original, Vector3 position, Quaternion rotation, RangerState state, string newEngine = null)
 		{
 			string why;
 			if (!RangerModel.Load(out why))
@@ -127,7 +166,7 @@ namespace JunkyardRanger
 				}
 				VehicleApi.Activate(copy, original, position, rotation);
 				VehicleApi.Tag(copy, body.id);
-				string kind = state == null ? RangerMod.EngineKind : null;
+				string kind = state == null ? newEngine : null;
 				if (kind != null)
 				{
 					GameObject block = VehicleApi.MountNewEngine(copy, kind, RangerMod.CompleteEngine, true);
