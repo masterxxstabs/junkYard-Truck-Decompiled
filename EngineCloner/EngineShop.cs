@@ -41,7 +41,6 @@ namespace EngineCloner
 		private static GameObject holder;
 		private static readonly Dictionary<string, GameObject> templates = new Dictionary<string, GameObject>();
 		private static readonly HashSet<string> noDonor = new HashSet<string>();
-		private static readonly Dictionary<string, bool> builtBare = new Dictionary<string, bool>();
 
 		public static Kind KindOf(string id)
 		{
@@ -72,7 +71,6 @@ namespace EngineCloner
 			holder = null;
 			templates.Clear();
 			noDonor.Clear();
-			builtBare.Clear();
 		}
 
 		public static float Price(Kind k)
@@ -83,16 +81,18 @@ namespace EngineCloner
 		// The dormant engine shops sell (and saves restore from), made once per level.
 		public static GameObject Template(Kind k)
 		{
+			return Template(k, EngineClonerMod.BareBlocks);
+		}
+
+		// Bare (every part off) or complete (every part on, new); both are kept,
+		// so other mods can ask for a complete one whatever the setting.
+		public static GameObject Template(Kind k, bool bare)
+		{
 			GameObject template;
-			if (templates.TryGetValue(k.id, out template) && template != null)
+			string key = k.id + (bare ? "|bare" : "|complete");
+			if (templates.TryGetValue(key, out template) && template != null)
 			{
-				if (builtBare.ContainsKey(k.id) && builtBare[k.id] == EngineClonerMod.BareBlocks)
-				{
-					return template;
-				}
-				// "New engines: bare block" was switched: make it again.
-				Object.Destroy(template);
-				templates.Remove(k.id);
+				return template;
 			}
 			GameObject donor = BestDonor(k);
 			if (donor == null)
@@ -113,13 +113,12 @@ namespace EngineCloner
 			template = Object.Instantiate(donor, holder.transform, false);
 			template.name = k.blockName;
 			StripGameSave(template);
-			Freshen(template, k);
+			Freshen(template, k, bare);
 			ShopEngine marker = template.AddComponent<ShopEngine>();
 			marker.kind = k.id;
 			marker.RecordMountBolts();
-			templates[k.id] = template;
-			builtBare[k.id] = EngineClonerMod.BareBlocks;
-			EngineClonerMod.Log("New " + k.blockName + " ready for sale (" + (EngineClonerMod.BareBlocks ? "bare block" : "complete, from the most complete one in the level") + ").");
+			templates[key] = template;
+			EngineClonerMod.Log("New " + k.blockName + " ready (" + (bare ? "bare block" : "complete, from the most complete one in the level") + ").");
 			return template;
 		}
 
@@ -185,10 +184,10 @@ namespace EngineCloner
 			return parts;
 		}
 
-		private static void Freshen(GameObject block, Kind k)
+		private static void Freshen(GameObject block, Kind k, bool bare)
 		{
 			Component script = block.GetComponent(k.script);
-			if (EngineClonerMod.BareBlocks)
+			if (bare)
 			{
 				Strip(block, script);
 			}
@@ -514,6 +513,11 @@ namespace EngineCloner
 		[NonSerialized]
 		public string pendingState;
 
+		// Bolted into a vehicle as it's made (VehicleApi.MountNewEngine): the mounting
+		// bolts stay in and it stays put.
+		[NonSerialized]
+		public bool mountedAtStart;
+
 		private void Awake()
 		{
 			EngineClonerMod.Adopt(gameObject);
@@ -527,6 +531,10 @@ namespace EngineCloner
 		private IEnumerator Setup()
 		{
 			yield return null;
+			if (!ready && mountedAtStart)
+			{
+				ready = true;
+			}
 			if (!ready)
 			{
 				ready = true;

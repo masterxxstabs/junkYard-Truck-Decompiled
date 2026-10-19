@@ -33,6 +33,9 @@ namespace EngineCloner
 
 		public static void Reset()
 		{
+			saveDepth = 0;
+			rewireAfterSave.Clear();
+			copyHolder = null;
 			wired.Clear();
 			clones.Clear();
 			vehicles.Clear();
@@ -256,10 +259,16 @@ namespace EngineCloner
 			return collider.GetComponentInParent<CharacterController>() != null;
 		}
 
-		public static void Clone(GameObject original)
+		// The player is sitting in a vehicle: copying it would copy the player too.
+		public static bool PlayerInVehicle()
 		{
 			Interactor interactor = Object.FindObjectOfType<Interactor>();
-			if (interactor != null && interactor.drivingCar)
+			return interactor != null && (interactor.drivingCar || FindVehicleRoot(interactor.transform) != null);
+		}
+
+		public static void Clone(GameObject original)
+		{
+			if (PlayerInVehicle())
 			{
 				EngineClonerMod.Log("Get out of the vehicle before cloning.");
 				return;
@@ -271,27 +280,50 @@ namespace EngineCloner
 				return;
 			}
 			Quaternion rotation = Quaternion.Euler(0f, original.transform.eulerAngles.y, 0f);
+			GameObject clone = CopyInactive(original);
+			Activate(clone, original, position, rotation);
+			EngineClonerMod.Log("Cloned " + original.name + ".");
+		}
 
-			GameObject clone = Object.Instantiate(original, position, rotation, original.transform.parent);
-			// Lots of game code finds vehicles by name ("dirt pickup truck", "f1003",
-			// "amc", "DirtBike"), so the clone must keep it.
-			clone.name = original.name;
-			clones.Add(clone.GetInstanceID());
-			foreach (Rigidbody body in clone.GetComponentsInChildren<Rigidbody>())
+		// --- Copies for other mods (VehicleApi). ---
+
+		private static GameObject copyHolder;
+
+		// A copy of the vehicle under an inactive holder: nothing on it has run yet
+		// (no Awake), so it can be changed before Activate. The game's own save
+		// tracking (ES3AutoSave) is taken off: copies save on their own, never over
+		// the original's entry.
+		public static GameObject CopyInactive(GameObject original)
+		{
+			if (copyHolder == null)
 			{
-				body.velocity = Vector3.zero;
-				body.angularVelocity = Vector3.zero;
+				copyHolder = new GameObject("EngineCloner_VehicleCopies");
+				copyHolder.SetActive(false);
+				UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(copyHolder, original.scene);
 			}
+			GameObject copy = Object.Instantiate(original, copyHolder.transform, false);
+			// Lots of game code finds vehicles by name ("dirt pickup truck", "f1003",
+			// "amc", "DirtBike"), so the copy must keep it.
+			copy.name = original.name;
+			copy.transform.localPosition = Vector3.zero;
+			copy.transform.localRotation = Quaternion.identity;
+			EngineShop.StripGameSave(copy);
+			return copy;
+		}
 
+		// Put a copy made by CopyInactive into the world at this pose and start it.
+		public static void Activate(GameObject copy, GameObject original, Vector3 position, Quaternion rotation)
+		{
+			copy.transform.SetPositionAndRotation(position, rotation);
 			// Instantiate re-points joints inside the copy at the copy, but a joint to
 			// something outside it (the original truck the bike was strapped into, a
-			// trailer) would weld the clone to that object. Engine blocks get their
+			// trailer) would weld the copy to that object. Engine blocks get their
 			// own anchor; anything else is cut loose.
 			int cut = 0;
-			foreach (Joint joint in clone.GetComponentsInChildren<Joint>(true))
+			foreach (Joint joint in copy.GetComponentsInChildren<Joint>(true))
 			{
 				Rigidbody other = joint.connectedBody;
-				if (other == null || other.transform.IsChildOf(clone.transform))
+				if (other == null || other.transform.IsChildOf(copy.transform))
 				{
 					continue;
 				}
@@ -301,14 +333,145 @@ namespace EngineCloner
 				}
 				else
 				{
-					Object.Destroy(joint);
+					Object.DestroyImmediate(joint);
 					cut++;
 				}
 			}
-			EngineClonerMod.RegisterClonedBlocks(clone);
-			vehicles.Add(clone);
-			safePose[clone.GetInstanceID()] = new SavedPose(position, rotation);
-			EngineClonerMod.Log("Cloned " + original.name + (cut > 0 ? " (cut " + cut + " joint(s) to outside objects)." : "."));
+			copy.transform.SetParent(original.transform.parent, true);
+			clones.Add(copy.GetInstanceID());
+			foreach (Rigidbody body in copy.GetComponentsInChildren<Rigidbody>())
+			{
+				body.velocity = Vector3.zero;
+				body.angularVelocity = Vector3.zero;
+			}
+			EngineClonerMod.RegisterClonedBlocks(copy);
+			vehicles.Add(copy);
+			safePose[copy.GetInstanceID()] = new SavedPose(position, rotation);
+			if (cut > 0)
+			{
+				EngineClonerMod.Log("Copy of " + original.name + ": cut " + cut + " joint(s) to outside objects.");
+			}
+		}
+
+		public static bool IsCopy(GameObject vehicle)
+		{
+			return vehicle != null && clones.Contains(vehicle.GetInstanceID());
+		}
+
+		// The game's own vehicle of this type (not one of our copies).
+		public static GameObject Original(Type type)
+		{
+			foreach (Object o in Object.FindObjectsOfType(type))
+			{
+				GameObject go = ((Component)o).gameObject;
+				if (!clones.Contains(go.GetInstanceID()))
+				{
+					return go;
+				}
+			}
+			return null;
+		}
+
+		// Open, solid ground near a point, with room for a vehicle like this one.
+		public static bool FindGroundNear(GameObject original, Vector3 near, out Vector3 position)
+		{
+			position = Vector3.zero;
+			Bounds bounds = new Bounds(original.transform.position, Vector3.zero);
+			foreach (Collider collider in original.GetComponentsInChildren<Collider>())
+			{
+				if (collider.enabled && !collider.isTrigger)
+				{
+					bounds.Encapsulate(collider.bounds);
+				}
+			}
+			Vector3 pivotToCenter = bounds.center - original.transform.position;
+			float pivotAboveBottom = original.transform.position.y - bounds.min.y;
+			float step = Mathf.Max(bounds.extents.x, bounds.extents.z) + 1f;
+			for (int ring = 0; ring <= 4; ring++)
+			{
+				int tries = ring == 0 ? 1 : 8;
+				for (int i = 0; i < tries; i++)
+				{
+					float a = i * Mathf.PI * 2f / tries;
+					Vector3 spot = near + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * step * ring;
+					float groundY;
+					if (!GroundBelow(spot, near.y + 4f, original, out groundY))
+					{
+						continue;
+					}
+					Vector3 candidate = new Vector3(spot.x, groundY + pivotAboveBottom + 0.3f, spot.z);
+					Vector3 center = candidate + pivotToCenter + Vector3.up * (bounds.extents.y * 0.25f);
+					Vector3 half = new Vector3(bounds.extents.x * 0.95f, bounds.extents.y * 0.7f, bounds.extents.z * 0.95f);
+					if (!IsBlocked(center, half, original))
+					{
+						position = candidate;
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		// --- Saving. ---
+
+		// The game saves references to its vehicles (Interactor.truck, the seat,
+		// the gearbox...). While it saves, wire it to its own vehicles, so it never
+		// stores a copy it can't find again; then back to the copies.
+		private static int saveDepth;
+		private static readonly List<GameObject> rewireAfterSave = new List<GameObject>();
+
+		public static void BeginSave()
+		{
+			if (saveDepth++ > 0)
+			{
+				return;
+			}
+			rewireAfterSave.Clear();
+			try
+			{
+				Scan();
+				foreach (KeyValuePair<Type, GameObject> pair in new List<KeyValuePair<Type, GameObject>>(wired))
+				{
+					GameObject current = pair.Value;
+					if (current == null || !clones.Contains(current.GetInstanceID()))
+					{
+						continue;
+					}
+					GameObject original = Original(pair.Key);
+					if (original != null)
+					{
+						Wire(original);
+						rewireAfterSave.Add(current);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				EngineClonerMod.Log("Couldn't wire the game to its own vehicles for saving: " + e.Message);
+			}
+		}
+
+		public static void EndSave()
+		{
+			if (saveDepth == 0 || --saveDepth > 0)
+			{
+				return;
+			}
+			foreach (GameObject vehicle in rewireAfterSave)
+			{
+				if (vehicle != null)
+				{
+					try
+					{
+						Wire(vehicle);
+					}
+					catch (Exception e)
+					{
+						EngineClonerMod.Log("Couldn't wire the game back to " + vehicle.name + " after saving: " + e.Message);
+					}
+				}
+			}
+			rewireAfterSave.Clear();
 		}
 	}
 

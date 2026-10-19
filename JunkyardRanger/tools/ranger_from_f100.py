@@ -1,0 +1,752 @@
+"""Junkyard Ranger: a 2004 Ford Ranger body made from the game's own F100
+(f1003), fitted to the Diamondback's chassis.
+
+Steps:
+  1. The F100's body panels (main body, hood, doors, tailgate, glass, fuel cap).
+  2. The 1977 front end (grille, headlight bezels, bumper) comes off.
+  3. Everything is remapped into the Diamondback's frame: 92% width, 87.5%
+     height, and the length remapped section by section (front overhang, front
+     arch, cab, bed, rear arch, tailgate) so both axles land on the Diamondback's
+     and its cab, seats and dash fit inside.
+  4. Ranger styling: the hood and fenders slope down to the nose, the front
+     corners round off, and a 2001-04 front end goes on (body-colored grille
+     surround with a honeycomb insert and the oval, clear headlights with amber
+     corners, body-colored bumper with fog lights).
+
+Blender frame: X right, Y forward, Z up, the Diamondback root's origin.
+
+Run: python3 ranger_from_f100.py f1003.blend dpt.blend <out_dir> [render[:views]]
+"""
+import sys, os, math
+import bpy, bmesh
+from mathutils import Vector
+
+F100_BLEND, DPT_BLEND, OUT = (os.path.abspath(a) for a in sys.argv[1:4])
+RENDER = sys.argv[4] if len(sys.argv) > 4 else ""
+os.makedirs(OUT, exist_ok=True)
+
+bpy.ops.wm.open_mainfile(filepath=F100_BLEND)
+scene = bpy.context.scene
+
+# ------------------------------------------------------------------ 1. F100 parts
+KEEP = {
+    "fmainbody": "Body",
+    "fhood": "Hood",
+    "f100_ddoor": "DoorD",
+    "f100_ddoor/000-0-0": "DoorD",
+    "f100_pdoor": "DoorP",
+    "f100_pdoor/002-0-2": "DoorP",
+    "ftailgate": "Tailgate",
+    "016-0-16": "Glass",
+    "FuelCapF": "GasDoor",
+}
+for o in list(scene.objects):
+    if o.get("path", o.name) not in KEEP:
+        bpy.data.objects.remove(o)
+for o in scene.objects:
+    o["group"] = KEEP[o["path"]]
+    o.hide_render = False
+# The F100's hood has only the rust and mud layers; give it the body's base
+# layer too (same texture atlas), so it takes the paint like everything else.
+hood_me = bpy.data.objects["fhood"].data
+hood_me.materials[0] = bpy.data.materials["Tex_RGB_23"]
+# The fuel cap alone is 11k vertices: a tenth is plenty.
+cap_obj = bpy.data.objects["FuelCapF"]
+dec = cap_obj.modifiers.new("dec", "DECIMATE")
+dec.ratio = 0.1
+dg = bpy.context.evaluated_depsgraph_get()
+cap_obj.data = bpy.data.meshes.new_from_object(cap_obj.evaluated_get(dg))
+cap_obj.modifiers.clear()
+
+# ------------------------------------------------------------------ 2. 1977 front end off
+def components(bm):
+    comp = {}
+    cid = 0
+    for v in bm.verts:
+        if v.index in comp:
+            continue
+        stack = [v]
+        comp[v.index] = cid
+        while stack:
+            x = stack.pop()
+            for e in x.link_edges:
+                y = e.other_vert(x)
+                if y.index not in comp:
+                    comp[y.index] = cid
+                    stack.append(y)
+        cid += 1
+    return comp, cid
+
+PATCH = (0.630, 0.224, 0.698, 0.291)   # a clean, fully painted patch of the F100 atlas
+
+
+def paint_pieces(obj, rule, what):
+    """Map the loose pieces of obj for which rule(lo, hi) is true onto the painted
+    patch of the atlas, so they're body-colored (F100 frame)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    comp, ncomp = components(bm)
+    lo = [[1e9] * 3 for _ in range(ncomp)]
+    hi = [[-1e9] * 3 for _ in range(ncomp)]
+    for v in bm.verts:
+        c = comp[v.index]
+        for i in range(3):
+            lo[c][i] = min(lo[c][i], v.co[i])
+            hi[c][i] = max(hi[c][i], v.co[i])
+    hit = {c for c in range(ncomp) if rule(Vector(lo[c]), Vector(hi[c]))}
+    uv = bm.loops.layers.uv.active
+    cu, cv = (PATCH[0] + PATCH[2]) / 2, (PATCH[1] + PATCH[3]) / 2
+    for f in bm.faces:
+        if comp[f.verts[0].index] in hit:
+            for l in f.loops:
+                l[uv].uv = (cu + 0.02 * math.sin(l.vert.co.y * 3.0), cv + 0.02 * math.sin(l.vert.co.z * 9.0))
+    bm.to_mesh(obj.data)
+    bm.free()
+    print(what + ": painted", len(hit), "of", ncomp, "pieces of", obj.name)
+
+
+def strip_pieces(obj, rule, what):
+    """Delete the loose pieces of obj for which rule(lo, hi) is true (F100 frame)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    comp, ncomp = components(bm)
+    lo = [[1e9] * 3 for _ in range(ncomp)]
+    hi = [[-1e9] * 3 for _ in range(ncomp)]
+    for v in bm.verts:
+        c = comp[v.index]
+        for i in range(3):
+            lo[c][i] = min(lo[c][i], v.co[i])
+            hi[c][i] = max(hi[c][i], v.co[i])
+    drop = {c for c in range(ncomp) if rule(Vector(lo[c]), Vector(hi[c]))}
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if comp[v.index] in drop], context="VERTS")
+    bm.to_mesh(obj.data)
+    bm.free()
+    print(what + ": removed", len(drop), "of", ncomp, "pieces of", obj.name)
+
+CX = 0.118  # the F100's centerline
+
+
+def out_from_center(lo, hi):
+    """How far the piece's inner edge is from the centerline."""
+    if lo.x >= CX:
+        return lo.x - CX
+    if hi.x <= CX:
+        return CX - hi.x
+    return 0.0
+
+body = bpy.data.objects["fmainbody"]
+# The 1977 grille, headlight bezels and front bumper.
+strip_pieces(body, lambda lo, hi: lo.y > 2.39, "front end")
+# The rear bumper (the Diamondback's step bumper stays on its frame).
+strip_pieces(body, lambda lo, hi: lo.y < -2.19 and hi.z < -1.45, "rear bumper")
+# The full-length chrome beltline molding (it covers a panel seam, so it
+# stays, painted body color: the Ranger's side crease).
+def molding(lo, hi):
+    return hi.z - lo.z < 0.10 and hi.y - lo.y > 0.6 and out_from_center(lo, hi) > 0.66 and lo.z > -1.25 and hi.z < -1.05
+paint_pieces(body, molding, "molding")
+channel_uv = []
+
+for door in ("f100_ddoor", "f100_pdoor"):
+    # The chrome mirror and its arm, and the vent window's divider bar.
+    strip_pieces(bpy.data.objects[door], lambda lo, hi: out_from_center(lo, hi) > 0.84 and lo.y > 0.89 and hi.y < 1.05 and lo.z > -1.14 and hi.z < -0.73, "mirror")
+    paint_pieces(bpy.data.objects[door], molding, "molding")
+    strip_pieces(bpy.data.objects[door], lambda lo, hi: lo.y > 0.90 and hi.y < 1.16 and hi.y - lo.y < 0.25 and hi.z - lo.z > 0.3 and lo.z > -0.97 and hi.z < -0.48 and out_from_center(lo, hi) > 0.6, "vent bar")
+
+# ------------------------------------------------------------------ 3. remap
+SX, SZ = 0.92, 0.875
+X0, Z0, ZT = 0.118, -1.904, 0.705
+# F100 y -> Diamondback y, keeping the arches round (0.92 around each axle).
+YCP = [
+    (-2.45, -2.58),
+    (-2.285, -2.385),   # tailgate
+    (-1.561, -1.855),   # rear arch, back edge
+    (-1.041, -1.375),   # rear axle
+    (-0.521, -0.895),   # rear arch, front edge
+    (0.12, -0.40),      # back of the cab
+    (1.356, 0.93),      # windshield base
+    (1.404, 0.974),     # front arch, back edge
+    (1.904, 1.434),     # front axle
+    (2.404, 1.894),     # front arch, front edge
+    (2.62, 2.12),
+]
+
+
+def pchip(points):
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    n = len(xs)
+    h = [xs[i + 1] - xs[i] for i in range(n - 1)]
+    d = [(ys[i + 1] - ys[i]) / h[i] for i in range(n - 1)]
+    m = [0.0] * n
+    m[0], m[-1] = d[0], d[-1]
+    for i in range(1, n - 1):
+        if d[i - 1] * d[i] <= 0:
+            m[i] = 0
+        else:
+            w1, w2 = 2 * h[i] + h[i - 1], h[i] + 2 * h[i - 1]
+            m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i])
+
+    def f(x):
+        if x <= xs[0]:
+            return ys[0] + m[0] * (x - xs[0])
+        if x >= xs[-1]:
+            return ys[-1] + m[-1] * (x - xs[-1])
+        i = max(k for k in range(n - 1) if xs[k] <= x)
+        t = (x - xs[i]) / h[i]
+        h00 = 2 * t ** 3 - 3 * t ** 2 + 1
+        h10 = t ** 3 - 2 * t ** 2 + t
+        h01 = -2 * t ** 3 + 3 * t ** 2
+        h11 = t ** 3 - t ** 2
+        return h00 * ys[i] + h10 * h[i] * m[i] + h01 * ys[i + 1] + h11 * h[i] * m[i + 1]
+    return f
+
+ymap = pchip(YCP)
+
+
+def smooth(t):
+    t = min(1.0, max(0.0, t))
+    return t * t * (3 - 2 * t)
+
+
+HOOD_DROP = 0.10
+def remap(co):
+    x = SX * (co.x - X0)
+    y = ymap(co.y)
+    z = ZT + SZ * (co.z - Z0)
+    # Ranger nose: hood and fender tops slope down toward the front...
+    if y > 1.0:
+        z -= HOOD_DROP * smooth((y - 1.0) / 1.15) * smooth((z - 1.10) / 0.28)
+    # ...and the front corners round off in plan view.
+    if y > 1.7:
+        x *= 1.0 - 0.04 * smooth((y - 1.7) / 0.45) * smooth((abs(x) - 0.55) / 0.3)
+    return Vector((x, y, z))
+
+
+for o in scene.objects:
+    me = o.data
+    for v in me.vertices:
+        v.co = remap(o.matrix_world @ v.co)
+    o.matrix_world.identity()
+    me.update()
+
+# The fuel cap stays in the F100's filler recess, on the left like a Ranger's;
+# the mod moves the game's fuel inlet there.
+cap = bpy.data.objects["FuelCapF"]
+FUEL_CAP = sum((v.co for v in cap.data.vertices), Vector()) / len(cap.data.vertices)
+print("fuel cap at", tuple(round(c, 3) for c in FUEL_CAP))
+
+# ------------------------------------------------------------------ 4. Ranger front end
+def mat(name, rgb, metal=0.0, rough=0.5, alpha=1.0):
+    m = bpy.data.materials.get(name)
+    if m is None:
+        m = bpy.data.materials.new(name)
+        m.use_nodes = True
+        b = m.node_tree.nodes["Principled BSDF"]
+        b.inputs["Base Color"].default_value = (*rgb, 1)
+        b.inputs["Metallic"].default_value = metal
+        b.inputs["Roughness"].default_value = rough
+        if alpha < 1:
+            b.inputs["Alpha"].default_value = alpha
+    return m
+
+# New parts use the game's own materials by name; the mod finds them in game.
+PAINT = bpy.data.materials["Tex_RGB_23"]          # the F100's body (tinted with the paint color in game)
+# (R_* materials are made in game from the game's Standard shader; see the MTL.)
+BLACK = mat("R_Black", (0.035, 0.035, 0.037), 0.0, 0.62)
+GRILLE = mat("R_Grille", (0.012, 0.012, 0.013), 0.25, 0.45)
+LENS = mat("R_LensClear", (0.92, 0.94, 0.97), 0.0, 0.03, 0.18)
+CHROME = mat("R_Chrome", (0.86, 0.86, 0.88), 1.0, 0.1)
+AMBER = mat("R_LensAmber", (0.95, 0.42, 0.04), 0.0, 0.08, 0.8)
+BLUE = mat("R_Oval", (0.02, 0.09, 0.42), 0.4, 0.15)
+
+new_parts = []
+
+
+def new_object(name, group, bm, material):
+    me = bpy.data.meshes.new(name)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material)
+    o = bpy.data.objects.new(name, me)
+    scene.collection.objects.link(o)
+    o["group"] = group
+    o["path"] = name
+    new_parts.append(o)
+    return o
+
+
+def hull(points, name, group, material, bevel=0.0):
+    bm = bmesh.new()
+    vs = [bm.verts.new(p) for p in points]
+    bmesh.ops.convex_hull(bm, input=vs)
+    for v in [v for v in bm.verts if not v.link_faces]:
+        bm.verts.remove(v)
+    o = new_object(name, group, bm, material)
+    if bevel:
+        apply_bevel(o, bevel)
+    return o
+
+
+def box(x0, x1, y0, y1, z0, z1, name, group, material, bevel=0.0):
+    return hull([(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)], name, group, material, bevel)
+
+
+def apply_bevel(o, width, segments=2):
+    m = o.modifiers.new("bv", "BEVEL")
+    m.width = width
+    m.segments = segments
+    m.limit_method = "ANGLE"
+    m.angle_limit = math.radians(35)
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(o.evaluated_get(dg))
+    o.modifiers.clear()
+    o.data = me
+
+
+def cylinder_y(cx, cz, rx, rz, y0, y1, name, group, material, seg=40):
+    bm = bmesh.new()
+    a = [bm.verts.new((cx + rx * math.cos(2 * math.pi * i / seg), y0, cz + rz * math.sin(2 * math.pi * i / seg))) for i in range(seg)]
+    b = [bm.verts.new((v.co.x, y1, v.co.z)) for v in a]
+    bm.faces.new(a)
+    bm.faces.new(b)
+    for i in range(seg):
+        j = (i + 1) % seg
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    return new_object(name, group, bm, material)
+
+
+# Measure the front of the remapped fenders and hood so the new front end meets them.
+def bounds(objs, pred=lambda v: True):
+    lo = Vector((1e9,) * 3)
+    hi = Vector((-1e9,) * 3)
+    for o in objs:
+        for v in o.data.vertices:
+            if pred(v.co):
+                lo = Vector(map(min, lo, v.co))
+                hi = Vector(map(max, hi, v.co))
+    return lo, hi
+
+blo, bhi = bounds([body])
+flo, fhi = bounds([body], lambda c: c.y > 1.85)
+hlo, hhi = bounds([bpy.data.objects["fhood"]])
+print("body", tuple(round(v, 3) for v in blo), tuple(round(v, 3) for v in bhi))
+print("front of fenders", tuple(round(v, 3) for v in flo), tuple(round(v, 3) for v in fhi))
+print("hood", tuple(round(v, 3) for v in hlo), tuple(round(v, 3) for v in hhi))
+
+FRONT = fhi.y                      # where the fenders end
+HW = min(fhi.x, -flo.x) + 0.004    # half width at the nose
+hood_obj = bpy.data.objects["fhood"]
+HOOD_FRONT_Z = max(v.co.z for v in hood_obj.data.vertices if v.co.y > hhi.y - 0.06 and abs(v.co.x) < 0.5) - 0.02
+HOOD_FRONT_Y = hhi.y
+print("hood front edge z", round(HOOD_FRONT_Z, 3), "y", round(HOOD_FRONT_Y, 3), "fenders end y", round(FRONT, 3), "half width", round(HW, 3))
+BAND = (HOOD_FRONT_Z - 0.275, HOOD_FRONT_Z - 0.01)   # grille and headlights
+BUMPER = (BAND[0] - 0.235, BAND[0] - 0.012)
+FACE = HOOD_FRONT_Y - 0.01
+
+# Paint UVs: new painted parts sample a clean, fully painted patch of the F100's
+# atlas (so they take the paint and the game's grime like the rest of the body).
+PATCH = (0.630, 0.224, 0.698, 0.291)
+
+
+def paint_uvs(o):
+    me = o.data
+    uv = me.uv_layers.new(name="UVMap")
+    for poly in me.polygons:
+        n = poly.normal
+        ax = max(range(3), key=lambda i: abs(n[i]))
+        for li in poly.loop_indices:
+            c = me.vertices[me.loops[li].vertex_index].co
+            a_, b_ = [(c.y, c.z), (c.x, c.z), (c.x, c.y)][ax]
+            u = PATCH[0] + (PATCH[2] - PATCH[0]) * (0.5 + 0.5 * math.sin(a_ * 1.7))
+            v = PATCH[1] + (PATCH[3] - PATCH[1]) * (0.5 + 0.5 * math.sin(b_ * 1.7))
+            uv.data[li].uv = (u, v)
+
+
+def plan(x, bow=0.035, r=0.13, hw=None):
+    """The nose's outline seen from above: a gentle bow, rounded corners."""
+    hw = HW if hw is None else hw
+    ax = min(abs(x), hw)
+    y = FACE + bow * (1 - (ax / hw) ** 2)
+    if ax > hw - r:
+        d = ax - (hw - r)
+        y -= r - math.sqrt(max(0.0, r * r - d * d))
+    return y
+
+
+def sweep(name, group, material, xs, section, cap=True):
+    """Loft cross-sections (lists of (y, z) in the same order) along x."""
+    bm = bmesh.new()
+    rings = []
+    for x in xs:
+        rings.append([bm.verts.new((x, y, z)) for (y, z) in section(x)])
+    n = len(rings[0])
+    for i in range(len(rings) - 1):
+        for k in range(n):
+            j = (k + 1) % n
+            bm.faces.new((rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]))
+    if cap:
+        bm.faces.new(rings[0])
+        bm.faces.new(list(reversed(rings[-1])))
+    o = new_object(name, group, bm, material)
+    if material is PAINT:
+        paint_uvs(o)
+    return o
+
+
+def span(a, b, n):
+    return [a + (b - a) * i / (n - 1) for i in range(n)]
+
+XS = span(-HW, HW, 41)
+
+# Front panel behind the lights and grille, closing the nose under the hood.
+sweep("FrontPanel", "Fascia", PAINT, XS, lambda x: [
+    (FRONT - 0.10, BAND[0] - 0.02), (plan(x) - 0.03, BAND[0] - 0.02),
+    (plan(x) - 0.03, HOOD_FRONT_Z - 0.006), (FRONT - 0.10, HOOD_FRONT_Z - 0.006)])
+
+# Grille: a body-colored surround around a black honeycomb, the oval in the middle.
+GW = 0.37
+gz0, gz1 = BAND[0] + 0.005, BAND[1] - 0.004
+ring = sweep("GrilleSurround", "Fascia", PAINT, span(-GW - 0.05, GW + 0.05, 17), lambda x: [
+    (plan(x) - 0.05, gz0), (plan(x) + 0.012, gz0 + 0.004), (plan(x) + 0.018, gz1 - 0.008), (plan(x) - 0.05, gz1)])
+cut = box(-GW, GW, FACE - 0.2, FACE + 0.2, gz0 + 0.04, gz1 - 0.04, "cut", "Fascia", PAINT)
+mod = ring.modifiers.new("b", "BOOLEAN")
+mod.operation = "DIFFERENCE"
+mod.solver = "EXACT"
+mod.object = cut
+dg = bpy.context.evaluated_depsgraph_get()
+ring.data = bpy.data.meshes.new_from_object(ring.evaluated_get(dg))
+ring.modifiers.clear()
+bpy.data.objects.remove(cut)
+paint_uvs(ring)
+bm = bmesh.new()
+cell = 0.032
+zc = gz0 + 0.04 + cell * 0.5
+r = 0
+while zc < gz1 - 0.04 - cell * 0.4:
+    x = -GW + cell * (0.5 + 0.5 * (r % 2))
+    while x < GW - cell * 0.45:
+        yf = plan(x) - 0.012
+        o6 = [bm.verts.new((x + cell * 0.5 * math.cos(math.radians(30 + 60 * k)), yf, zc + cell * 0.5 * math.sin(math.radians(30 + 60 * k)))) for k in range(6)]
+        i6 = [bm.verts.new((x + cell * 0.37 * math.cos(math.radians(30 + 60 * k)), yf, zc + cell * 0.37 * math.sin(math.radians(30 + 60 * k)))) for k in range(6)]
+        b6 = [bm.verts.new((v.co.x, yf - 0.03, v.co.z)) for v in i6]
+        for k in range(6):
+            j = (k + 1) % 6
+            bm.faces.new((o6[k], o6[j], i6[j], i6[k]))
+            bm.faces.new((i6[k], i6[j], b6[j], b6[k]))
+        x += cell
+    zc += cell * 0.86
+    r += 1
+new_object("Honeycomb", "Fascia", bm, GRILLE)
+sweep("GrilleBack", "Fascia", GRILLE, span(-GW, GW, 9), lambda x: [
+    (plan(x) - 0.06, gz0 + 0.03), (plan(x) - 0.045, gz0 + 0.03), (plan(x) - 0.045, gz1 - 0.03), (plan(x) - 0.06, gz1 - 0.03)])
+oz = (gz0 + gz1) / 2
+cylinder_y(0, oz, 0.088, 0.036, plan(0) + 0.004, plan(0) + 0.024, "OvalRim", "Fascia", CHROME)
+cylinder_y(0, oz, 0.078, 0.027, plan(0) + 0.016, plan(0) + 0.03, "Oval", "Fascia", BLUE)
+
+# Headlights: from beside the grille round the corner; clear lens over a
+# chrome reflector with two lamps, amber signal at the outer corner.
+for s in (1, -1):
+    x_in, x_out = GW + 0.075, HW + 0.002
+    def lamp_top(x):
+        return BAND[1] - 0.008 - 0.03 * ((abs(x) - x_in) / (x_out - x_in)) ** 2
+    xs = [s * x for x in span(x_in, x_out - 0.045, 9)]
+    if s < 0:
+        xs = list(reversed(xs))
+    sweep("HeadLens", "Lights", LENS, xs, lambda x: [
+        (plan(x) - 0.07, BAND[0] + 0.05), (plan(x) + 0.006, BAND[0] + 0.05), (plan(x) + 0.006, lamp_top(x)), (plan(x) - 0.07, lamp_top(x))])
+    sweep("Reflector", "Lights", CHROME, xs, lambda x: [
+        (plan(x) - 0.075, BAND[0] + 0.06), (plan(x) - 0.03, BAND[0] + 0.06), (plan(x) - 0.03, lamp_top(x) - 0.012), (plan(x) - 0.075, lamp_top(x) - 0.012)])
+    for xc in (x_in + 0.07, x_in + 0.19):
+        yc = plan(s * xc)
+        cylinder_y(s * xc, (BAND[0] + 0.05 + lamp_top(s * xc)) / 2, 0.048, 0.048, yc - 0.035, yc - 0.012, "Lamp", "Lights", LENS)
+    xs2 = [s * x for x in span(x_out - 0.045, x_out, 5)]
+    if s < 0:
+        xs2 = list(reversed(xs2))
+    sweep("Signal", "Lights", AMBER, xs2, lambda x: [
+        (plan(x) - 0.07, BAND[0] + 0.05), (plan(x) + 0.006, BAND[0] + 0.05), (plan(x) + 0.006, lamp_top(x)), (plan(x) - 0.07, lamp_top(x))])
+    # The amber wraps onto the side of the fender.
+    sweep("SignalSide", "Lights", AMBER, [s * (x_out - 0.004), s * (x_out + 0.004)], lambda x: [
+        (plan(x) - 0.13, BAND[0] + 0.09), (plan(x) - 0.07, BAND[0] + 0.09), (plan(x) - 0.07, lamp_top(x) - 0.03), (plan(x) - 0.13, lamp_top(x) - 0.035)])
+
+# Bumper: body-colored (Edge), rounded, wrapping back towards the wheels, with
+# a crease, a black intake below the plate and fog lights at the corners.
+BHW = HW + 0.02
+def bplan(x):
+    return plan(x, bow=0.045, r=0.26, hw=BHW) + 0.06
+XB = span(-BHW, BHW, 49)
+z0, z1 = BUMPER
+sweep("FrontBumper", "Bumper", PAINT, XB, lambda x: [
+    (FRONT - 0.30, z0 + 0.02), (bplan(x) - 0.06, z0), (bplan(x) - 0.012, z0 + 0.035),
+    (bplan(x), z0 + 0.10), (bplan(x) - 0.004, z1 - 0.06), (bplan(x) - 0.02, z1 - 0.02),
+    (bplan(x) - 0.07, z1), (FRONT - 0.30, z1)])
+sweep("Intake", "Bumper", GRILLE, span(-0.40, 0.40, 13), lambda x: [
+    (bplan(x) - 0.03, z0 + 0.03), (bplan(x) + 0.003, z0 + 0.03), (bplan(x) + 0.003, z0 + 0.085), (bplan(x) - 0.03, z0 + 0.085)])
+for s in (1, -1):
+    xf = s * (BHW - 0.20)
+    yf = bplan(xf)
+    cylinder_y(xf, z0 + 0.09, 0.062, 0.055, yf - 0.03, yf + 0.004, "FogBezel", "Bumper", GRILLE)
+    cylinder_y(xf, z0 + 0.09, 0.045, 0.04, yf - 0.02, yf + 0.008, "Fog", "Bumper", LENS)
+yp = bplan(0)
+box(-0.16, 0.16, yp - 0.004, yp + 0.006, z0 + 0.095, z0 + 0.175, "Plate", "Bumper", CHROME)
+sweep("Valance", "Bumper", BLACK, span(-BHW + 0.08, BHW - 0.08, 25), lambda x: [
+    (FRONT - 0.25, z0 - 0.055), (bplan(x) - 0.07, z0 - 0.055), (bplan(x) - 0.05, z0 + 0.005), (FRONT - 0.25, z0 + 0.005)])
+
+# Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
+door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)
+print("door belt line z", round(door_top, 3))
+for s_, group in ((-1, "DoorD"), (1, "DoorP")):
+    zb = door_top - 0.01
+    pts = []
+    for (x, y, z) in ((0.87, 0.78, zb), (1.03, 0.76, zb + 0.015), (1.05, 0.765, zb + 0.20), (0.885, 0.78, zb + 0.215),
+                      (0.87, 0.90, zb + 0.01), (1.01, 0.88, zb + 0.03), (1.025, 0.88, zb + 0.19), (0.885, 0.90, zb + 0.20)):
+        pts.append((s_ * x, y, z))
+    hull(pts, "Mirror", group, BLACK, 0.02)
+    glass_pts = [(s_ * x, 0.757, z) for (x, z) in ((0.905, zb + 0.03), (1.025, zb + 0.035), (1.03, zb + 0.185), (0.91, zb + 0.19))]
+    hull(glass_pts + [(x, 0.759, z) for (x, _, z) in glass_pts], "MirrorGlass", group, CHROME)
+
+# ------------------------------------------------------------------ paint layer texture
+# The game's paint mask (the F100's rust layer alpha), thin gaps closed, plus the
+# molding channel; clean near-white paint, tinted with the paint color in game.
+from PIL import Image, ImageFilter, ImageDraw
+import numpy as np
+MODELS = os.path.dirname(DPT_BLEND)
+rust_img = [i for i in bpy.data.images if os.path.basename(i.filepath).split(".")[0] and "rust" in i.name.lower() and "23" in i.name]
+rust_path = bpy.path.abspath(rust_img[0].filepath)
+rust = Image.open(rust_path).convert("RGBA")
+W, H = rust.size
+alpha = Image.fromarray(np.array(rust)[..., 3])
+alpha = alpha.filter(ImageFilter.MaxFilter(15)).filter(ImageFilter.MinFilter(15))
+draw = ImageDraw.Draw(alpha)
+for tri in channel_uv:
+    draw.polygon([(u * W, (1 - v) * H) for u, v in tri], fill=255)
+alpha = alpha.filter(ImageFilter.MaxFilter(5))
+rng = np.random.default_rng(7)
+noise = Image.fromarray((rng.normal(0, 1, (H // 8, W // 8)) * 40 + 128).clip(0, 255).astype(np.uint8)).resize((W, H), Image.BICUBIC)
+v = (226 + (np.array(noise).astype(np.float32) - 128) * 0.05).clip(0, 255)
+paint_tex = np.dstack([v, v, v, np.array(alpha)]).astype(np.uint8)
+os.makedirs(os.path.join(OUT, "assets"), exist_ok=True)
+Image.fromarray(paint_tex, "RGBA").save(os.path.join(OUT, "assets", "ranger_paint.png"), optimize=True)
+Image.fromarray(paint_tex, "RGBA").save(os.path.join(MODELS, "ranger_assets", "ranger_paint.png"), optimize=True)
+print("paint texture from", os.path.basename(rust_path))
+
+# ------------------------------------------------------------------ export
+# OBJ in the mods' convention: the Diamondback root's frame in Unity terms
+# (x right, y up, z forward), X mirrored for OBJ. Parts that move with one of
+# the Diamondback's own parts (doors, hood, tailgate) are written in that part's
+# frame (closed), so in game they're simply parented to it.
+import json
+import numpy as np
+FOLLOW = {
+    "DoorD": "cabin_low/cardoor_d",
+    "DoorP": "cabin_low/cardoor_p",
+    "Hood": "cabin_low/hood_low1",
+    "Tailgate": "body_low/tailgate",
+}
+ORDER = ["Body", "Fascia", "Bumper", "Lights", "Glass", "GasDoor", "Hood", "DoorD", "DoorP", "Tailgate"]
+anchors = json.load(open(os.path.join(MODELS, "dpt_anchors.json")))
+
+
+def export_obj(obj_path, mtl_path):
+    out = ["# Junkyard Ranger body: the game's F100 made into a 2004 Ford Ranger, on the Diamondback's chassis.",
+           "# Frame: the Diamondback's root (Unity x right, y up, z forward), X mirrored. Groups that follow",
+           "# one of the Diamondback's parts are in that part's frame; see ranger.json.",
+           "mtllib " + os.path.basename(mtl_path)]
+    vb = tb = nb = 1
+    used = []
+    for group in ORDER:
+        objs = [o for o in scene.objects if o.type == "MESH" and o.get("group") == group]
+        if not objs:
+            continue
+        M = np.array(anchors[FOLLOW[group]]["world"]) if group in FOLLOW else np.identity(4)
+        Minv = np.linalg.inv(M)
+        Nm = np.linalg.inv(Minv[:3, :3]).T
+        out.append("o " + group)
+        for o in objs:
+            me = o.data
+            if not me.has_custom_normals:
+                me.set_sharp_from_angle(angle=math.radians(34))
+            me.calc_loop_triangles()
+            normals = me.corner_normals
+            uvl = me.uv_layers.active
+            mats = [m.name if m else "R_Black" for m in me.materials] or ["R_Black"]
+            for tri_mat in {mats[min(p.material_index, len(mats) - 1)] for p in me.polygons}:
+                if tri_mat not in used:
+                    used.append(tri_mat)
+            # positions
+            P = np.array([[v.co.x, v.co.z, v.co.y, 1.0] for v in me.vertices]) @ Minv.T
+            for x, y, z, _ in P:
+                out.append("v %.5f %.5f %.5f" % (-x, y, z))
+            uv_index = {}
+            n_index = {}
+            uv_lines = []
+            n_lines = []
+            faces_by_mat = {}
+            for tri in me.loop_triangles:
+                corner = []
+                for li in tri.loops:
+                    vi = me.loops[li].vertex_index
+                    if uvl is not None:
+                        u = tuple(round(c, 5) for c in uvl.data[li].uv)
+                    else:
+                        u = (0.0, 0.0)
+                    if u not in uv_index:
+                        uv_index[u] = len(uv_lines)
+                        uv_lines.append("vt %.5f %.5f" % u)
+                    nv = normals[li].vector
+                    nu = Nm @ np.array([nv.x, nv.z, nv.y])
+                    nl = np.linalg.norm(nu)
+                    nu = nu / nl if nl > 0 else nu
+                    nk = (round(-nu[0], 3), round(nu[1], 3), round(nu[2], 3))
+                    if nk not in n_index:
+                        n_index[nk] = len(n_lines)
+                        n_lines.append("vn %.3f %.3f %.3f" % nk)
+                    corner.append("%d/%d/%d" % (vb + vi, tb + uv_index[u], nb + n_index[nk]))
+                faces_by_mat.setdefault(mats[min(tri.material_index, len(mats) - 1)], []).append("f " + " ".join(corner))
+            out += uv_lines
+            out += n_lines
+            for m, fs in faces_by_mat.items():
+                out.append("usemtl " + m)
+                out += fs
+            vb += len(me.vertices)
+            tb += len(uv_lines)
+            nb += len(n_lines)
+    with open(obj_path, "w") as fh:
+        fh.write("\n".join(out) + "\n")
+    mtl = ["# Materials of ranger.obj. In game the mod uses the game's own material of",
+           "# the same name when there is one (F100 / Diamondback); otherwise these values.",
+           "# Tex_RGB_23 (the F100 body) is drawn in layers: Tex_RGB_23, R_Paint (ranger_paint.png,",
+           "# tinted with the paint color) and Tex_RGB_23Mud, like the F100's own body.", ""]
+    for name in used:
+        m = bpy.data.materials.get(name)
+        col, metal, rough, alpha = (0.6, 0.6, 0.6), 0.0, 0.5, 1.0
+        if m and m.use_nodes and "Principled BSDF" in m.node_tree.nodes:
+            b = m.node_tree.nodes["Principled BSDF"]
+            col = tuple(b.inputs["Base Color"].default_value[:3])
+            metal = b.inputs["Metallic"].default_value
+            rough = b.inputs["Roughness"].default_value
+            alpha = b.inputs["Alpha"].default_value
+        mtl += ["newmtl " + name, "Kd %.4f %.4f %.4f" % col, "d %.3f" % alpha, "Pm %.3f" % metal, "Pr %.3f" % rough, ""]
+    with open(mtl_path, "w") as fh:
+        fh.write("\n".join(mtl))
+    print("exported", os.path.basename(obj_path), "materials:", used)
+    return used
+
+used = export_obj(os.path.join(OUT, "assets", "ranger.obj"), os.path.join(OUT, "assets", "ranger.mtl"))
+meta = {
+    "version": 1,
+    "base": "dirt pickup truck",
+    "follow": FOLLOW,
+    "fuelCap": [round(FUEL_CAP.x, 4), round(FUEL_CAP.z, 4), round(FUEL_CAP.y, 4)],
+    "layers": {"Tex_RGB_23": ["Tex_RGB_23", "R_Paint", "Tex_RGB_23Mud"]},
+    "paintTexture": "ranger_paint.png",
+    "hide": ["body_low", "cabin_low"],
+}
+json.dump(meta, open(os.path.join(OUT, "assets", "ranger.json"), "w"), indent=1)
+
+# ------------------------------------------------------------------ save
+bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "ranger.blend"))
+print("parts:", sorted({o["group"] for o in scene.objects if "group" in o.keys()}))
+
+if RENDER:
+    views = RENDER.split(":")[1].split(",") if ":" in RENDER else ["front34", "rear34", "side"]
+    # The Diamondback's chassis, wheels and interior underneath.
+    skip = ("body_low", "cabin_low", "Element", "tire_low2", "HiJack", "jackBed", "winch", "brushguard", "TireExplosion", "rollbar")
+    with bpy.data.libraries.load(DPT_BLEND) as (src, dst):
+        dst.objects = list(src.objects)
+    models = os.path.dirname(os.path.abspath(DPT_BLEND))
+    for img in bpy.data.images:
+        if img.filepath.startswith("//tex_links"):
+            img.filepath = os.path.join(models, "tex_links", os.path.basename(img.filepath))
+    for o in dst.objects:
+        if o is None:
+            continue
+        p = o.get("path", o.name)
+        if o.hide_render or p.startswith(skip):
+            continue
+        scene.collection.objects.link(o)
+    # Paint preview: the clean paint layer (game paint mask) over the F100 base.
+    paint = bpy.data.materials["Tex_RGB_23"]
+    nt = paint.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    base_tex = [n for n in nt.nodes if n.type == "TEX_IMAGE"][0]
+    pt = nt.nodes.new("ShaderNodeTexImage")
+    pt.image = bpy.data.images.load(os.path.join(os.path.dirname(DPT_BLEND), "ranger_assets", "ranger_paint.png"))
+    tint = nt.nodes.new("ShaderNodeMix")
+    tint.data_type = "RGBA"
+    tint.blend_type = "MULTIPLY"
+    tint.inputs["Factor"].default_value = 1.0
+    nt.links.new(pt.outputs["Color"], tint.inputs[6])
+    tint.inputs[7].default_value = (0.78, 0.02, 0.015, 1)
+    mask = nt.nodes.new("ShaderNodeMath")
+    mask.operation = "GREATER_THAN"
+    mask.inputs[1].default_value = 0.5
+    nt.links.new(pt.outputs["Alpha"], mask.inputs[0])
+    over = nt.nodes.new("ShaderNodeMix")
+    over.data_type = "RGBA"
+    nt.links.new(mask.outputs[0], over.inputs["Factor"])
+    nt.links.new(base_tex.outputs["Color"], over.inputs[6])
+    nt.links.new(tint.outputs[2], over.inputs[7])
+    nt.links.new(over.outputs[2], bsdf.inputs["Base Color"])
+    rough = nt.nodes.new("ShaderNodeMix")
+    rough.data_type = "FLOAT"
+    nt.links.new(mask.outputs[0], rough.inputs["Factor"])
+    rough.inputs[2].default_value = 0.6
+    rough.inputs[3].default_value = 0.28
+    nt.links.new(rough.outputs[0], bsdf.inputs["Roughness"])
+    sc = scene
+    for img in bpy.data.images:
+        if img.filepath and not os.path.exists(bpy.path.abspath(img.filepath)):
+            img.filepath = os.path.join(os.path.dirname(DPT_BLEND), "tex_links", os.path.basename(img.filepath))
+    sc.render.engine = "CYCLES"
+    sc.cycles.samples = int(os.environ.get("SAMPLES", "24"))
+    sc.cycles.device = "CPU"
+    sc.render.resolution_x = 1200
+    sc.render.resolution_y = 750
+    sc.view_settings.view_transform = "Standard"
+    w = bpy.data.worlds.new("w")
+    sc.world = w
+    w.use_nodes = True
+    w.node_tree.nodes["Background"].inputs[0].default_value = (0.62, 0.72, 0.85, 1)
+    w.node_tree.nodes["Background"].inputs[1].default_value = 0.9
+    g = bpy.data.meshes.new("ground")
+    gb = bmesh.new()
+    bmesh.ops.create_grid(gb, x_segments=1, y_segments=1, size=40)
+    gb.to_mesh(g)
+    go = bpy.data.objects.new("ground", g)
+    go.location.z = 0.05
+    gm = bpy.data.materials.new("groundm")
+    gm.use_nodes = True
+    gm.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.32, 0.30, 0.27, 1)
+    g.materials.append(gm)
+    sc.collection.objects.link(go)
+    sun = bpy.data.lights.new("sun", "SUN")
+    sun.energy = 4.0
+    sun.angle = math.radians(8)
+    so = bpy.data.objects.new("sun", sun)
+    so.rotation_euler = (math.radians(50), math.radians(10), math.radians(140))
+    sc.collection.objects.link(so)
+    cam = bpy.data.cameras.new("cam")
+    cam.lens = float(os.environ.get("LENS", "50"))
+    co = bpy.data.objects.new("cam", cam)
+    sc.collection.objects.link(co)
+    sc.camera = co
+    V = {
+        "front34": ((5.9, 5.7, 2.5), (0, 0.15, 1.05)),
+        "front": ((0.0, 8.5, 1.4), (0, 0, 1.15)),
+        "rear34": ((-5.4, -6.2, 2.7), (0, -0.3, 1.05)),
+        "side": ((-8.8, -0.1, 1.6), (0, -0.15, 1.1)),
+        "nose": ((2.2, 4.4, 1.6), (0, 1.9, 1.15)),
+        "fenderL": ((-2.6, 1.0, 1.55), (-0.85, 1.0, 1.3)),
+        "driver": ((-0.36, 0.02, 1.80), (-0.30, 2.0, 1.45)),
+        "passenger": ((0.30, -0.10, 1.75), (-0.9, 0.9, 1.45)),
+    }
+    for name in views:
+        loc, tgt = V[name]
+        co.location = loc
+        co.rotation_euler = (Vector(tgt) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+        sc.render.filepath = os.path.join(OUT, "r_" + name + ".png")
+        bpy.ops.render.render(write_still=True)
+        print("rendered", name)

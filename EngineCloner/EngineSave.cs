@@ -45,6 +45,7 @@ namespace EngineCloner
 		{
 			try
 			{
+				VehicleApi.RaiseSave(slot);
 				StringBuilder sb = new StringBuilder();
 				// Stands first: engines on them are put back on the nearest stand.
 				StandShop.SaveLines(sb);
@@ -69,7 +70,7 @@ namespace EngineCloner
 					else if (to != null && t.parent != null && to.transform == t.parent)
 					{
 						place = "vehicle";
-						vehicle = t.parent.name;
+						vehicle = VehicleApi.SaveName(t.parent.gameObject);
 						p = t.localPosition;
 						r = t.localRotation;
 					}
@@ -159,6 +160,8 @@ namespace EngineCloner
 
 		public static void Load(int slot)
 		{
+			// Other mods' vehicles first: engines saved in them are bolted back in.
+			VehicleApi.RaiseLoad(slot);
 			if (slot <= 0 || !System.IO.File.Exists(File(slot)))
 			{
 				return;
@@ -363,15 +366,28 @@ namespace EngineCloner
 				EngineClonerMod.Log("Couldn't find the vehicle \"" + vehicleName + "\" a saved " + block.name + " was in; it's left loose.");
 				return;
 			}
+			Mount(block, vehicle, p, r);
+		}
+
+		// Bolt a block into a vehicle the way the game's mounting does (PickUp.LetGo):
+		// parented at this local pose, jointed to the vehicle, the vehicle's engine
+		// flags and brackets set. Then the vehicle and its new engine are made to
+		// talk to each other.
+		public static void Mount(GameObject block, GameObject vehicle, Vector3 p, Quaternion r)
+		{
+			FixedJoint joint = block.GetComponent<FixedJoint>();
+			PickUp pick = block.GetComponent<PickUp>();
 			block.transform.SetParent(vehicle.transform, false);
 			block.transform.localPosition = p;
 			block.transform.localRotation = r;
-			joint.connectedBody = vehicle.GetComponent<Rigidbody>();
+			if (joint != null)
+			{
+				joint.connectedBody = vehicle.GetComponent<Rigidbody>();
+			}
 			if (pick != null)
 			{
 				pick.pickable = false;
 			}
-			// What the game's mounting sets on the vehicle (PickUp.LetGo).
 			Component car = vehicle.GetComponent("car");
 			Component car4 = vehicle.GetComponent("car4");
 			Component car3 = vehicle.GetComponent("car3");
@@ -390,10 +406,29 @@ namespace EngineCloner
 			{
 				EngineShop.SetField(car3, "usingI6", true);
 			}
+			EngineShop.Kind kind = EngineShop.KindOf(block);
+			Component script = kind != null ? block.GetComponent(kind.script) : null;
+			if (script != null)
+			{
+				EngineShop.SetField(script, "whichTruck", car != null ? 1 : 2);
+			}
+			if (VehicleCloner.IsCopy(vehicle))
+			{
+				ReferenceSwapper.Localize(vehicle, block);
+			}
 		}
 
-		private static GameObject FindVehicle(string name)
+		// "dirt pickup truck" is the game's own; "dirt pickup truck#ranger-3" a
+		// copy another mod tagged (VehicleApi.Tag).
+		public static GameObject FindVehicle(string name)
 		{
+			string tag = null;
+			int hash = name.IndexOf('#');
+			if (hash >= 0)
+			{
+				tag = name.Substring(hash + 1);
+				name = name.Substring(0, hash);
+			}
 			foreach (string type in new[] { "car", "car4", "car3" })
 			{
 				Type t = AccessTools.TypeByName(type);
@@ -404,7 +439,7 @@ namespace EngineCloner
 				foreach (Object o in Object.FindObjectsOfType(t))
 				{
 					GameObject go = ((Component)o).gameObject;
-					if (Clean(go.name) == name)
+					if (Clean(go.name) == name && VehicleApi.TagOf(go) == tag)
 					{
 						return go;
 					}
@@ -424,6 +459,7 @@ namespace EngineCloner
 
 		public static void Delete(int slot)
 		{
+			VehicleApi.RaiseDelete(slot);
 			try
 			{
 				if (System.IO.File.Exists(File(slot)))
@@ -505,7 +541,14 @@ namespace EngineCloner
 
 		private static void Prefix(MethodBase __originalMethod)
 		{
+			VehicleCloner.BeginSave();
 			EngineClonerMod.OnGameSave(__originalMethod.Name);
+		}
+
+		private static Exception Finalizer(Exception __exception)
+		{
+			VehicleCloner.EndSave();
+			return __exception;
 		}
 	}
 

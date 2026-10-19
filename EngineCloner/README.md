@@ -219,12 +219,34 @@ Works with MelonLoader 0.6/0.7 (`MelonLoader/net35`). For 0.5.x the project fall
 to `MelonLoader/MelonLoader.dll`, but 0.5 has no `OnInitializeMelon`, so rename it to
 `OnApplicationStart`.
 
+## More than one truck (2.4)
+
+Other mods can build vehicles out of the game's own: **Junkyard Ranger** is a copy
+of the Diamondback with a new body. Engine Cloner makes those copies work like the
+real thing:
+
+* **Each truck runs its own engine.** The game drives one engine per type, so
+  getting in a truck swaps the game over to that truck *and* the engine bolted into
+  it. An engine sitting in a truck you're not using can't start or crank, so the
+  truck you're in never runs on the other one's engine.
+* **Fuel goes where you pour it.** Holding a fuel can or additive to a truck's
+  filler points the game at that truck.
+* **Saving is safe.** While the game saves, it's wired back to its own vehicles, so
+  it never stores a reference to a copy it can't find again. Copies don't take part
+  in the game's own save (they save themselves).
+* **Engines in copies are saved with the copy.** A bought engine bolted into a
+  Ranger comes back in that Ranger, not in the Diamondback.
+
+For mod authors: `EngineCloner.VehicleApi` (see `VehicleApi.cs`) copies a game
+vehicle, takes its engine out, bolts in a new or existing engine, tags the copy for
+saves, snapshots and restores its parts, and calls you when the game saves, loads
+or deletes a slot.
+
 ## Known limits
 
-* **Clones are not saved.** The save system only knows the original engines and
-  vehicles, so clones disappear on reload. It saves whichever copy the game is wired
-  to, i.e. the one you last drove or last mounted an engine in. If that's a clone,
-  its position and parts are saved as the original's.
+* **Debug vehicle clones are not saved.** Clones made with the clone key disappear
+  on reload (engines you clone are saved). Mods that make copies, like Junkyard
+  Ranger, save their own.
 * **Copies you aren't driving still run their own scripts.** If the original has its
   engine running when you clone it, the copy starts with its engine running too.
 * **Some game logic is still name-based.** Scripts such as `FluidHandler` (oil and
@@ -232,7 +254,6 @@ to `MelonLoader/MelonLoader.dll`, but 0.5 has no `OnInitializeMelon`, so rename 
   so with duplicates they may act on a different block of the same type than the one
   you're working on. This affects game logic only. Physics is fully independent.
 * **One running engine of each type at a time.** The game drives a single block per
-  engine type, so the most recently mounted one is the one that runs. If a V8 is
-  still mounted in one vehicle, a second V8 mounted in another vehicle won't run
-  until the first one is taken out and the second is remounted. The same applies to
-  the I6. Different engine types are independent.
+  engine type: the one in the truck you last got into. Two trucks with the same
+  type of engine each run theirs while you drive them, but not both at once (the
+  one you left stalls).

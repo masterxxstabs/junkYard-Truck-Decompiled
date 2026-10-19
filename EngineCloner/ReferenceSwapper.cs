@@ -66,14 +66,19 @@ namespace EngineCloner
 		// Map both directions: a's parts -> b's parts and b's parts -> a's parts.
 		private static void MapHierarchy(Transform a, Transform b, Dictionary<Object, Object> map)
 		{
-			Pair(a.gameObject, b.gameObject, map);
+			MapHierarchy(a, b, map, true);
+		}
+
+		private static void MapHierarchy(Transform a, Transform b, Dictionary<Object, Object> map, bool both)
+		{
+			Pair(a.gameObject, b.gameObject, map, both);
 			Component[] ca = a.GetComponents<Component>();
 			Component[] cb = b.GetComponents<Component>();
 			for (int i = 0; i < ca.Length && i < cb.Length; i++)
 			{
 				if (ca[i] != null && cb[i] != null && ca[i].GetType() == cb[i].GetType())
 				{
-					Pair(ca[i], cb[i], map);
+					Pair(ca[i], cb[i], map, both);
 				}
 			}
 			// Pair children by name and occurrence (the 2nd "bolt" with the 2nd "bolt"),
@@ -102,16 +107,87 @@ namespace EngineCloner
 				used.TryGetValue(childA.name, out n);
 				if (n < named.Count)
 				{
-					MapHierarchy(childA, named[n], map);
+					MapHierarchy(childA, named[n], map, both);
 				}
 				used[childA.name] = n + 1;
 			}
 		}
 
-		private static void Pair(Object x, Object y, Dictionary<Object, Object> map)
+		private static void Pair(Object x, Object y, Dictionary<Object, Object> map, bool both)
 		{
 			map[x] = y;
-			map[y] = x;
+			if (both)
+			{
+				map[y] = x;
+			}
+		}
+
+		// --- One vehicle at a time (VehicleApi). ---
+
+		// Every part of `from` mapped to its counterpart in `to` (one way).
+		public static void MapOneWay(Transform from, Transform to, Dictionary<Object, Object> map)
+		{
+			MapHierarchy(from, to, map, false);
+		}
+
+		// Point the references held by the scripts under root (except under skip)
+		// through the map.
+		public static int Redirect(Transform root, Dictionary<Object, Object> map, Transform skip)
+		{
+			int swapped = 0;
+			foreach (MonoBehaviour behaviour in root.GetComponentsInChildren<MonoBehaviour>(true))
+			{
+				if (behaviour == null || (skip != null && behaviour.transform.IsChildOf(skip)))
+				{
+					continue;
+				}
+				foreach (FieldInfo field in ObjectFields(behaviour.GetType()))
+				{
+					swapped += SwapField(field, behaviour, map);
+				}
+			}
+			return swapped;
+		}
+
+		// Make a vehicle and the engine bolted into it talk to each other, like the
+		// game's own truck and engine do. Anything in the vehicle (its scripts, the
+		// engine's scripts) that points into another vehicle of the same kind is
+		// pointed at this one's counterpart; anything that points into another
+		// engine of the mounted engine's type is pointed at the mounted engine.
+		public static int Localize(GameObject vehicle, GameObject block)
+		{
+			Dictionary<Object, Object> map = new Dictionary<Object, Object>();
+			Type vehicleType = VehicleCloner.VehicleType(vehicle);
+			if (vehicleType != null)
+			{
+				foreach (Object o in Object.FindObjectsOfType(vehicleType))
+				{
+					GameObject other = ((Component)o).gameObject;
+					if (other != vehicle)
+					{
+						MapHierarchy(other.transform, vehicle.transform, map, false);
+					}
+				}
+			}
+			if (block != null)
+			{
+				foreach (MonoBehaviour script in block.GetComponents<MonoBehaviour>())
+				{
+					if (!(script is engine || script is enginev8 || script is enginei6))
+					{
+						continue;
+					}
+					foreach (Object o in Object.FindObjectsOfType(script.GetType()))
+					{
+						GameObject other = ((Component)o).gameObject;
+						if (other != block && !other.transform.IsChildOf(vehicle.transform))
+						{
+							MapHierarchy(other.transform, block.transform, map, false);
+						}
+					}
+				}
+			}
+			return Redirect(vehicle.transform, map, null);
 		}
 
 		private static int SwapField(FieldInfo field, object owner, Dictionary<Object, Object> map)

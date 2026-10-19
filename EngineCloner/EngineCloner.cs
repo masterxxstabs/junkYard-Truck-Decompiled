@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.3.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.4.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -44,6 +44,9 @@ namespace EngineCloner
 
 		// Blocks this mod created.
 		private static readonly HashSet<int> clones = new HashSet<int>();
+
+		// block:vehicle pairs already made to talk to each other.
+		private static readonly HashSet<string> localized = new HashSet<string>();
 
 		// Per engine type, the block the game's vehicles, gearboxes, gauges etc. are
 		// currently wired to. See ReferenceSwapper.
@@ -151,19 +154,27 @@ namespace EngineCloner
 				return;
 			}
 			HarmonyMethod prefix = new HarmonyMethod(typeof(EngineClonerMod).GetMethod("EasySavePrefix", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic));
+			HarmonyMethod finalizer = new HarmonyMethod(typeof(EngineClonerMod).GetMethod("EasySaveFinalizer", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic));
 			foreach (string name in new[] { "Save1", "Save2", "Save3", "SaveAuto" })
 			{
 				System.Reflection.MethodInfo m = AccessTools.Method(manager, name);
 				if (m != null)
 				{
-					harmony.Patch(m, prefix);
+					harmony.Patch(m, prefix: prefix, finalizer: finalizer);
 				}
 			}
 		}
 
 		private static void EasySavePrefix(System.Reflection.MethodBase __originalMethod)
 		{
+			VehicleCloner.BeginSave();
 			OnGameSave(__originalMethod.Name);
+		}
+
+		private static Exception EasySaveFinalizer(Exception __exception)
+		{
+			VehicleCloner.EndSave();
+			return __exception;
 		}
 
 		// Once per level, after the game's own engines are in: bring back the
@@ -208,6 +219,7 @@ namespace EngineCloner
 			ownerByAnchor.Clear();
 			blocks.Clear();
 			clones.Clear();
+			localized.Clear();
 			wiredBlock.Clear();
 			VehicleCloner.Reset();
 			EngineShop.Reset();
@@ -351,9 +363,17 @@ namespace EngineCloner
 			}
 			// The game can only drive one block of each type. If the wired one is
 			// still mounted somewhere, leave it alone, or two mounted blocks would
-			// steal the wiring back and forth every frame.
+			// steal the wiring back and forth every frame. The vehicle this one is in
+			// still needs to talk to it rather than to the other vehicle's engine;
+			// getting in that vehicle then swaps the game over to both.
 			if (IsMounted(wired, wired.GetComponent<FixedJoint>()))
 			{
+				GameObject vehicle = block.transform.parent.gameObject;
+				if (localized.Add(block.GetInstanceID() + ":" + vehicle.GetInstanceID()))
+				{
+					int n = ReferenceSwapper.Localize(vehicle, block);
+					log.Msg(vehicle.name + " and its " + block.name + ": pointed " + n + " references at each other.");
+				}
 				return;
 			}
 			int swapped = ReferenceSwapper.Swap(wired, block);

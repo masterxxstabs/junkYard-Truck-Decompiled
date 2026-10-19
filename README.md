@@ -1,15 +1,17 @@
 # Junkyard Truck Mods
 
 [MelonLoader](https://github.com/LavaGang/MelonLoader) mods for **Junkyard Truck**: new
-parts and engines, a drivable ATV, a car stereo, an online parts shop on the garage PC,
-a mods menu, and fixes so the game copes with more than one of everything.
+parts and engines, a 2004 Ford Ranger, a drivable ATV, a car stereo, an online parts
+shop on the garage PC, a mods menu, and fixes so the game copes with more than one of
+everything.
 
 Every mod is separate: install the ones you want. They also work together (see
 [How they fit together](#how-they-fit-together)).
 
 | Mod | Version | What it does |
 |---|---|---|
-| [Engine Cloner](EngineCloner/) | 2.3.0 | Lets extra engines work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits |
+| [Engine Cloner](EngineCloner/) | 2.4.0 | Lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits |
+| [Junkyard Ranger](JunkyardRanger/) | 1.0.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
 | [Truck Parts QOL](TruckPartsQOL/) | 1.2.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.1.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
@@ -29,6 +31,8 @@ Each folder has its own README with the details.
      `<game>/TruckPartsQOL/CD1/`, `CD2/` and so on (`.ogg` or `.wav`).
    * **Junkyard ATV:** the ATV model goes in `<game>/JunkyardATV/`. Without it, the ATV
      uses a simple built-in body.
+   * **Junkyard Ranger:** the body files go in `<game>/UserData/JunkyardRanger/models/`.
+     It needs Engine Cloner.
 
 Settings live in `UserData/MelonPreferences.cfg`. With the Mods Menu installed you can
 change them in game: **MODS → (mod name)**.
@@ -59,6 +63,9 @@ gameplay built on it.
   (95/100) and the golf cart (100). This is a setting, on by default.
 * **Saving:** bought engines and stands are saved with your save slot. That covers
   loose, on the stand, or bolted in a vehicle, with every part, bolt and fluid.
+* **More than one truck:** copies of the game's trucks (the Ranger) each run their
+  own engine, take fuel where you pour it, and are kept out of the game's own save.
+  Other mods build on this through `VehicleApi`.
 * **Debug:** a clone key (off by default) copies the engine or vehicle you're
   looking at.
 
@@ -83,6 +90,22 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
 * **OBD scanner:** a tool on key **8** that reads the condition of the engine parts.
 * **Paint:** rims and turbos take the game's paint cans.
 * **Saving:** everything, including bolt states, is saved with your save slot.
+
+### Junkyard Ranger
+
+* **The truck:** a 2004 Ford Ranger regular cab, $4500 on JunkAuto and in the Parts
+  Store.
+* **Built from the game's trucks:**
+  * **Body:** the game's F100, brought down to Ranger size and given the 2001-04
+    front end, with the game's own textures.
+  * **Chassis:** a copy of the Diamondback, so it drives like it and takes the
+    game's engines (I4, V8, 2J), gearbox, wheels and parts. Its dash and seats are
+    in the cab.
+* **Comes with:** a new engine (I4 by default, complete, or pick V8, 2J or none), a
+  full tank, and Ranger red paint.
+* **Like the game's trucks:** doors, hood and tailgate open; fuel on the driver's
+  side; paint it with the spray cans, panel by panel.
+* **Saving:** saved with your save slot, including the engine bolted in it.
 
 ### Junkyard ATV
 
@@ -128,8 +151,8 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
 
 ## How they fit together
 
-* **One shop list:** Truck Parts QOL, Junkyard ATV, Parts Store Plus and Engine
-  Cloner publish what they sell to a shared list. JunkAuto PC, and the Junkyard
+* **One shop list:** Truck Parts QOL, Junkyard ATV, Junkyard Ranger, Parts Store Plus
+  and Engine Cloner publish what they sell to a shared list. JunkAuto PC, and the Junkyard
   Terminal's Parts Store if you have it, sell all of it.
   * The list is `AppDomain` data under `JunkyardTruckMods.ShopProviders`.
   * It's built from plain .NET types only, so no mod needs another's DLL.
@@ -172,20 +195,28 @@ dotnet build -p:GameDir="C:\Program Files (x86)\Steam\steamapps\common\Junkyard 
 `Assembly-CSharp.dll` and Unity modules plus MelonLoader's assemblies, and copies the
 mod into `<game>/Mods` when that folder exists.
 
+Junkyard Ranger also references `EngineCloner.dll` (from the game's `Mods` folder).
+
 Tools:
 * **ATV model rig:** `JunkyardATV/tools/` (Python).
 * **Stereo model converter:** `TruckPartsQOL/tools/` (Python with Blender's `bpy`).
+* **Ranger body:** `JunkyardRanger/tools/` (Python with Blender's `bpy`): makes the
+  Ranger from the game's F100 and Diamondback, exported with AssetRipper.
+* **Truck Exporter:** `tools/TruckExporter/`, a modding tool that writes the game's
+  vehicles (meshes, textures, part hierarchy) to OBJ from inside the game.
 
 ## Repository layout
 
 ```
 Assembly-CSharp/   Decompiled game code, for reference only (never modified or shipped)
 EngineCloner/      Engine Cloner
+JunkyardRanger/    Junkyard Ranger
 TruckPartsQOL/     Truck Parts QOL
 JunkyardATV/       Junkyard ATV
 JunkAutoPC/        JunkAuto PC
 PartsStorePlus/    Parts Store Plus
 ModsMenu/          Mods Menu
+tools/             Modding tools (Truck Exporter)
 ```
 
 3D models aren't part of the repository; they're distributed with the mod downloads.
