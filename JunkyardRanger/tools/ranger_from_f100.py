@@ -12,9 +12,10 @@ Steps:
      gets its raised middle; the front corners round off in plan view, and a
      2001-04 front end is swept round that rounded outline: a chunky
      body-colored grille surround with a honeycomb insert and the oval,
-     headlights under the hood's edge that wrap round the corners (clear lens,
-     twin lamps, amber corners), and a big rounded bumper with the plate, a
-     black intake and fog lights.
+     headlights under the hood's edge that wrap round the corners (the
+     Diamondback's own headlight lens, two round lamps a side, and its corner
+     lamp), and a big rounded bumper with the plate, a black intake and fog
+     lights. The Diamondback's firewall and inner fenders go in the engine bay.
 
 Blender frame: X right, Y forward, Z up, the Diamondback root's origin.
 
@@ -236,12 +237,10 @@ def remap(co):
     # Ranger nose: hood and fender tops slope down toward the front...
     if y > 1.0:
         z -= HOOD_DROP * smooth((y - 1.0) / 1.15) * smooth((z - 1.10) / 0.28)
-    # ...the front corners round off in plan view...
+    # ...and the front corners round off in plan view (keeping their height).
     if y > NOSE_Y - NOSE_L:
         blend = smooth((y - (NOSE_Y - NOSE_L)) / NOSE_L)
         y -= corner_pullback(abs(x)) * blend * smooth((z - 1.0) / 0.15)
-        # ...and the shoulders over the headlights roll down.
-        z -= 0.05 * blend * smooth((abs(x) - 0.42) / 0.40) * smooth((z - 1.12) / 0.2)
     return Vector((x, y, z))
 
 
@@ -284,11 +283,31 @@ PAINT = bpy.data.materials["Tex_RGB_23"]          # the F100's body (tinted with
 # (R_* materials are made in game from the game's Standard shader; see the MTL.)
 BLACK = mat("R_Black", (0.035, 0.035, 0.037), 0.0, 0.62)
 GRILLE = mat("R_Grille", (0.012, 0.012, 0.013), 0.25, 0.45)
-LENS = mat("R_LensClear", (0.92, 0.94, 0.97), 0.0, 0.02, 0.1)
 CHROME = mat("R_Chrome", (0.86, 0.86, 0.88), 1.0, 0.1)
-AMBER = mat("R_LensAmber", (0.95, 0.42, 0.04), 0.0, 0.08)
 BLUE = mat("R_Oval", (0.02, 0.09, 0.42), 0.4, 0.15)
-BULB = mat("R_Bulb", (0.95, 0.95, 0.9), 0.0, 0.2)
+# The Diamondback's own lamp materials (found by name in game): grey, with the
+# lens pattern in their normal maps.
+HEAD = mat("frontLight", (0.65, 0.65, 0.65), 0.3, 0.2)
+TURN = mat("frontTurn", (0.9, 0.9, 0.9), 0.2, 0.2)
+
+
+def lamp_look(m, guid):
+    """Preview only: the lens pattern (the game's normal map) on a lamp material."""
+    nt = m.node_tree
+    if any(n.type == "NORMAL_MAP" for n in nt.nodes):
+        return
+    img = os.path.join(os.path.dirname(os.path.abspath(DPT_BLEND)), "dpt_raw", guid, "asset")
+    if not os.path.exists(img):
+        return
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(img)
+    tex.image.colorspace_settings.name = "Non-Color"
+    nm = nt.nodes.new("ShaderNodeNormalMap")
+    nt.links.new(tex.outputs["Color"], nm.inputs["Color"])
+    nt.links.new(nm.outputs["Normal"], nt.nodes["Principled BSDF"].inputs["Normal"])
+
+lamp_look(HEAD, "f49e6881ff0200744b5238834c46aa8d")
+lamp_look(TURN, "d00375479840fcb428d8759f19ebd6ee")
 
 new_parts = []
 
@@ -440,13 +459,25 @@ class Outline:
         return (lo + hi) / 2 * (1 if x >= 0 else -1)
 
 
-def sweep_outline(name, group, material, outline, ss, profile, cap=True):
-    """Loft a profile (list of (d, z): d out along the outline's normal) along it."""
+def set_uvs(o, uvs):
+    """UVs by vertex (in the order the vertices were made)."""
+    me = o.data
+    layer = me.uv_layers.new(name="UVMap")
+    for li, loop in enumerate(me.loops):
+        layer.data[li].uv = uvs[loop.vertex_index]
+
+
+def sweep_outline(name, group, material, outline, ss, profile, cap=True, uv=None):
+    """Loft a profile (list of (d, z): d out along the outline's normal) along it.
+    uv(s, z) gives a texture coordinate for each point, if wanted."""
     bm = bmesh.new()
     rings = []
+    uvs = []
     for s_ in ss:
         p, n = outline.at(s_)
         rings.append([bm.verts.new((p.x + n.x * d, p.y + n.y * d, z)) for (d, z) in profile(s_)])
+        if uv:
+            uvs.extend(uv(s_, z) for (d, z) in profile(s_))
     k = len(rings[0])
     for i in range(len(rings) - 1):
         for j in range(k):
@@ -459,6 +490,8 @@ def sweep_outline(name, group, material, outline, ss, profile, cap=True):
     o.data.shade_smooth()
     if material is PAINT:
         paint_uvs(o)
+    elif uv:
+        set_uvs(o, uvs)
     return o
 
 
@@ -486,6 +519,8 @@ def disc(name, group, material, outline, s_, z, r_out, d0, d1, scale_z=1.0, seg=
         bm.faces.new((rings[0][i], rings[0][j], rings[1][j], rings[1][i]))
     o = new_object(name, group, bm, material)
     o.data.shade_smooth()
+    # The lens texture's circle on the face.
+    set_uvs(o, [(0.5 + 0.5 * math.cos(2 * math.pi * i / seg), 0.5 + 0.5 * math.sin(2 * math.pi * i / seg)) for _ in (d0, d1) for i in range(seg)])
     return o
 
 
@@ -618,19 +653,19 @@ for sgn in (1, -1):
 
     clear = [v for v in ss if abs(v) <= AMB + 1e-6]
     amber = [v for v in ss if abs(v) >= AMB - 1e-6]
-    sweep_outline("HeadLens", "Lights", LENS, NOSE, ss, lens)
-    sweep_outline("Housing", "Lights", CHROME, NOSE, clear, lambda s_: lens(s_, -0.03, -0.08, 0.002))
-    # The turn signal: amber behind the clear lens, round the corner.
-    sweep_outline("Signal", "Lights", AMBER, NOSE, amber, lambda s_: lens(s_, -0.03, -0.08, 0.002))
-    # A dark back to the whole lamp, so nothing behind shows through the lens.
-    sweep_outline("LampBack", "Lights", BLACK, NOSE, ss, lambda s_: lens(s_, -0.076, -0.09, -0.004))
-    for x_off, rad in ((0.08, 0.062), (0.215, 0.054)):
-        s_ = sgn * abs(NOSE.s_at_x(GW + 0.075 + x_off))
+
+    def across(s_, z, s0, s1, reps):
+        """Texture coordinates over a lamp: reps lens circles across, one high."""
         top = tops[min(tops, key=lambda k: abs(k - s_))]
-        zc = (zb + top) / 2
-        back = -LEAN * (zc - zb)
-        disc("LampCup", "Lights", CHROME, NOSE, s_, zc, rad, back - 0.072, back - 0.028)
-        disc("LampBulb", "Lights", BULB, NOSE, s_, zc, rad * 0.32, back - 0.06, back - 0.016)
+        return ((abs(s_) - s0) / (s1 - s0) * reps, (z - zb) / max(0.05, top - zb))
+
+    # The headlight: the Diamondback's headlight lens, two of its round lamps
+    # side by side; round the corner its turn signal.
+    sweep_outline("HeadLens", "Lights", HEAD, NOSE, clear, lens, uv=lambda s_, z: across(s_, z, L0, AMB, 2))
+    sweep_outline("Signal", "Lights", TURN, NOSE, amber, lens, uv=lambda s_, z: (
+        0.05 + 0.65 * (abs(s_) - AMB) / (L1 - AMB), 0.1 + 0.8 * (z - zb) / max(0.05, tops[min(tops, key=lambda k: abs(k - s_))] - zb)))
+    # A dark back to the whole lamp.
+    sweep_outline("LampBack", "Lights", BLACK, NOSE, ss, lambda s_: lens(s_, -0.076, -0.09, -0.004))
 
 # Bumper: big, body-colored, its top rounded, wrapping round the corners back
 # towards the wheels; the upper face carries the plate, and below a step the
@@ -655,12 +690,34 @@ for sgn in (1, -1):
     s_ = BUMP.s_at_x(sgn * 0.60)
     zf = (z0 + zm) / 2 - 0.004
     disc("FogPocket", "Bumper", GRILLE, BUMP, s_, zf, 0.058, -0.06, -0.024, 0.85)
-    disc("FogReflector", "Bumper", CHROME, BUMP, s_, zf, 0.040, -0.04, -0.021, 0.85)
-    disc("Fog", "Bumper", LENS, BUMP, s_, zf, 0.042, -0.03, -0.014, 0.85)
+    disc("Fog", "Bumper", HEAD, BUMP, s_, zf, 0.044, -0.03, -0.014, 0.85)
 yp = BUMP.at(0)[0].y
 box(-0.16, 0.16, yp - 0.004, yp + 0.008, zm + 0.03, zm + 0.112, "Plate", "Bumper", CHROME)
 sweep_outline("Valance", "Bumper", BLACK, BUMP, span(BUMP.s_at_x(-0.72), BUMP.s_at_x(0.72), 31), lambda s_: [
     (-0.20, z0 - 0.045), (-0.08, z0 - 0.045), (-0.06, z0 + 0.004), (-0.20, z0 + 0.004)])
+
+# Engine bay: the F100 body has no firewall or inner fenders, and the
+# Diamondback's (part of its cab, which the mod hides) don't show. Take them
+# from the Diamondback's cab: what's ahead of the cab, inside the fenders and
+# under the hood, painted like the body.
+with bpy.data.libraries.load(DPT_BLEND) as (src, dst):
+    dst.objects = ["cabin_low"]
+cab = dst.objects[0]
+bm = bmesh.new()
+bm.from_mesh(cab.data)
+bm.transform(cab.matrix_world)
+drop = []
+for f in bm.faces:
+    c = f.calc_center_median()
+    inside = abs(c.x) < 0.62 or (abs(c.x) < 0.76 and c.z > 1.15)   # clear of the wheel wells
+    if not (0.78 < c.y < 1.95 and inside and c.z < min(1.40, HOOD_FRONT_Z + 0.03 + 0.08 * (1.95 - c.y))):
+        drop.append(f)
+bmesh.ops.delete(bm, geom=drop, context="FACES")
+bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+print("engine bay:", len(bm.faces), "faces from the Diamondback's cab")
+bay = new_object("EngineBay", "Body", bm, PAINT)
+paint_uvs(bay)
+bpy.data.objects.remove(cab)
 
 # Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
 door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)
@@ -914,9 +971,11 @@ if RENDER:
         "cornerR": ((1.75, 3.2, 1.30), (0.62, 2.0, 1.02)),
         "sideR": ((3.2, 1.75, 1.10), (0.7, 1.75, 1.05)),
         "lowR": ((1.4, 3.4, 0.55), (0.55, 2.0, 0.95)),
+        "bay": ((0.0, 2.9, 2.6), (0.0, 1.3, 0.9)),
     }
     for name in views:
         loc, tgt = V[name]
+        bpy.data.objects["fhood"].hide_render = name == "bay"   # the hood up
         co.location = loc
         cam.type = "ORTHO" if name == "top" else "PERSP"
         cam.ortho_scale = 2.6

@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.2.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.3.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger

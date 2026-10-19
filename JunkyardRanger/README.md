@@ -7,8 +7,8 @@ drives like it belongs:
   size (1.77 m wide, 2.81 m wheelbase), the 1977 grille, chrome and mirrors off, and
   a 2001-04 front end on: a rounded nose with a domed hood that slopes down to it,
   a chunky body-colored grille surround with the honeycomb and the oval, clear
-  headlights that wrap round the corners under the hood's edge (twin lamps, amber
-  corners), and a big rounded body-colored bumper with the plate, a black intake and
+  headlights that wrap round the corners under the hood's edge (the Diamondback's
+  own headlight lenses, two round lamps a side, and its corner lamps), and a big rounded body-colored bumper with the plate, a black intake and
   fog lights; black mirrors. It uses the game's own textures and grime.
 * **Underneath it's the Diamondback**: a copy of the game's truck, so it drives the
   same and takes the game's engines (I4, V8, 2J inline-6), gearbox, wheels and
@@ -88,8 +88,9 @@ part. Deleting a slot, or overwriting it with a new game, clears them too.
   hung on them, so they swing with them.
 * **Materials:** the game's own, by name: the F100's body, drawn in its layers
   (base, paint, mud), with the paint layer's texture (`ranger_paint.png`) being the
-  game's own paint mask with clean paint. Lamps and trim are made on the game's
-  shader from the MTL.
+  game's own paint mask with clean paint. The headlights, corner lamps and fog
+  lights use the Diamondback's own lamp materials (`frontLight`, `frontTurn`).
+  Trim is made on the game's shader from the MTL.
 * **Painting:** `Interactor.PaintSurface` is patched so a spray at a Ranger paints
   the Ranger (and is saved with it), not the Diamondback's saved colors.
 
