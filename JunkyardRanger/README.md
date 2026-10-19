@@ -5,9 +5,11 @@ drives like it belongs:
 
 * **The body is the game's F100**, made into a Ranger: brought down to a Ranger's
   size (1.77 m wide, 2.81 m wheelbase), the 1977 grille, chrome and mirrors off, and
-  a 2001-04 front end on (body-colored grille surround with the honeycomb and the
-  oval, clear headlights with amber corners, body-colored bumper with fog lights,
-  black mirrors). It uses the game's own textures and grime.
+  a 2001-04 front end on: a rounded nose with a domed hood that slopes down to it,
+  a chunky body-colored grille surround with the honeycomb and the oval, clear
+  headlights that wrap round the corners under the hood's edge (twin lamps, amber
+  corners), and a big rounded body-colored bumper with the plate, a black intake and
+  fog lights; black mirrors. It uses the game's own textures and grime.
 * **Underneath it's the Diamondback**: a copy of the game's truck, so it drives the
   same and takes the game's engines (I4, V8, 2J inline-6), gearbox, wheels and
   tires, and every part you can fit to the Diamondback. Its dash, seats and steering

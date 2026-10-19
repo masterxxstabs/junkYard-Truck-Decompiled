@@ -33,7 +33,9 @@ packages (the F100, `f1003`, and the Diamondback, `dirt pickup truck`).
 What `ranger_from_f100.py` does, step by step, is described at the top of the file:
 the F100's body panels are taken off its frame, the 1977 front end comes off, the
 body is remapped onto the Diamondback (92% width, 87.5% height, the length remapped
-section by section so both axles and the cab line up), the hood slopes down to the
-nose, and the 2001-04 front end, mirrors and paint layer are added.
+section by section so both axles and the cab line up), the hood slopes down to a
+nose with rounded corners, and the 2001-04 front end (swept round the nose's
+outline), mirrors and paint layer are added. Extra close-up views for checking the
+front end: `nose`, `front`, `cornerR`, `sideR`, `lowR`, `top`.
 
 `unitypkg.py` reads the packages' text-format prefabs, meshes and materials.

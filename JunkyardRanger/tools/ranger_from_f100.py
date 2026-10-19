@@ -8,10 +8,13 @@ Steps:
      height, and the length remapped section by section (front overhang, front
      arch, cab, bed, rear arch, tailgate) so both axles land on the Diamondback's
      and its cab, seats and dash fit inside.
-  4. Ranger styling: the hood and fenders slope down to the nose, the front
-     corners round off, and a 2001-04 front end goes on (body-colored grille
-     surround with a honeycomb insert and the oval, clear headlights with amber
-     corners, body-colored bumper with fog lights).
+  4. Ranger styling: the hood and fenders slope down to the nose and the hood
+     gets its raised middle; the front corners round off in plan view, and a
+     2001-04 front end is swept round that rounded outline: a chunky
+     body-colored grille surround with a honeycomb insert and the oval,
+     headlights under the hood's edge that wrap round the corners (clear lens,
+     twin lamps, amber corners), and a big rounded bumper with the plate, a
+     black intake and fog lights.
 
 Blender frame: X right, Y forward, Z up, the Diamondback root's origin.
 
@@ -211,6 +214,21 @@ def smooth(t):
 
 
 HOOD_DROP = 0.10
+# The nose, seen from above: the fenders end at y 2.013 (measured), 0.846 out;
+# the front corners round off on a 0.17 m radius, blended in over the last 0.32 m
+# (above the bumper; below it the bumper wraps round the corners instead).
+NOSE_Y, NOSE_HW, NOSE_R, NOSE_L = 2.013, 0.852, 0.17, 0.32
+
+
+def corner_pullback(ax, r=NOSE_R, hw=NOSE_HW):
+    """How far the nose's outline at |x| = ax lies behind its middle."""
+    d = ax - (hw - r)
+    if d <= 0:
+        return 0.0
+    d = min(d, r)
+    return r - math.sqrt(r * r - d * d)
+
+
 def remap(co):
     x = SX * (co.x - X0)
     y = ymap(co.y)
@@ -218,9 +236,12 @@ def remap(co):
     # Ranger nose: hood and fender tops slope down toward the front...
     if y > 1.0:
         z -= HOOD_DROP * smooth((y - 1.0) / 1.15) * smooth((z - 1.10) / 0.28)
-    # ...and the front corners round off in plan view.
-    if y > 1.7:
-        x *= 1.0 - 0.04 * smooth((y - 1.7) / 0.45) * smooth((abs(x) - 0.55) / 0.3)
+    # ...the front corners round off in plan view...
+    if y > NOSE_Y - NOSE_L:
+        blend = smooth((y - (NOSE_Y - NOSE_L)) / NOSE_L)
+        y -= corner_pullback(abs(x)) * blend * smooth((z - 1.0) / 0.15)
+        # ...and the shoulders over the headlights roll down.
+        z -= 0.05 * blend * smooth((abs(x) - 0.42) / 0.40) * smooth((z - 1.12) / 0.2)
     return Vector((x, y, z))
 
 
@@ -230,6 +251,13 @@ for o in scene.objects:
         v.co = remap(o.matrix_world @ v.co)
     o.matrix_world.identity()
     me.update()
+
+# The 2001-up hood's raised middle ("power dome"), wide and running its length.
+for v in bpy.data.objects["fhood"].data.vertices:
+    c = v.co
+    w = max(0.0, 1.0 - (c.x / 0.42) ** 2)
+    v.co.z += 0.03 * w * w * (0.4 + 0.6 * smooth((c.y - 1.15) / 0.5)) * (1.0 - 0.5 * smooth((c.y - 1.9) / 0.15))
+bpy.data.objects["fhood"].data.update()
 
 # The fuel cap stays in the F100's filler recess, on the left like a Ranger's;
 # the mod moves the game's fuel inlet there.
@@ -256,10 +284,11 @@ PAINT = bpy.data.materials["Tex_RGB_23"]          # the F100's body (tinted with
 # (R_* materials are made in game from the game's Standard shader; see the MTL.)
 BLACK = mat("R_Black", (0.035, 0.035, 0.037), 0.0, 0.62)
 GRILLE = mat("R_Grille", (0.012, 0.012, 0.013), 0.25, 0.45)
-LENS = mat("R_LensClear", (0.92, 0.94, 0.97), 0.0, 0.03, 0.18)
+LENS = mat("R_LensClear", (0.92, 0.94, 0.97), 0.0, 0.02, 0.1)
 CHROME = mat("R_Chrome", (0.86, 0.86, 0.88), 1.0, 0.1)
-AMBER = mat("R_LensAmber", (0.95, 0.42, 0.04), 0.0, 0.08, 0.8)
+AMBER = mat("R_LensAmber", (0.95, 0.42, 0.04), 0.0, 0.08)
 BLUE = mat("R_Oval", (0.02, 0.09, 0.42), 0.4, 0.15)
+BULB = mat("R_Bulb", (0.95, 0.95, 0.9), 0.0, 0.2)
 
 new_parts = []
 
@@ -329,22 +358,17 @@ def bounds(objs, pred=lambda v: True):
                 hi = Vector(map(max, hi, v.co))
     return lo, hi
 
-blo, bhi = bounds([body])
-flo, fhi = bounds([body], lambda c: c.y > 1.85)
-hlo, hhi = bounds([bpy.data.objects["fhood"]])
-print("body", tuple(round(v, 3) for v in blo), tuple(round(v, 3) for v in bhi))
-print("front of fenders", tuple(round(v, 3) for v in flo), tuple(round(v, 3) for v in fhi))
-print("hood", tuple(round(v, 3) for v in hlo), tuple(round(v, 3) for v in hhi))
-
-FRONT = fhi.y                      # where the fenders end
-HW = min(fhi.x, -flo.x) + 0.004    # half width at the nose
+import numpy as np
 hood_obj = bpy.data.objects["fhood"]
-HOOD_FRONT_Z = max(v.co.z for v in hood_obj.data.vertices if v.co.y > hhi.y - 0.06 and abs(v.co.x) < 0.5) - 0.02
-HOOD_FRONT_Y = hhi.y
-print("hood front edge z", round(HOOD_FRONT_Z, 3), "y", round(HOOD_FRONT_Y, 3), "fenders end y", round(FRONT, 3), "half width", round(HW, 3))
-BAND = (HOOD_FRONT_Z - 0.275, HOOD_FRONT_Z - 0.01)   # grille and headlights
-BUMPER = (BAND[0] - 0.235, BAND[0] - 0.012)
-FACE = HOOD_FRONT_Y - 0.01
+hlo, hhi = bounds([hood_obj])
+HOOD_FRONT_Z = max(v.co.z for v in hood_obj.data.vertices if v.co.y > hhi.y - 0.06 and abs(v.co.x) < 0.3) - 0.02
+HOOD_FRONT_Y = max(v.co.y for v in hood_obj.data.vertices if abs(v.co.x) < 0.3)
+print("hood front edge z", round(HOOD_FRONT_Z, 3), "y", round(HOOD_FRONT_Y, 3))
+
+FACE = NOSE_Y + 0.035               # front of the headlights, in the middle
+HW = NOSE_HW + 0.004
+BAND = (HOOD_FRONT_Z - 0.275, HOOD_FRONT_Z - 0.008)   # grille and headlights
+BUMPER = (BAND[0] - 0.245, BAND[0] - 0.008)
 
 # Paint UVs: new painted parts sample a clean, fully painted patch of the F100's
 # atlas (so they take the paint and the game's grime like the rest of the body).
@@ -365,32 +389,74 @@ def paint_uvs(o):
             uv.data[li].uv = (u, v)
 
 
-def plan(x, bow=0.035, r=0.13, hw=None):
-    """The nose's outline seen from above: a gentle bow, rounded corners."""
-    hw = HW if hw is None else hw
-    ax = min(abs(x), hw)
-    y = FACE + bow * (1 - (ax / hw) ** 2)
-    if ax > hw - r:
-        d = ax - (hw - r)
-        y -= r - math.sqrt(max(0.0, r * r - d * d))
-    return y
+class Outline:
+    """The nose's outline from above (right half; mirrored for the left): a gently
+    bowed front, a rounded corner, then back along the side. Points by arc length
+    s from the middle (negative s = left side), with the outward normal."""
+
+    def __init__(self, face, hw, r, bow, side):
+        pts = []
+        straight = hw - r
+        for i in range(25):
+            x = straight * i / 24
+            y = face + bow * (1 - (x / straight) ** 2) if straight > 0 else face
+            pts.append((x, y))
+        cx, cy = straight, face - r
+        for i in range(1, 25):
+            t = math.radians(90 - 90 * i / 24)
+            pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
+        for i in range(1, 9):
+            pts.append((hw, cy - side * i / 8))
+        self.pts = [Vector(p) for p in pts]
+        self.s = [0.0]
+        for i in range(1, len(self.pts)):
+            self.s.append(self.s[-1] + (self.pts[i] - self.pts[i - 1]).length)
+        self.total = self.s[-1]
+        self.end_front = self.s[24]          # where the corner starts
+        self.end_corner = self.s[48]         # where the side starts
+
+    def at(self, s):
+        sign = -1.0 if s < 0 else 1.0
+        s = min(abs(s), self.total)
+        i = 1
+        while i < len(self.s) - 1 and self.s[i] < s:
+            i += 1
+        a, b = self.pts[i - 1], self.pts[i]
+        t = (s - self.s[i - 1]) / max(1e-9, self.s[i] - self.s[i - 1])
+        p = a.lerp(b, t)
+        tan = (b - a).normalized()
+        n = Vector((-tan.y, tan.x))       # outward (left of the direction of travel)
+        return Vector((sign * p.x, p.y)), Vector((sign * n.x, n.y))
+
+    def s_at_x(self, x):
+        """Arc length where the outline reaches |x| (front and corner)."""
+        lo, hi = 0.0, self.end_corner
+        for _ in range(40):
+            mid = (lo + hi) / 2
+            if self.at(mid)[0].x < abs(x):
+                lo = mid
+            else:
+                hi = mid
+        return (lo + hi) / 2 * (1 if x >= 0 else -1)
 
 
-def sweep(name, group, material, xs, section, cap=True):
-    """Loft cross-sections (lists of (y, z) in the same order) along x."""
+def sweep_outline(name, group, material, outline, ss, profile, cap=True):
+    """Loft a profile (list of (d, z): d out along the outline's normal) along it."""
     bm = bmesh.new()
     rings = []
-    for x in xs:
-        rings.append([bm.verts.new((x, y, z)) for (y, z) in section(x)])
-    n = len(rings[0])
+    for s_ in ss:
+        p, n = outline.at(s_)
+        rings.append([bm.verts.new((p.x + n.x * d, p.y + n.y * d, z)) for (d, z) in profile(s_)])
+    k = len(rings[0])
     for i in range(len(rings) - 1):
-        for k in range(n):
-            j = (k + 1) % n
-            bm.faces.new((rings[i][k], rings[i][j], rings[i + 1][j], rings[i + 1][k]))
+        for j in range(k):
+            jj = (j + 1) % k
+            bm.faces.new((rings[i][j], rings[i][jj], rings[i + 1][jj], rings[i + 1][j]))
     if cap:
         bm.faces.new(rings[0])
         bm.faces.new(list(reversed(rings[-1])))
     o = new_object(name, group, bm, material)
+    o.data.shade_smooth()
     if material is PAINT:
         paint_uvs(o)
     return o
@@ -399,19 +465,73 @@ def sweep(name, group, material, xs, section, cap=True):
 def span(a, b, n):
     return [a + (b - a) * i / (n - 1) for i in range(n)]
 
-XS = span(-HW, HW, 41)
 
-# Front panel behind the lights and grille, closing the nose under the hood.
-sweep("FrontPanel", "Fascia", PAINT, XS, lambda x: [
-    (FRONT - 0.10, BAND[0] - 0.02), (plan(x) - 0.03, BAND[0] - 0.02),
-    (plan(x) - 0.03, HOOD_FRONT_Z - 0.006), (FRONT - 0.10, HOOD_FRONT_Z - 0.006)])
+def disc(name, group, material, outline, s_, z, r_out, d0, d1, scale_z=1.0, seg=32):
+    """A round part facing out along the outline's normal (lamps, fog lights)."""
+    p, n = outline.at(s_)
+    side = Vector((-n.y, n.x))
+    bm = bmesh.new()
+    rings = []
+    for d in (d0, d1):
+        ring = []
+        for i in range(seg):
+            a = 2 * math.pi * i / seg
+            u, w = math.cos(a) * r_out, math.sin(a) * r_out * scale_z
+            ring.append(bm.verts.new((p.x + n.x * d + side.x * u, p.y + n.y * d + side.y * u, z + w)))
+        rings.append(ring)
+    bm.faces.new(rings[0])
+    bm.faces.new(list(reversed(rings[1])))
+    for i in range(seg):
+        j = (i + 1) % seg
+        bm.faces.new((rings[0][i], rings[0][j], rings[1][j], rings[1][i]))
+    o = new_object(name, group, bm, material)
+    o.data.shade_smooth()
+    return o
 
-# Grille: a body-colored surround around a black honeycomb, the oval in the middle.
-GW = 0.37
-gz0, gz1 = BAND[0] + 0.005, BAND[1] - 0.004
-ring = sweep("GrilleSurround", "Fascia", PAINT, span(-GW - 0.05, GW + 0.05, 17), lambda x: [
-    (plan(x) - 0.05, gz0), (plan(x) + 0.012, gz0 + 0.004), (plan(x) + 0.018, gz1 - 0.008), (plan(x) - 0.05, gz1)])
-cut = box(-GW, GW, FACE - 0.2, FACE + 0.2, gz0 + 0.04, gz1 - 0.04, "cut", "Fascia", PAINT)
+
+NOSE = Outline(FACE, HW, NOSE_R, 0.025, 0.14)
+
+# Front panel: closes the nose behind the lights and grille, under the hood.
+sweep_outline("FrontPanel", "Fascia", PAINT, NOSE, span(-NOSE.end_corner, NOSE.end_corner, 61), lambda s_: [
+    (-0.16, BAND[0] - 0.02), (-0.09, BAND[0] - 0.02), (-0.09, HOOD_FRONT_Z - 0.006), (-0.16, HOOD_FRONT_Z - 0.006)])
+
+# Grille: a chunky body-colored surround standing proud of the headlights, its
+# edges rounded, around a black honeycomb with the oval.
+GW = 0.36
+gz0, gz1 = BAND[0] - 0.005, BAND[1] + 0.004
+LEAN = 0.12   # the face leans back towards the top
+
+
+def surround_profile(s_):
+    x = abs(NOSE.at(s_)[0].x)
+    k = smooth((x - (GW + 0.035)) / 0.035)   # round the ends
+    f = 0.04 - 0.05 * k
+    pts = [(-0.07, gz0), (f - 0.02, gz0), (f - 0.004, gz0 + 0.012), (f, gz0 + 0.03),
+           (f, gz1 - 0.03), (f - 0.004, gz1 - 0.012), (f - 0.02, gz1), (-0.07, gz1)]
+    return [(d - LEAN * (z - gz0), z) for d, z in pts]
+
+g0, g1 = NOSE.s_at_x(-GW - 0.07), NOSE.s_at_x(GW + 0.07)
+ring = sweep_outline("GrilleSurround", "Fascia", PAINT, NOSE, span(g0, g1, 41), surround_profile)
+
+
+def rounded_rect(hw, z0, z1, r, n=6):
+    pts = []
+    for cx, cz, a0 in ((hw - r, z1 - r, 0), (-hw + r, z1 - r, 90), (-hw + r, z0 + r, 180), (hw - r, z0 + r, 270)):
+        for i in range(n + 1):
+            a = math.radians(a0 + 90 * i / n)
+            pts.append((cx + r * math.cos(a), cz + r * math.sin(a)))
+    return pts
+
+bm = bmesh.new()
+opening = rounded_rect(GW, gz0 + 0.045, gz1 - 0.045, 0.035)
+front_ = [bm.verts.new((x, FACE + 0.3, z)) for x, z in opening]
+back_ = [bm.verts.new((x, FACE - 0.3, z)) for x, z in opening]
+bm.faces.new(front_)
+bm.faces.new(list(reversed(back_)))
+for i in range(len(opening)):
+    j = (i + 1) % len(opening)
+    bm.faces.new((front_[i], back_[i], back_[j], front_[j]))
+cut = new_object("cut", "Fascia", bm, PAINT)
 mod = ring.modifiers.new("b", "BOOLEAN")
 mod.operation = "DIFFERENCE"
 mod.solver = "EXACT"
@@ -421,16 +541,21 @@ ring.data = bpy.data.meshes.new_from_object(ring.evaluated_get(dg))
 ring.modifiers.clear()
 bpy.data.objects.remove(cut)
 paint_uvs(ring)
+
+
+def face_y(x):
+    return NOSE.at(NOSE.s_at_x(x))[0].y
+
 bm = bmesh.new()
-cell = 0.032
-zc = gz0 + 0.04 + cell * 0.5
+cell = 0.03
+zc = gz0 + 0.045 + cell * 0.5
 r = 0
-while zc < gz1 - 0.04 - cell * 0.4:
+while zc < gz1 - 0.045 - cell * 0.45:
     x = -GW + cell * (0.5 + 0.5 * (r % 2))
     while x < GW - cell * 0.45:
-        yf = plan(x) - 0.012
+        yf = face_y(x) - 0.02 - LEAN * (zc - gz0)
         o6 = [bm.verts.new((x + cell * 0.5 * math.cos(math.radians(30 + 60 * k)), yf, zc + cell * 0.5 * math.sin(math.radians(30 + 60 * k)))) for k in range(6)]
-        i6 = [bm.verts.new((x + cell * 0.37 * math.cos(math.radians(30 + 60 * k)), yf, zc + cell * 0.37 * math.sin(math.radians(30 + 60 * k)))) for k in range(6)]
+        i6 = [bm.verts.new((x + cell * 0.36 * math.cos(math.radians(30 + 60 * k)), yf, zc + cell * 0.36 * math.sin(math.radians(30 + 60 * k)))) for k in range(6)]
         b6 = [bm.verts.new((v.co.x, yf - 0.03, v.co.z)) for v in i6]
         for k in range(6):
             j = (k + 1) % 6
@@ -440,59 +565,102 @@ while zc < gz1 - 0.04 - cell * 0.4:
     zc += cell * 0.86
     r += 1
 new_object("Honeycomb", "Fascia", bm, GRILLE)
-sweep("GrilleBack", "Fascia", GRILLE, span(-GW, GW, 9), lambda x: [
-    (plan(x) - 0.06, gz0 + 0.03), (plan(x) - 0.045, gz0 + 0.03), (plan(x) - 0.045, gz1 - 0.03), (plan(x) - 0.06, gz1 - 0.03)])
+sweep_outline("GrilleBack", "Fascia", GRILLE, NOSE, span(NOSE.s_at_x(-GW), NOSE.s_at_x(GW), 9), lambda s_: [
+    (-0.075, gz0 + 0.04), (-0.06, gz0 + 0.04), (-0.06 - LEAN * (gz1 - gz0 - 0.08), gz1 - 0.04), (-0.075 - LEAN * (gz1 - gz0 - 0.08), gz1 - 0.04)])
 oz = (gz0 + gz1) / 2
-cylinder_y(0, oz, 0.088, 0.036, plan(0) + 0.004, plan(0) + 0.024, "OvalRim", "Fascia", CHROME)
-cylinder_y(0, oz, 0.078, 0.027, plan(0) + 0.016, plan(0) + 0.03, "Oval", "Fascia", BLUE)
+yo = face_y(0)
+yo -= LEAN * (oz - gz0)
+cylinder_y(0, oz, 0.09, 0.037, yo + 0.01, yo + 0.03, "OvalRim", "Fascia", CHROME)
+cylinder_y(0, oz, 0.08, 0.028, yo + 0.02, yo + 0.036, "Oval", "Fascia", BLUE)
 
-# Headlights: from beside the grille round the corner; clear lens over a
-# chrome reflector with two lamps, amber signal at the outer corner.
-for s in (1, -1):
-    x_in, x_out = GW + 0.075, HW + 0.002
-    def lamp_top(x):
-        return BAND[1] - 0.008 - 0.03 * ((abs(x) - x_in) / (x_out - x_in)) ** 2
-    xs = [s * x for x in span(x_in, x_out - 0.045, 9)]
-    if s < 0:
-        xs = list(reversed(xs))
-    sweep("HeadLens", "Lights", LENS, xs, lambda x: [
-        (plan(x) - 0.07, BAND[0] + 0.05), (plan(x) + 0.006, BAND[0] + 0.05), (plan(x) + 0.006, lamp_top(x)), (plan(x) - 0.07, lamp_top(x))])
-    sweep("Reflector", "Lights", CHROME, xs, lambda x: [
-        (plan(x) - 0.075, BAND[0] + 0.06), (plan(x) - 0.03, BAND[0] + 0.06), (plan(x) - 0.03, lamp_top(x) - 0.012), (plan(x) - 0.075, lamp_top(x) - 0.012)])
-    for xc in (x_in + 0.07, x_in + 0.19):
-        yc = plan(s * xc)
-        cylinder_y(s * xc, (BAND[0] + 0.05 + lamp_top(s * xc)) / 2, 0.048, 0.048, yc - 0.035, yc - 0.012, "Lamp", "Lights", LENS)
-    xs2 = [s * x for x in span(x_out - 0.045, x_out, 5)]
-    if s < 0:
-        xs2 = list(reversed(xs2))
-    sweep("Signal", "Lights", AMBER, xs2, lambda x: [
-        (plan(x) - 0.07, BAND[0] + 0.05), (plan(x) + 0.006, BAND[0] + 0.05), (plan(x) + 0.006, lamp_top(x)), (plan(x) - 0.07, lamp_top(x))])
-    # The amber wraps onto the side of the fender.
-    sweep("SignalSide", "Lights", AMBER, [s * (x_out - 0.004), s * (x_out + 0.004)], lambda x: [
-        (plan(x) - 0.13, BAND[0] + 0.09), (plan(x) - 0.07, BAND[0] + 0.09), (plan(x) - 0.07, lamp_top(x) - 0.03), (plan(x) - 0.13, lamp_top(x) - 0.035)])
+# Headlights: from beside the grille, round the corner to the front of the
+# fender; the top runs just under the hood's front edge (which drops towards the
+# corners), so they get narrower outward. Clear lens over a chrome housing with
+# two round lamps; amber where it wraps round the corner.
+from mathutils.bvhtree import BVHTree
+HOOD_BVH = BVHTree.FromObject(hood_obj, bpy.context.evaluated_depsgraph_get())
 
-# Bumper: body-colored (Edge), rounded, wrapping back towards the wheels, with
-# a crease, a black intake below the plate and fog lights at the corners.
-BHW = HW + 0.02
-def bplan(x):
-    return plan(x, bow=0.045, r=0.26, hw=BHW) + 0.06
-XB = span(-BHW, BHW, 49)
+
+def hood_edge_z(x):
+    """Height of the hood's front edge at x (its last point seen from above)."""
+    x = min(abs(x), 0.83)
+    z = HOOD_FRONT_Z
+    for i in range(150):
+        hit = HOOD_BVH.ray_cast(Vector((x, 1.6 + 0.004 * i, 3.0)), Vector((0, 0, -1)))
+        if hit[0] is not None:
+            z = hit[0].z
+    return z
+
+L0 = NOSE.s_at_x(GW + 0.075)
+L1 = NOSE.end_corner + 0.05
+AMB = NOSE.end_corner - 0.06
+zb = BAND[0] + 0.012
+for sgn in (1, -1):
+    ss = [sgn * v for v in span(L0, L1, 33)]
+    if sgn < 0:
+        ss = list(reversed(ss))
+    raw = [hood_edge_z(NOSE.at(s_)[0].x) - 0.01 for s_ in ss]
+    # Smooth, and never rising towards the outside.
+    order = sorted(range(len(ss)), key=lambda i: abs(ss[i]))
+    sm = []
+    for k, i in enumerate(order):
+        window = [raw[order[j]] for j in range(max(0, k - 2), min(len(order), k + 3))]
+        v = sum(window) / len(window)
+        sm.append(min(v, sm[-1]) if sm else v)
+    tops = {ss[i]: max(sm[k], zb + 0.10) for k, i in enumerate(order)}
+
+    def lens(s_, d_front=0.006, d_back=-0.075, inset=0.0):
+        top = tops[min(tops, key=lambda k: abs(k - s_))] - inset
+        # The bottom rises a little as it wraps round the corner.
+        bot = zb + inset + 0.03 * smooth((abs(s_) - (NOSE.end_corner - 0.14)) / 0.18)
+        pts = [(d_back, bot), (d_front - 0.01, bot), (d_front, bot + 0.012), (d_front, top - 0.012), (d_front - 0.01, top), (d_back, top)]
+        return [(d - LEAN * (z - zb), z) for d, z in pts]
+
+    clear = [v for v in ss if abs(v) <= AMB + 1e-6]
+    amber = [v for v in ss if abs(v) >= AMB - 1e-6]
+    sweep_outline("HeadLens", "Lights", LENS, NOSE, ss, lens)
+    sweep_outline("Housing", "Lights", CHROME, NOSE, clear, lambda s_: lens(s_, -0.03, -0.08, 0.002))
+    # The turn signal: amber behind the clear lens, round the corner.
+    sweep_outline("Signal", "Lights", AMBER, NOSE, amber, lambda s_: lens(s_, -0.03, -0.08, 0.002))
+    # A dark back to the whole lamp, so nothing behind shows through the lens.
+    sweep_outline("LampBack", "Lights", BLACK, NOSE, ss, lambda s_: lens(s_, -0.076, -0.09, -0.004))
+    for x_off, rad in ((0.08, 0.062), (0.215, 0.054)):
+        s_ = sgn * abs(NOSE.s_at_x(GW + 0.075 + x_off))
+        top = tops[min(tops, key=lambda k: abs(k - s_))]
+        zc = (zb + top) / 2
+        back = -LEAN * (zc - zb)
+        disc("LampCup", "Lights", CHROME, NOSE, s_, zc, rad, back - 0.072, back - 0.028)
+        disc("LampBulb", "Lights", BULB, NOSE, s_, zc, rad * 0.32, back - 0.06, back - 0.016)
+
+# Bumper: big, body-colored, its top rounded, wrapping round the corners back
+# towards the wheels; the upper face carries the plate, and below a step the
+# lower lip has the intake and the fog lights.
+BUMP = Outline(FACE + 0.075, HW + 0.03, 0.30, 0.04, 0.16)
 z0, z1 = BUMPER
-sweep("FrontBumper", "Bumper", PAINT, XB, lambda x: [
-    (FRONT - 0.30, z0 + 0.02), (bplan(x) - 0.06, z0), (bplan(x) - 0.012, z0 + 0.035),
-    (bplan(x), z0 + 0.10), (bplan(x) - 0.004, z1 - 0.06), (bplan(x) - 0.02, z1 - 0.02),
-    (bplan(x) - 0.07, z1), (FRONT - 0.30, z1)])
-sweep("Intake", "Bumper", GRILLE, span(-0.40, 0.40, 13), lambda x: [
-    (bplan(x) - 0.03, z0 + 0.03), (bplan(x) + 0.003, z0 + 0.03), (bplan(x) + 0.003, z0 + 0.085), (bplan(x) - 0.03, z0 + 0.085)])
-for s in (1, -1):
-    xf = s * (BHW - 0.20)
-    yf = bplan(xf)
-    cylinder_y(xf, z0 + 0.09, 0.062, 0.055, yf - 0.03, yf + 0.004, "FogBezel", "Bumper", GRILLE)
-    cylinder_y(xf, z0 + 0.09, 0.045, 0.04, yf - 0.02, yf + 0.008, "Fog", "Bumper", LENS)
-yp = bplan(0)
-box(-0.16, 0.16, yp - 0.004, yp + 0.006, z0 + 0.095, z0 + 0.175, "Plate", "Bumper", CHROME)
-sweep("Valance", "Bumper", BLACK, span(-BHW + 0.08, BHW - 0.08, 25), lambda x: [
-    (FRONT - 0.25, z0 - 0.055), (bplan(x) - 0.07, z0 - 0.055), (bplan(x) - 0.05, z0 + 0.005), (FRONT - 0.25, z0 + 0.005)])
+zm = z0 + 0.105
+
+
+def bumper_profile(s_):
+    # The ends tuck in against the fenders, in front of the wheels.
+    tuck = 0.035 * smooth((abs(s_) - (BUMP.total - 0.07)) / 0.07)
+    return [(d - tuck, z) for d, z in [(-0.24, z1 - 0.005), (-0.12, z1 + 0.004), (-0.05, z1 - 0.002), (-0.015, z1 - 0.022), (0.0, z1 - 0.06),
+            (0.002, zm + 0.03), (-0.008, zm + 0.008), (-0.035, zm - 0.004), (-0.04, zm - 0.03),
+            (-0.032, z0 + 0.04), (-0.04, z0 + 0.012), (-0.07, z0), (-0.24, z0)]]
+
+sweep_outline("FrontBumper", "Bumper", PAINT, BUMP, span(-BUMP.total, BUMP.total, 81), bumper_profile)
+# Intake: a black slot across the lower lip.
+sweep_outline("Intake", "Bumper", GRILLE, BUMP, span(BUMP.s_at_x(-0.42), BUMP.s_at_x(0.42), 17), lambda s_: [
+    (-0.07, z0 + 0.022), (-0.03, z0 + 0.022), (-0.034, zm - 0.022), (-0.07, zm - 0.022)])
+for sgn in (1, -1):
+    s_ = BUMP.s_at_x(sgn * 0.60)
+    zf = (z0 + zm) / 2 - 0.004
+    disc("FogPocket", "Bumper", GRILLE, BUMP, s_, zf, 0.058, -0.06, -0.024, 0.85)
+    disc("FogReflector", "Bumper", CHROME, BUMP, s_, zf, 0.040, -0.04, -0.021, 0.85)
+    disc("Fog", "Bumper", LENS, BUMP, s_, zf, 0.042, -0.03, -0.014, 0.85)
+yp = BUMP.at(0)[0].y
+box(-0.16, 0.16, yp - 0.004, yp + 0.008, zm + 0.03, zm + 0.112, "Plate", "Bumper", CHROME)
+sweep_outline("Valance", "Bumper", BLACK, BUMP, span(BUMP.s_at_x(-0.72), BUMP.s_at_x(0.72), 31), lambda s_: [
+    (-0.20, z0 - 0.045), (-0.08, z0 - 0.045), (-0.06, z0 + 0.004), (-0.20, z0 + 0.004)])
 
 # Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
 door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)
@@ -742,10 +910,16 @@ if RENDER:
         "fenderL": ((-2.6, 1.0, 1.55), (-0.85, 1.0, 1.3)),
         "driver": ((-0.36, 0.02, 1.80), (-0.30, 2.0, 1.45)),
         "passenger": ((0.30, -0.10, 1.75), (-0.9, 0.9, 1.45)),
+        "top": ((0.0, 1.55, 6.0), (0.0, 1.5501, 0.0)),
+        "cornerR": ((1.75, 3.2, 1.30), (0.62, 2.0, 1.02)),
+        "sideR": ((3.2, 1.75, 1.10), (0.7, 1.75, 1.05)),
+        "lowR": ((1.4, 3.4, 0.55), (0.55, 2.0, 0.95)),
     }
     for name in views:
         loc, tgt = V[name]
         co.location = loc
+        cam.type = "ORTHO" if name == "top" else "PERSP"
+        cam.ortho_scale = 2.6
         co.rotation_euler = (Vector(tgt) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         sc.render.filepath = os.path.join(OUT, "r_" + name + ".png")
         bpy.ops.render.render(write_still=True)

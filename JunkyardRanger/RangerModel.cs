@@ -306,7 +306,7 @@ namespace JunkyardRanger
 			{
 				m.SetFloat("_Glossiness", spec != null ? spec.smoothness : 0.4f);
 			}
-			if (name == "R_LensClear" || name == "R_LensAmber")
+			if (name == "R_LensClear" || name == "R_LensAmber" || name == "R_Bulb")
 			{
 				// Lamps glow a little, like the game's.
 				m.EnableKeyword("_EMISSION");
