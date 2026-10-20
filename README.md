@@ -16,6 +16,7 @@ Every mod is separate: install the ones you want. They also work together (see
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.1.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
 | [Parts Store Plus](PartsStorePlus/) | 1.1.0 | Sells every dirt bike part and every truck engine part (pistons, bearings, crank...), not just what the junkyard spawns |
+| [Controller Support](ControllerSupport/) | 1.0.0 | Play with a controller: hold L2 / R2 to tighten / loosen bolts; R2 gas, L2 brake / reverse and left stick steering when driving; every button configurable |
 | [Mods Menu](ModsMenu/) | 1.2.0 | A **MODS** button in the main menu: every installed mod and its settings, in the game's own style |
 
 Each folder has its own README with the details.
@@ -154,6 +155,18 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
   * numbers and text.
 * **Compatibility:** works with any mod that uses MelonPreferences.
 
+### Controller Support
+
+* **Bolts:** hold **L2** to tighten, **R2** to loosen, a notch at a time like the
+  scroll wheel.
+* **Driving:** like a driving game: **R2** gas, **L2** brake (then reverse once
+  stopped), **left stick** steers. Works in every vehicle, the Ranger included.
+* **On foot:** left stick walks, right stick looks. The buttons cover jump,
+  interact, pick up / remove, tools, flashlight, map and pause.
+* **Buttons:** every one can be changed, separately on foot and driving.
+* **Controllers:** Xbox pads work as they are. PlayStation pads work through Steam
+  Input or DS4Windows.
+
 ## How they fit together
 
 * **One shop list:** Truck Parts QOL, Junkyard ATV, Junkyard Ranger, Parts Store Plus
@@ -181,6 +194,7 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
 | **W A S D, Space, I** | Junkyard ATV | Drive, handbrake, ignition |
 | **F10** | Junkyard ATV | Buy an ATV (only without the Parts Store mod) |
 | **F7 / F6** | Junkyard ATV | Fit mode / export the engine (in fit mode) |
+| **L2 / R2** (hold) | Controller Support | Tighten / loosen bolts; driving: brake-reverse / gas |
 | **K** | Engine Cloner | Move a bought engine stand |
 | **F8** | Engine Cloner | Debug clone (only with "Debug: clone key" on) |
 
