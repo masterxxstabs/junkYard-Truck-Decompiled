@@ -859,7 +859,9 @@ for src, lower in (("fmainbody", "BodyLower"), ("f100_ddoor", "DoorDLower"), ("f
 # in slots on the doors, so they snap on with the game's own snap.
 VISOR = mat("R_Visor", (0.018, 0.018, 0.02), 0.0, 0.12)
 RAIN_PATH = [(0.665, 1.660), (0.600, 1.765), (0.530, 1.870), (0.470, 1.940), (0.400, 1.962), (0.250, 1.970), (0.050, 1.970), (-0.080, 1.962)]
-RAIN_PROFILE = [(o * 0.75, u * 0.75) for o, u in ((0.0, -0.004), (0.008, 0.030), (0.034, 0.052), (0.066, 0.058), (0.070, 0.052), (0.038, 0.046), (0.013, 0.027), (0.004, -0.004))]
+# (o out from the window, u along the frame's outward normal: negative, so the
+# guard hangs out and down over the top of the window, the way a rain guard does.)
+RAIN_PROFILE = [(o * 0.75, -u * 0.75 + 0.012) for o, u in ((0.0, -0.004), (0.008, 0.030), (0.034, 0.052), (0.066, 0.058), (0.070, 0.052), (0.038, 0.046), (0.013, 0.027), (0.004, -0.004))]
 
 
 def window_x(z):
@@ -904,7 +906,8 @@ rain_guard(1, "RainGuardP")
 # roof, with two air scoops; body colored (it takes the body's paint).
 SV_TOP = [(0.42, 2.040), (0.55, 2.052), (0.66, 2.056), (0.78, 2.045), (0.87, 2.016), (0.915, 1.984)]
 SV_BOT = [(0.905, 1.976), (0.83, 2.002), (0.70, 2.028), (0.58, 2.036), (0.44, 2.032)]
-SV_HW = 0.76
+SV_HW = 0.74
+SV_DEPTH = 0.68          # front to back: overhangs the windshield by about 12 cm
 bm = bmesh.new()
 rings = []
 xs = [SV_HW * (2 * i / 40 - 1) for i in range(41)]
@@ -914,7 +917,7 @@ for x in xs:
     f = 1.0 - smooth((e - 0.82) / 0.18) * 0.85
     ring = []
     for y, z in SV_TOP + SV_BOT:
-        yy = 0.42 + (y - 0.42) * f
+        yy = 0.42 + (y - 0.42) * f * SV_DEPTH
         zz = 2.032 + (z - 2.032) * (0.4 + 0.6 * f)
         ring.append(bm.verts.new((x, yy, zz - 0.012 * e * e)))
     rings.append(ring)
@@ -930,7 +933,8 @@ sv.data.shade_smooth()
 paint_uvs(sv)
 for sx in (-0.30, 0.30):
     pts = []
-    for y, h, w in ((0.60, 0.002, 0.07), (0.70, 0.024, 0.08), (0.80, 0.020, 0.075), (0.84, 0.002, 0.07)):
+    for y0, h, w in ((0.60, 0.002, 0.07), (0.70, 0.024, 0.08), (0.80, 0.020, 0.075), (0.84, 0.002, 0.07)):
+        y = 0.42 + (y0 - 0.42) * SV_DEPTH
         for side in (-1, 1):
             z_top = 2.056 - 0.3 * (y - 0.66) ** 2
             pts += [(sx + side * w, y, z_top - 0.004), (sx + side * w * 0.8, y, z_top + h)]
@@ -1212,6 +1216,7 @@ if RENDER:
         "sideR": ((3.2, 1.75, 1.10), (0.7, 1.75, 1.05)),
         "lowR": ((1.4, 3.4, 0.55), (0.55, 2.0, 0.95)),
         "bay": ((0.0, 2.9, 2.6), (0.0, 1.3, 0.9)),
+        "cab": ((-2.5, 1.9, 2.4), (-0.6, 0.45, 1.9)),
     }
     for name in views:
         loc, tgt = V[name]
