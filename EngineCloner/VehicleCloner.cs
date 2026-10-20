@@ -609,7 +609,67 @@ namespace EngineCloner
 			if (vehicle != null)
 			{
 				VehicleCloner.Wire(vehicle);
+				Prepare(__instance, vehicle);
 			}
+		}
+
+		// What the game's GetIn needs from the truck it's wired to, which a copy may
+		// lack: its suspension script as the first child (GetIn takes
+		// truck.transform.GetChild(0)), and an engine object of the kind the truck
+		// says it uses (a copy with no engine, or one bolted in that isn't wired).
+		private static void Prepare(Interactor interactor, GameObject vehicle)
+		{
+			try
+			{
+				if (interactor.truck == vehicle && vehicle.transform.childCount > 0 && vehicle.transform.GetChild(0).GetComponent<SuspensionOffroadCar>() == null)
+				{
+					SuspensionOffroadCar s = vehicle.GetComponentInChildren<SuspensionOffroadCar>(true);
+					if (s != null && s.transform.parent == vehicle.transform)
+					{
+						s.transform.SetSiblingIndex(0);
+						EngineClonerMod.Log("Put " + vehicle.name + "'s suspension back as its first part (the game looks for it there).");
+					}
+				}
+				if (interactor.fourcyl == null || interactor.fourcyl.GetComponent<engine>() == null)
+				{
+					engine e = Object.FindObjectOfType<engine>();
+					if (e != null)
+					{
+						interactor.fourcyl = e.gameObject;
+					}
+				}
+				if (interactor.v8 == null || interactor.v8.GetComponent<enginev8>() == null)
+				{
+					enginev8 e = Object.FindObjectOfType<enginev8>();
+					if (e != null)
+					{
+						interactor.v8 = e.gameObject;
+					}
+				}
+				if (interactor.i6 == null || interactor.i6.GetComponent<enginei6>() == null)
+				{
+					enginei6 e = Object.FindObjectOfType<enginei6>();
+					if (e != null)
+					{
+						interactor.i6 = e.gameObject;
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				EngineClonerMod.Log("Getting ready to get in: " + e.Message);
+			}
+		}
+
+		// If the game's GetIn fails anyway, say why in the log (the game's own error
+		// only goes to Unity's player log).
+		private static Exception Finalizer(Exception __exception, MethodBase __originalMethod)
+		{
+			if (__exception != null)
+			{
+				EngineClonerMod.Log("Getting in (" + __originalMethod.Name + ") failed: " + __exception);
+			}
+			return __exception;
 		}
 	}
 
