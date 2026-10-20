@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.2.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.3.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -37,6 +37,11 @@ namespace TruckPartsQOL
 		private MelonPreferences_Entry<float> subwooferPrice;
 		private MelonPreferences_Entry<float> ampPrice;
 		private MelonPreferences_Entry<float> cdPrice;
+		private MelonPreferences_Entry<float> rockLightPrice;
+		private MelonPreferences_Entry<string> rockLightColor;
+		private MelonPreferences_Entry<float> rockLightBrightness;
+		private MelonPreferences_Entry<bool> rockLightsOn;
+		private MelonPreferences_Entry<KeyCode> rockLightKey;
 
 		private bool shopOpen;
 		private Rect shopRect = new Rect(40f, 40f, 320f, 10f);
@@ -104,6 +109,11 @@ namespace TruckPartsQOL
 			subwooferPrice = c.CreateEntry("SubwooferPrice", 120f, "Price of the subwoofer box");
 			ampPrice = c.CreateEntry("AmpPrice", 220f, "Price of the 4-channel amplifier");
 			cdPrice = c.CreateEntry("CdPrice", 5f, "Price of a CD");
+			rockLightPrice = c.CreateEntry("RockLightPrice", 30f, "Price of a rock light");
+			rockLightColor = c.CreateEntry("RockLightColor", "#FFFFFF", "Rock light color", "The color of every rock light, as #RRGGBB (white #FFFFFF, red #FF0000, green #00FF00, blue #0040FF, amber #FF9000, purple #A020F0...). Changes show right away.");
+			rockLightBrightness = c.CreateEntry("RockLightBrightness", 1f, "Rock light brightness", "1 is normal; 0.5 half, 2 twice as bright.");
+			rockLightsOn = c.CreateEntry("RockLightsOn", true, "Rock lights on", "Whether fitted rock lights are lit (the rock light key switches this).");
+			rockLightKey = c.CreateEntry("RockLightKey", KeyCode.L, "Rock lights on / off");
 			StoreIntegration.PriceOf = Price;
 			ShopProviders.Register(StoreIntegration.ShopItems);
 			MigrateOldSettings(c);
@@ -185,6 +195,8 @@ namespace TruckPartsQOL
 				return scannerPrice.Value;
 			case PartKind.Amplifier:
 				return ampPrice.Value;
+			case PartKind.RockLight:
+				return rockLightPrice.Value;
 			default:
 				return cdPrice.Value;
 			}
@@ -251,6 +263,7 @@ namespace TruckPartsQOL
 				}
 				return;
 			}
+			UpdateRockLights();
 			if (Input.GetKeyDown(shopKey.Value))
 			{
 				if (StoreIntegration.Active)
@@ -268,6 +281,33 @@ namespace TruckPartsQOL
 			{
 				HandleLook();
 			}
+		}
+
+		// The rock light settings, live (they can be changed in the Mods Menu
+		// while playing), and the on/off key.
+		private void UpdateRockLights()
+		{
+			Color c;
+			if (RockLight.ParseColor(rockLightColor.Value, out c))
+			{
+				RockLight.Color = c;
+			}
+			RockLight.Brightness = Mathf.Clamp(rockLightBrightness.Value, 0f, 5f);
+			if (rockLightKey.Value != KeyCode.None && Input.GetKeyDown(rockLightKey.Value))
+			{
+				bool any = false;
+				foreach (TruckPart part in TruckPart.All)
+				{
+					any |= part.kind == PartKind.RockLight && part.installed;
+				}
+				if (any)
+				{
+					rockLightsOn.Value = !rockLightsOn.Value;
+					MelonPreferences.Save();
+					Flash("Rock lights " + (rockLightsOn.Value ? "on" : "off"));
+				}
+			}
+			RockLight.On = rockLightsOn.Value;
 		}
 
 		private void HandleLook()
@@ -591,6 +631,7 @@ namespace TruckPartsQOL
 			ShopItem(PartKind.Speaker, 0, "6.5\" door speaker", Price(PartKind.Speaker));
 			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", Price(PartKind.Subwoofer));
 			ShopItem(PartKind.Amplifier, 0, "4-channel amplifier", Price(PartKind.Amplifier));
+			ShopItem(PartKind.RockLight, 0, "Rock light (LED pod)", Price(PartKind.RockLight));
 			GUILayout.Space(6f);
 			ShopItem(PartKind.Scanner, 0, "OBD scanner (tool, key " + KeyName(scannerKey.Value) + ")", Price(PartKind.Scanner));
 			ShopItem(PartKind.Tarp, 0, "Bed tarp", Price(PartKind.Tarp));

@@ -6,6 +6,8 @@ Extra parts for your vehicles, in the spirit of My Summer Car:
   your own music or the game's FM radio.
 * **Bed covers:** a tarp, a tri-fold tonneau cover or a hard top (camper shell),
   fitted to your pickup's bed. *(Work in progress: fitment is being reworked.)*
+* **Rock lights:** LED pods you fit anywhere on a vehicle, like the speakers, to
+  light the ground around it, in any color you pick in the settings.
 * **OBD scanner:** a handheld tool on key **8**, next to the game's own tools,
   that reads the condition of every part on an engine.
 * **Paintable rims and turbos:** spray them with the game's paint cans, like body
@@ -72,6 +74,7 @@ Either way, items are paid from your wallet like any part.
 | Tonneau cover | $250 | Tri-fold hard cover; folds up against the cab |
 | Hard top | $600 | Camper shell to cab height, with a lifting rear glass hatch |
 | OBD scanner | $80 | Tool: pick up the box and it joins your tools on key 8 |
+| Rock light | $30 | LED pod with 2 bolts; lights the ground below it in the color from the settings |
 
 ## Fitting
 
@@ -156,6 +159,25 @@ across when you unbolt or fit the turbo, and saves it with your game.
 Paint is applied by a prefix on `Interactor.PaintSurface`; anything that isn't a rim
 or a turbo still goes through the game's own painting code.
 
+## Rock lights
+
+Buy as many as you like (`Lights - Rock light` in the Parts Store, or the F9 shop)
+and fit them **like the speakers**: hold one, look at the spot (under the body or the
+bed, in a wheel well, on the frame, behind the bumper...), press **Y**, then tighten
+its 2 bolts with the ratchet. A fitted light faces out of the surface it's on, so
+one under the truck shines down on the ground. **Y** on a fitted light (bolts out)
+takes it off again.
+
+| Setting | Default | What it does |
+|---|---|---|
+| Rock light color (`RockLightColor`) | `#FFFFFF` | Color of every rock light, `#RRGGBB`: red `#FF0000`, green `#00FF00`, blue `#0040FF`, amber `#FF9000`, purple `#A020F0`... |
+| Rock light brightness (`RockLightBrightness`) | 1 | 0.5 half, 2 twice as bright |
+| Rock lights on (`RockLightsOn`) | on | Whether fitted lights are lit |
+| Rock lights on / off (`RockLightKey`) | **L** | Switches them all on or off |
+
+Color and brightness can be changed in the Mods Menu at any time and show at once.
+Lights only shine while fitted to a vehicle.
+
 ## Bed covers
 
 Bed covers come boxed. Carry the box to a pickup (the Diamondback or the F100),
@@ -201,7 +223,7 @@ FM radio plays the songs the game ships for its own radios, tuned in mid-song.
 
 All keys can be changed in `UserData/MelonPreferences.cfg` under `[TruckPartsQOL]`,
 and so can the prices (`HeadUnitPrice`, `SpeakerPrice`, `SubwooferPrice`,
-`CdPrice`, `TarpPrice`, `TonneauPrice`, `HardTopPrice`, `ScannerPrice`). The scanner
+`CdPrice`, `TarpPrice`, `TonneauPrice`, `HardTopPrice`, `ScannerPrice`, `RockLightPrice`). The scanner
 key is `ScannerKey` (default `Alpha8`). `FreeParts = true` makes everything free, in both shops.
 
 ## Saving

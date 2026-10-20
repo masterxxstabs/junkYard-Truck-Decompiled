@@ -36,7 +36,16 @@ namespace JunkyardRanger
 
 		public static object[][] ShopItems()
 		{
-			return new[] { new object[] { Marker(), Name, RangerMod.Price, Category } };
+			GameObject bar = RangerBullBar.Template();
+			if (bar == null)
+			{
+				return new[] { new object[] { Marker(), Name, RangerMod.Price, Category } };
+			}
+			return new[]
+			{
+				new object[] { Marker(), Name, RangerMod.Price, Category },
+				new object[] { bar, RangerBullBar.ShopName, RangerMod.BullBarPrice, Category },
+			};
 		}
 
 		public static void HookStore(HarmonyLib.Harmony harmony)
@@ -77,6 +86,26 @@ namespace JunkyardRanger
 			RangerMod.Log("The Ranger is sold in the Parts Store.");
 		}
 
+		// One entry in the Parts Store's list: updated if it's there, else added.
+		private static void List(IList list, GameObject prefab, string name, float price)
+		{
+			foreach (object entry in list)
+			{
+				if ((string)nameField.GetValue(entry) == name)
+				{
+					prefabField.SetValue(entry, prefab);
+					priceField.SetValue(entry, price);
+					return;
+				}
+			}
+			object e = Activator.CreateInstance(entryType);
+			prefabField.SetValue(e, prefab);
+			nameField.SetValue(e, name);
+			priceField.SetValue(e, price);
+			categoryField.SetValue(e, Category);
+			list.Add(e);
+		}
+
 		private static void Postfix(object __result)
 		{
 			IList list = __result as IList;
@@ -86,21 +115,12 @@ namespace JunkyardRanger
 			}
 			try
 			{
-				foreach (object entry in list)
+				List(list, Marker(), Name, RangerMod.Price);
+				GameObject bar = RangerBullBar.Template();
+				if (bar != null)
 				{
-					if ((string)nameField.GetValue(entry) == Name)
-					{
-						prefabField.SetValue(entry, Marker());
-						priceField.SetValue(entry, RangerMod.Price);
-						return;
-					}
+					List(list, bar, RangerBullBar.ShopName, RangerMod.BullBarPrice);
 				}
-				object e = Activator.CreateInstance(entryType);
-				prefabField.SetValue(e, Marker());
-				nameField.SetValue(e, Name);
-				priceField.SetValue(e, RangerMod.Price);
-				categoryField.SetValue(e, Category);
-				list.Add(e);
 			}
 			catch (Exception ex)
 			{

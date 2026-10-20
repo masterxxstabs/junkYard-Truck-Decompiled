@@ -52,6 +52,11 @@ namespace TruckPartsQOL
 				part.mass = 3.5f;
 				root.AddComponent<Amplifier>();
 				break;
+			case PartKind.RockLight:
+				size = BuildRockLight(root.transform);
+				part.mass = 0.4f;
+				root.AddComponent<RockLight>();
+				break;
 			case PartKind.Subwoofer:
 				size = BuildSubwoofer(root.transform);
 				part.mass = 14f;
@@ -175,6 +180,11 @@ namespace TruckPartsQOL
 					seats.Add(new Vector3(c.x * (size.x / 2f - 0.025f), c.y * (size.y / 2f - 0.025f), front));
 				}
 				break;
+			case PartKind.RockLight:
+				// Through the ends of the mounting flange.
+				seats.Add(new Vector3(-0.05f, 0f, -front + 0.004f));
+				seats.Add(new Vector3(0.05f, 0f, -front + 0.004f));
+				break;
 			case PartKind.Amplifier:
 				// The mounting tabs at the corners, just above the base.
 				foreach (Vector2 c in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(-1f, 1f), new Vector2(1f, 1f) })
@@ -266,6 +276,29 @@ namespace TruckPartsQOL
 			}
 			TextMesh label = Text(root, "Label", new Vector3(0f, -0.12f, size.z / 2f + 0.002f), 0.003f, Silver);
 			label.text = "AMP";
+			return size;
+		}
+
+		// Rock light: a black aluminium LED pod on a flange, with a frosted lens
+		// and a wide spotlight shining out of its face (lit by RockLight).
+		private static Vector3 BuildRockLight(Transform root)
+		{
+			Vector3 size = new Vector3(0.12f, 0.07f, 0.032f);
+			Box(root, "Flange", new Vector3(0.12f, 0.022f, 0.004f), new Vector3(0f, 0f, -0.014f), Black);
+			GameObject pod = Cylinder(root, "Pod", 0.07f, 0.026f, new Vector3(0f, 0f, 0f), Black);
+			pod.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			GameObject lens = Cylinder(root, "Lens", 0.058f, 0.004f, new Vector3(0f, 0f, 0.0135f), new Color(0.75f, 0.75f, 0.75f));
+			lens.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			GameObject glow = new GameObject("Glow");
+			glow.transform.SetParent(root, false);
+			glow.transform.localPosition = new Vector3(0f, 0f, 0.03f);
+			Light light = glow.AddComponent<Light>();
+			light.type = LightType.Spot;
+			light.spotAngle = 150f;
+			light.range = 4.5f;
+			light.intensity = 2.2f;
+			light.shadows = LightShadows.None;
+			light.enabled = false;
 			return size;
 		}
 

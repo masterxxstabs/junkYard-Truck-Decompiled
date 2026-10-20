@@ -43,6 +43,31 @@ namespace JunkyardRanger
 			get { return fuelCap; }
 		}
 
+		// The bull bar isn't part of the body: it's shown in the brush guard slot
+		// (RangerBullBar), in that slot's frame.
+		public const string BullBarGroup = "BullBar";
+
+		public static bool BullBar(out Mesh mesh, out Material[] materials)
+		{
+			mesh = null;
+			materials = null;
+			if (groups == null)
+			{
+				return false;
+			}
+			foreach (Group g in groups)
+			{
+				if (g.name == BullBarGroup)
+				{
+					GameMaterials.Refresh();
+					mesh = g.mesh;
+					materials = MaterialsFor(g, null);
+					return true;
+				}
+			}
+			return false;
+		}
+
 		public static string ModelPath
 		{
 			get { return Path.Combine(Path.Combine(RangerMod.Folder, "models"), "ranger.obj"); }
@@ -205,6 +230,10 @@ namespace JunkyardRanger
 			GameMaterials.Refresh();
 			foreach (Group g in groups)
 			{
+				if (g.name == BullBarGroup)
+				{
+					continue;
+				}
 				Transform parent = root.transform;
 				if (g.follow != null)
 				{

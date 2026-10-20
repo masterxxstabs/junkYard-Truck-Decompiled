@@ -14,7 +14,8 @@ namespace TruckPartsQOL
 		Tonneau,
 		HardTop,
 		Scanner,
-		Amplifier
+		Amplifier,
+		RockLight
 	}
 
 	// One stereo item: carried with the game's own PickUp, installed by parenting
@@ -135,6 +136,8 @@ namespace TruckPartsQOL
 					return "OBD scanner";
 				case PartKind.Amplifier:
 					return "4-channel amplifier";
+				case PartKind.RockLight:
+					return "rock light";
 				default:
 					return "CD " + cdNumber;
 				}

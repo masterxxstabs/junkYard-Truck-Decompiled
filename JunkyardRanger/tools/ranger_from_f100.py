@@ -16,6 +16,8 @@ Steps:
      Diamondback's own headlight lens, two round lamps a side, and its corner
      lamp), and a big rounded bumper with the plate, a black intake and fog
      lights. The Diamondback's firewall and inner fenders go in the engine bay.
+  5. The bull bar (an accessory, group BullBar, in the frame of the Diamondback's
+     brush guard slot, where the mod shows it).
 
 Blender frame: X right, Y forward, Z up, the Diamondback root's origin.
 
@@ -719,6 +721,105 @@ bay = new_object("EngineBay", "Body", bm, PAINT)
 paint_uvs(bay)
 bpy.data.objects.remove(cab)
 
+# Bull bar (an accessory: the mod puts it in the Diamondback's brush guard slot
+# on Rangers, so it pops on and bolts down like the game's own parts). Black
+# steel: two upright plates bolted to the frame horns (where the game's brush
+# guard bolts are), a center hoop over the grille with a bar across the bumper,
+# and three tubes each side wrapping round the headlights.
+BULLBAR = mat("R_BullBar", (0.025, 0.025, 0.027), 0.35, 0.42)
+
+
+def tube(points, r, name, seg=12, caps=True):
+    """A round tube along a polyline (points in the Ranger's frame)."""
+    pts = [Vector(p) for p in points]
+    bm = bmesh.new()
+    rings = []
+    prev_n = None
+    for i, p in enumerate(pts):
+        t = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
+        if prev_n is None:
+            up = Vector((0, 0, 1)) if abs(t.z) < 0.9 else Vector((1, 0, 0))
+            n = t.cross(up).normalized()
+        else:
+            n = (prev_n - t * prev_n.dot(t)).normalized()
+        prev_n = n
+        b = t.cross(n)
+        rings.append([bm.verts.new(p + (n * math.cos(a) + b * math.sin(a)) * r)
+                      for a in (2 * math.pi * k / seg for k in range(seg))])
+    for i in range(len(rings) - 1):
+        for k in range(seg):
+            kk = (k + 1) % seg
+            bm.faces.new((rings[i][k], rings[i][kk], rings[i + 1][kk], rings[i + 1][k]))
+    if caps:
+        bm.faces.new(list(reversed(rings[0])))
+        bm.faces.new(rings[-1])
+    o = new_object(name, "BullBar", bm, BULLBAR)
+    o.data.shade_smooth()
+    return o
+
+
+def plate(path, x, half_w, half_t, name):
+    """A flat bar standing in the y-z plane at x: path is (y, z) points, the plate
+    half_w wide across the path and half_t thick in x."""
+    bm = bmesh.new()
+    rings = []
+    P = [Vector((0, y, z)) for y, z in path]
+    for i, p in enumerate(P):
+        t = (P[min(i + 1, len(P) - 1)] - P[max(i - 1, 0)]).normalized()
+        n = Vector((0, -t.z, t.y))          # across the path, in the y-z plane
+        c = Vector((x, p.y, p.z))
+        rings.append([bm.verts.new(c + n * a + Vector((b, 0, 0))) for a, b in ((-half_w, -half_t), (half_w, -half_t), (half_w, half_t), (-half_w, half_t))])
+    for i in range(len(rings) - 1):
+        for k in range(4):
+            kk = (k + 1) % 4
+            bm.faces.new((rings[i][k], rings[i][kk], rings[i + 1][kk], rings[i + 1][k]))
+    bm.faces.new(list(reversed(rings[0])))
+    bm.faces.new(rings[-1])
+    return new_object(name, "BullBar", bm, BULLBAR)
+
+
+BB_X = 0.33                       # the game's brush guard bolts: x +-0.33, y 2.153, z 0.74-0.77
+BB_TOP = BAND[1] + 0.02           # level with the hood's front edge
+BB_MID = BUMPER[1] + 0.03         # just over the bumper
+BB_LOW = BUMPER[0] + 0.035        # across the bumper's lower lip
+UPRIGHT = [(2.150, 0.700), (2.165, 0.790), (2.255, 0.850), (2.275, BB_LOW), (2.280, BB_MID), (2.262, BB_TOP - 0.02), (2.245, BB_TOP + 0.015)]
+
+
+def upright_y(z):
+    """Where the upright's front is at height z."""
+    for (y0, z0_), (y1, z1_) in zip(UPRIGHT, UPRIGHT[1:]):
+        if z0_ <= z <= z1_:
+            return y0 + (y1 - y0) * (z - z0_) / max(1e-6, z1_ - z0_)
+    return UPRIGHT[-1][0]
+
+for sgn in (1, -1):
+    plate(UPRIGHT, sgn * BB_X, 0.045, 0.011, "BullUpright")
+    # The foot: a bracket against the frame horn, through which the bolts go.
+    box(sgn * BB_X - 0.012, sgn * BB_X + 0.012, 2.11, 2.20, 0.70, 0.80, "BullFoot", "BullBar", BULLBAR)
+# Center: the top hoop and two bars across, between the uprights.
+for z_, bow in ((BB_TOP, 0.02), (BB_MID, 0.012), (BB_LOW, 0.008)):
+    y_ = upright_y(z_) + 0.012
+    tube([(BB_X * (2 * i / 16 - 1), y_ + bow * (1 - (2 * i / 16 - 1) ** 2), z_) for i in range(17)], 0.021, "BullBar")
+# Wings: three tubes round each headlight, ending near the fender, joined at
+# the end by an upright tube.
+for sgn in (1, -1):
+    ends = []
+    for k, z_ in enumerate((BB_TOP - 0.01, (BB_TOP + zb) / 2, zb + 0.03)):
+        s0 = NOSE.s_at_x(BB_X + 0.02)
+        s1 = NOSE.end_corner - 0.02
+        pts = []
+        y_up = upright_y(z_)
+        d0 = y_up - NOSE.at(s0)[0].y + 0.01
+        for i in range(25):
+            s_ = s0 + (s1 - s0) * i / 24
+            p, n = NOSE.at(s_)
+            d = d0 + (0.06 - d0) * smooth(i / 24 * 1.3 - 0.3)
+            pts.append((sgn * (p.x + n.x * d), p.y + n.y * d, z_))
+        pts.insert(0, (sgn * (BB_X + 0.005), y_up + 0.012, z_))
+        tube(pts, 0.017, "BullWing")
+        ends.append(pts[-1])
+    tube([ends[0], ends[1], ends[2]], 0.017, "BullWingEnd")
+
 # Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
 door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)
 print("door belt line z", round(door_top, 3))
@@ -769,8 +870,9 @@ FOLLOW = {
     "DoorP": "cabin_low/cardoor_p",
     "Hood": "cabin_low/hood_low1",
     "Tailgate": "body_low/tailgate",
+    "BullBar": "brushguard_e",
 }
-ORDER = ["Body", "Fascia", "Bumper", "Lights", "Glass", "GasDoor", "Hood", "DoorD", "DoorP", "Tailgate"]
+ORDER = ["Body", "Fascia", "Bumper", "Lights", "Glass", "GasDoor", "Hood", "DoorD", "DoorP", "Tailgate", "BullBar"]
 anchors = json.load(open(os.path.join(MODELS, "dpt_anchors.json")))
 
 

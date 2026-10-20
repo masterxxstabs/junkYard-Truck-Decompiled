@@ -49,6 +49,21 @@ A new Ranger from the shops comes:
 * **Engines:** swap them like on the Diamondback. Engines bought from the shop and
   bolted into a Ranger are saved in it.
 
+## Bull bar
+
+**Ranger - Bull bar** ($350, same shops) is a black steel grille guard: two
+uprights bolted to the frame, a hoop over the grille, and three tubes wrapping
+round each headlight. It fits **the game's way**, like its winch or brush guard:
+
+1. Pick it up and carry it to the front of a Ranger. The **snap mark** shows when
+   it's in place.
+2. Let go: it pops on.
+3. Tighten its **4 bolts** (on the frame, under the bumper) with the ratchet.
+
+To take it off, loosen all 4 bolts and pull it off; you get the loose bull bar back.
+It fits Rangers only (it's made for the Ranger's front). Fitted ones are saved with
+the Ranger, loose ones where they lie.
+
 ## Settings
 
 In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
@@ -60,6 +75,7 @@ In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
 | Engine: complete | on | On: every part on, ready to run. Off: a bare block to build up |
 | Paint color | #C8102E | A new Ranger's color (#RRGGBB) |
 | Weathered paint | off | On: the paint wears through to rust in places, like the game's other trucks |
+| Bull bar price | 350 | Price of the bull bar in the shops |
 | Spawn key | F7 | Spawns a free Ranger in front of you, no engine in it. None: off |
 
 ## Saving
@@ -91,6 +107,11 @@ part. Deleting a slot, or overwriting it with a new game, clears them too.
   game's own paint mask with clean paint. The headlights, corner lamps and fog
   lights use the Diamondback's own lamp materials (`frontLight`, `frontTurn`).
   Trim is made on the game's shader from the MTL.
+* **Bull bar:** the Diamondback's empty brush guard slot (`brushguard_e`: a hidden
+  part with a snap trigger, four frame bolts and a durability) is renamed
+  `brushguardR_e` on a Ranger and shows the bull bar; the loose bull bar is a game
+  `PickUp` with `attachTo = brushguardR_e`, and the slot's `durability.template`, so
+  the game's own snap, bolt and removal code does the rest.
 * **Painting:** `Interactor.PaintSurface` is patched so a spray at a Ranger paints
   the Ranger (and is saved with it), not the Diamondback's saved colors.
 

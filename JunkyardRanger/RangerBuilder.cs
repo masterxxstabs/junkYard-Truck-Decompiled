@@ -42,6 +42,7 @@ namespace JunkyardRanger
 		{
 			pending.Clear();
 			RangerModel.Reset();
+			RangerBullBar.Reset();
 		}
 
 		public static void Update()
@@ -155,6 +156,7 @@ namespace JunkyardRanger
 				body.LoadPaint(state != null ? state.paint : null);
 				HidePanels(copy);
 				RangerModel.Dress(copy, body);
+				RangerBullBar.FitSlot(copy);
 				MoveFuelInlet(copy, body);
 				if (state != null && !string.IsNullOrEmpty(state.snapshot))
 				{
@@ -255,6 +257,7 @@ namespace JunkyardRanger
 		// stock wheels on any corner that has none.
 		private static void MakeNew(GameObject copy)
 		{
+			RangerBullBar.Unfit(copy);
 			Component car = copy.GetComponent("car");
 			if (car != null)
 			{
