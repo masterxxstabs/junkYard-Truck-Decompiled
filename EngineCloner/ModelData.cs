@@ -55,6 +55,7 @@ namespace EngineCloner
 		public float smoothness = 0.3f;
 		public byte[] image; // PNG/JPG bytes of the base color texture
 		public byte[] normalImage; // and of the normal map (map_Bump)
+		public byte[] metalImage; // and of a metal (R) / smoothness (A) map (map_Pm)
 	}
 
 	internal class ModelMesh
@@ -316,6 +317,16 @@ namespace EngineCloner
 						if (File.Exists(file))
 						{
 							current.image = File.ReadAllBytes(file);
+						}
+					}
+					break;
+				case "map_Pm":
+					if (current != null)
+					{
+						string file = Path.Combine(dir ?? "", p[p.Length - 1]);
+						if (File.Exists(file))
+						{
+							current.metalImage = File.ReadAllBytes(file);
 						}
 					}
 					break;

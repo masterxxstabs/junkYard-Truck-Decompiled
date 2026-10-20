@@ -12,10 +12,11 @@ namespace EngineCloner
 	// engine bays, takes the same parts (heads, pistons, intake, turbos...),
 	// mounts, oil and gauges, and is bought, bolted in and saved like our other
 	// engines. It has its own model (UserData/EngineCloner/models/duramax.obj,
-	// made by tools/duramax_model.py): the block, heads, valve covers with coil
-	// packs and "DURAMAX", the intake with "6.6L", the timing cover and the oil
-	// pan are shown on the V8's own parts, so they still come off and go on the
-	// game's way. And more torque: the game sets the truck's torque from the V8
+	// made by tools/duramax_model.py), each piece shown on one of the V8's own
+	// parts (block, heads, covers, intake, turbo on the distributor, fuel lines on
+	// the plug wires, air inlet and filter on the carb and air cleaner, CP3 on
+	// the fuel pump...), so it still comes apart, wears and goes back together
+	// the game's way. And more torque: the game sets the truck's torque from the V8
 	// each time it refreshes the engine, and the Duramax multiplies it.
 	internal static class Duramax
 	{
@@ -193,7 +194,12 @@ namespace EngineCloner
 					}
 					float[] c = spec != null ? spec.color : new[] { 0.1f, 0.1f, 0.1f, 1f };
 					mat.color = new Color(c[0], c[1], c[2], 1f);
-					// The casting's grain: its color texture and normal map.
+					foreach (string k in new[] { "_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A", "_EMISSION", "_DETAIL_MULX2", "_PARALLAXMAP", "_ALPHATEST_ON", "_ALPHABLEND_ON", "_ALPHAPREMULTIPLY_ON", "_METALLICGLOSSMAP", "_NORMALMAP" })
+					{
+						mat.DisableKeyword(k);
+					}
+					// The part's baked textures: color (with its shading, grime and
+					// wear), normal map, and metal / smoothness.
 					if (spec != null && spec.image != null && mat.HasProperty("_MainTex"))
 					{
 						mat.mainTexture = Texture(spec.image, name, false);
@@ -207,6 +213,8 @@ namespace EngineCloner
 						}
 						mat.EnableKeyword("_NORMALMAP");
 					}
+					// Also the fallback if the game's build left out the Standard
+					// shader's metal-map variant.
 					if (mat.HasProperty("_Metallic"))
 					{
 						mat.SetFloat("_Metallic", spec != null ? spec.metallic : 0f);
@@ -214,6 +222,15 @@ namespace EngineCloner
 					if (mat.HasProperty("_Glossiness"))
 					{
 						mat.SetFloat("_Glossiness", spec != null ? spec.smoothness : 0.4f);
+					}
+					if (spec != null && spec.metalImage != null && mat.HasProperty("_MetallicGlossMap"))
+					{
+						mat.SetTexture("_MetallicGlossMap", Texture(spec.metalImage, name + "_m", true));
+						if (mat.HasProperty("_GlossMapScale"))
+						{
+							mat.SetFloat("_GlossMapScale", 1f);
+						}
+						mat.EnableKeyword("_METALLICGLOSSMAP");
 					}
 					Object.DontDestroyOnLoad(mat);
 					made[name] = mat;
@@ -238,13 +255,21 @@ namespace EngineCloner
 			return mesh;
 		}
 
-		private static Texture2D Texture(byte[] png, string name, bool linear)
+		private static Texture2D Texture(byte[] image, string name, bool linear)
 		{
 			Texture2D t = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
-			t.LoadImage(png);
+			t.LoadImage(image);
 			t.name = "Duramax_" + name;
-			t.wrapMode = TextureWrapMode.Repeat;
+			// Each part's textures are its own atlas: no wrapping between edges.
+			t.wrapMode = TextureWrapMode.Clamp;
 			t.anisoLevel = 4;
+			// Compressed on the graphics card (a quarter of the memory), and the
+			// copy in memory freed.
+			if (t.width % 4 == 0 && t.height % 4 == 0)
+			{
+				t.Compress(true);
+			}
+			t.Apply(true, true);
 			Object.DontDestroyOnLoad(t);
 			return t;
 		}
