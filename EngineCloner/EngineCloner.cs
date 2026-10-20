@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.6.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.7.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -86,8 +86,8 @@ namespace EngineCloner
 			i4Price = category.CreateEntry("I4Price", 750f, "New I4 price", "Price of a new I4 engine in the shops.");
 			v8Price = category.CreateEntry("V8Price", 1500f, "New V8 price", "Price of a new V8 engine in the shops.");
 			i6Price = category.CreateEntry("I6Price", 1800f, "New 2J inline-6 price", "Price of a new 2J inline-6 engine in the shops.");
-			duramaxPrice = category.CreateEntry("DuramaxPrice", 4200f, "New 8.3L Duramax price", "Price of a new 8.3L Duramax V8 in the shops.");
-			duramaxPower = category.CreateEntry("DuramaxPower", 1.6f, "8.3L Duramax power", "How much stronger the Duramax pulls than the game's V8 (1.6 = 60% more torque; turbos still add on top).");
+			duramaxPrice = category.CreateEntry("DuramaxPrice", 4200f, "New 6.6L Duramax price", "Price of a new 6.6L Duramax V8 turbo-diesel in the shops.");
+			duramaxPower = category.CreateEntry("DuramaxPower", 1.6f, "6.6L Duramax power", "How much stronger the Duramax pulls than the game's V8 (1.6 = 60% more torque; turbos still add on top).");
 			shipWithOil = category.CreateEntry("ShipWithOil", false, "New engines come with oil", "Off: new engines ship dry, like a real crate engine; add oil before starting it.");
 			standPrice = category.CreateEntry("StandPrice", 350f, "Engine stand price", "Price of an extra engine stand in the shops.");
 			moveStandKey = category.CreateEntry("MoveStandKey", KeyCode.K, "Move stand key", "Look at an engine stand you bought, press this, look where you want it and press it again.");

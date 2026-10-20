@@ -1,4 +1,4 @@
-"""The 8.3L Duramax's model: a big modern GM-style V8, modeled from scratch to the
+"""The 6.6L Duramax's model: a GM-style V8 turbo-diesel, modeled from scratch to the
 game's own V8 (so it sits in the same engine bays, and every part slot lines up).
 
 Each piece replaces the look of one of the V8's parts, and is exported in that
@@ -7,9 +7,11 @@ part's frame:
   v8_block           the block: deep-skirt crankcase, both banks, bellhousing
                      flange, ribs, freeze plugs, engine mount bosses
   v8_headD_e/P_e     aluminium heads with their exhaust ports
-  v8_valvecoverD_e/P_e  tall black covers with 4 coil packs each, "DURAMAX"
-  v8_intakeman_e     a black composite intake: plenum, runners, throttle body,
-                     "8.3L" on top
+  v8_valvecoverD_e/P_e  covers with black injector shrouds and fuel lines, "DURAMAX"
+  v8_intakeman_e     the valley manifold, the Y-bridge with its intake horn and
+                     "6.6L", and the turbo sitting in the valley at the back
+  v8_exhaustmanD_e/P_e  log manifolds with up-pipes to the turbo
+  v8_crankpulley_e   the big front damper
   v8_timingcover_e   the front cover
   v8_oilpan_e        a deep black oil pan with its drain plug
 
@@ -39,6 +41,9 @@ SLOTS = {
     "v8_intakeman_e": "v8_block/v8_intakeman_e",
     "v8_timingcover_e": "v8_block/v8_cam_e/v8_timinggear_e/v8_timingchain_e/v8_timingcover_e",
     "v8_oilpan_e": "v8_block/v8_oilpan_e",
+    "v8_exhaustmanD_e": "v8_block/v8_headD_e/v8_exhaustmanD_e",
+    "v8_exhaustmanP_e": "v8_block/v8_headP_e/v8_exhaustmanP_e",
+    "v8_crankpulley_e": "v8_block/v8_crank_e/v8_timinggearsmall_e/v8_crankpulley_e",
 }
 by_path = {o.get("path", o.name): o for o in scene.objects}
 frames = {}
@@ -68,8 +73,8 @@ def mat(name, rgb, metal=0.0, rough=0.5):
     b.inputs["Roughness"].default_value = rough
     return m
 
-IRON = mat("D_Iron", (0.20, 0.205, 0.21), 0.55, 0.62)
-ALU = mat("D_Alu", (0.46, 0.47, 0.49), 0.8, 0.45)
+IRON = mat("D_Iron", (0.12, 0.125, 0.13), 0.5, 0.65)
+ALU = mat("D_Alu", (0.58, 0.59, 0.61), 0.85, 0.42)
 BLACK = mat("D_Black", (0.025, 0.025, 0.028), 0.1, 0.5)
 GLOSS = mat("D_Gloss", (0.015, 0.015, 0.017), 0.2, 0.18)
 COIL = mat("D_Coil", (0.04, 0.04, 0.045), 0.0, 0.35)
@@ -242,47 +247,92 @@ for side, slot in ((-1, "v8_headD_e"), (1, "v8_headP_e")):
     # Exhaust ports along the outer side, 4 per bank.
     for i in range(4):
         y = REAR + 0.11 + i * (L - 0.22) / 3
-        p = hc + across * (0.13 * side * -1 if side < 0 else -0.13) + Vector((0, y - MID, 0))
-        p = hc + Vector((0, y - MID, 0)) + (across * (-0.135 if side > 0 else 0.135))
-        cylinder(p + Vector((side * 0.018, 0, -0.01)), Vector((side, 0, -0.2)), 0.022, 0.04, "ExhaustPort", slot, ALU, 16)
+        # "across" points to the bank's outer, lower side: where the exhaust is.
+        p = hc + Vector((0, y - MID, 0)) + across * 0.135
+        cylinder(p, across, 0.022, 0.03, "ExhaustPort", slot, ALU, 16)
 
-# --- Valve covers ---------------------------------------------------------------
+# --- Valve covers -----------------------------------------------------------
+# A diesel: no coil packs. Each cover carries a raised black injector cover
+# (the textured plastic shroud over the injectors and their lines) with
+# DURAMAX on it.
 for side, slot in ((-1, "v8_valvecoverD_e"), (1, "v8_valvecoverP_e")):
     out, across = bank_axes(side)
     vc = Vector((C, MID, -1.60)) + out * 0.33
-    box(vc, (across, Y, out), (0.105, L / 2 - 0.025, 0.035), "Cover", slot, GLOSS, 0.022)
+    box(vc, (across, Y, out), (0.105, L / 2 - 0.025, 0.035), "Cover", slot, IRON, 0.02)
     # The cover's lip.
-    box(vc - out * 0.03, (across, Y, out), (0.115, L / 2 - 0.018, 0.008), "CoverLip", slot, BLACK, 0.004)
-    # 4 coil packs on top, toward the middle of the engine.
-    for i in range(4):
-        y = REAR + 0.10 + i * (L - 0.20) / 3
-        cp = vc + out * 0.045 + Vector((0, y - MID, 0)) + across * (0.05 if side > 0 else -0.05)
-        box(cp, (across, Y, out), (0.022, 0.03, 0.02), "Coil", slot, COIL, 0.006)
-        box(cp + out * 0.022 + across * (0.012 if side > 0 else -0.012), (across, Y, out), (0.01, 0.012, 0.006), "CoilPlug", slot, BLACK, 0.003)
-    # DURAMAX along the outer half of the top, reading front to back from that side.
-    tc = vc + out * 0.0355 + across * (-0.045 if side > 0 else 0.045)
-    # Read from that side of the truck: the letters' tops toward the middle.
-    text("DURAMAX", 0.036, tc, out, X * -side, "Badge", slot, BADGE)
-    # The oil filler cap on the driver's cover.
-    if side < 0:
-        cylinder(vc + out * 0.045 + Vector((0, -0.18, 0)) + across * -0.04, out, 0.024, 0.02, "OilCap", slot, RED, 20)
-
-# --- Intake -----------------------------------------------------------------
-# Plenum along the valley, under where the carb or EFI sits.
-box((C, MID - 0.02, -1.255), (X, Y, Z), (0.085, 0.24, 0.045), "Plenum", "v8_intakeman_e", BLACK, 0.03)
-for side in (-1, 1):
-    out, across = bank_axes(side)
+    box(vc - out * 0.03, (across, Y, out), (0.115, L / 2 - 0.018, 0.008), "CoverLip", slot, IRON, 0.004)
+    # Injector shroud: tapered, with ribs at each end.
+    ic = vc + out * 0.05
+    hull([ic + across * a_ + Y * y_ + out * h for a_, h in ((-0.095, -0.016), (0.095, -0.016), (0.075, 0.018), (-0.075, 0.018))
+          for y_ in (-(L / 2 - 0.045), L / 2 - 0.045)], "InjectorCover", slot, BLACK, 0.012)
+    for y_ in (-(L / 2 - 0.07), L / 2 - 0.07):
+        box(ic + Y * y_ + out * 0.02, (across, Y, out), (0.07, 0.006, 0.004), "CoverRib", slot, GLOSS, 0.002)
+    # Fuel lines peeking out below the shroud on the inner side, one per injector.
     for i in range(4):
         y = REAR + 0.11 + i * (L - 0.22) / 3
-        a = Vector((C + side * 0.07, y, -1.24))
-        b = Vector((C + side * 0.11, y, -1.27))
-        c = Vector((C + side * 0.13, y, -1.33))
-        tube([a, (a + b) / 2 + Vector((0, 0, 0.012)), b, c], 0.018, "Runner", "v8_intakeman_e", BLACK)
-# Throttle body at the front.
-cylinder((C, FRONT - 0.03, -1.245), Y, 0.042, 0.06, "ThrottleBody", "v8_intakeman_e", ALU, 28)
-cylinder((C, FRONT - 0.0, -1.245), Y, 0.03, 0.012, "ThrottleBore", "v8_intakeman_e", BLACK, 24)
-# Read from the front of the truck, looking down into the bay.
-text("8.3L", 0.05, (C, MID + 0.06, -1.2085), Z, -Y, "Displacement", "v8_intakeman_e", BADGE)
+        p = vc + out * 0.035 + Vector((0, y - MID, 0)) + across * (-0.095 if side > 0 else 0.095)
+        tube([p, p + Vector((-side * 0.03, 0, -0.01)), p + Vector((-side * 0.05, 0.0, -0.04))], 0.005, "FuelLine", slot, ALU, 8)
+    # DURAMAX on the shroud, read from that side of the truck.
+    tc = ic + out * 0.0185
+    text("DURAMAX", 0.04, tc, out, X * -side, "Badge", slot, BADGE)
+    # The oil filler cap on the driver's cover, at the front.
+    if side < 0:
+        cylinder(vc + out * 0.04 + Vector((0, L / 2 - 0.05, 0)) + across * 0.06, out, 0.022, 0.02, "OilCap", slot, GLOSS, 20)
+
+# --- Intake and turbo ---------------------------------------------------------
+# A low manifold along the valley feeding both banks, the "Y-bridge" at the
+# front where the charge air comes in, and the turbocharger sitting in the
+# valley at the back, its compressor outlet running forward to the Y-bridge.
+box((C, MID + 0.02, -1.33), (X, Y, Z), (0.09, L / 2 - 0.05, 0.03), "Manifold", "v8_intakeman_e", ALU, 0.015)
+for side in (-1, 1):
+    for i in range(4):
+        y = REAR + 0.11 + i * (L - 0.22) / 3
+        box((C + side * 0.095, y, -1.335), (X, Y, Z), (0.025, 0.028, 0.022), "Port", "v8_intakeman_e", ALU, 0.008)
+# Y-bridge: a cast elbow rising at the front, then the intake horn forward.
+hull([(C + x, y, z) for x in (-0.06, 0.06) for y, z in ((2.08, -1.31), (2.24, -1.31), (2.24, -1.22), (2.13, -1.24))], "YBridge", "v8_intakeman_e", ALU, 0.02)
+tube([(C, 2.20, -1.235), (C, 2.26, -1.215), (C, 2.31, -1.21)], 0.045, "Horn", "v8_intakeman_e", BLACK, 20)
+cylinder((C, 2.315, -1.21), Y, 0.05, 0.02, "HornFlange", "v8_intakeman_e", ALU, 24)
+text("6.6L", 0.042, (C, 2.165, -1.2335), Vector((0, 0.35, 1)), -Y, "Displacement", "v8_intakeman_e", BADGE)
+# Turbo in the valley at the back: compressor (aluminium) toward the
+# passenger's side, turbine (iron) toward the driver's, the center section
+# between them.
+TURBO = Vector((C, 1.74, -1.215))
+cylinder(TURBO + X * 0.05, X, 0.072, 0.055, "Compressor", "v8_intakeman_e", ALU, 28)
+cylinder(TURBO + X * 0.085, X, 0.04, 0.025, "CompressorInlet", "v8_intakeman_e", BLACK, 24)
+cylinder(TURBO, X, 0.04, 0.05, "CenterSection", "v8_intakeman_e", IRON, 20)
+cylinder(TURBO - X * 0.055, X, 0.066, 0.05, "Turbine", "v8_intakeman_e", IRON, 28)
+# Compressor outlet forward along the valley to the Y-bridge.
+tube([TURBO + X * 0.05 + Y * 0.06 + Z * 0.02, (C + 0.03, 1.92, -1.20), (C, 2.06, -1.22), (C, 2.13, -1.26)], 0.03, "ChargePipe", "v8_intakeman_e", BLACK, 16)
+# Turbo mounting pedestal down to the valley.
+box(TURBO - Z * 0.06, (X, Y, Z), (0.04, 0.035, 0.03), "Pedestal", "v8_intakeman_e", IRON, 0.008)
+
+# --- Exhaust manifolds ------------------------------------------------------
+# Log manifolds on the outer side of each head, and the up-pipe from the back
+# of each, up over the end of the valve cover, into the turbo's turbine.
+for side, slot in ((-1, "v8_exhaustmanD_e"), (1, "v8_exhaustmanP_e")):
+    out, across = bank_axes(side)
+    hc = Vector((C, MID, -1.60)) + out * 0.245
+    edge = hc + across * 0.135
+    log = edge + across * 0.035
+    tube([log + Y * (L / 2 - 0.05), log, log - Y * (L / 2 - 0.06)], 0.026, "Log", slot, IRON, 16)
+    for i in range(4):
+        y = REAR + 0.11 + i * (L - 0.22) / 3
+        box(log - across * 0.02 + Y * (y - MID), (across, Y, out), (0.022, 0.024, 0.026), "Runner", slot, IRON, 0.008)
+    start = log - Y * (L / 2 - 0.06)
+    turbine = TURBO - X * 0.055
+    # Straight up behind the head, then in over the end of the cover.
+    p1 = start - Y * 0.035 + Z * 0.07
+    p2 = Vector((start.x, REAR - 0.03, -1.27))
+    p3 = Vector(((start.x + C + side * 0.12) / 2, REAR - 0.035, -1.215))
+    p4 = Vector((C + side * 0.11, REAR + 0.0, -1.205))
+    tube([start, p1, p2, p3, p4, turbine + Vector((side * 0.03, -0.04, 0))], 0.024, "UpPipe", slot, IRON, 14)
+
+# --- Front damper ---------------------------------------------------------------
+cp = Vector((C, 2.40, CRANK_Z))
+cylinder(cp, Y, 0.098, 0.04, "Damper", "v8_crankpulley_e", IRON, 36)
+for k in range(5):
+    cylinder(cp + Y * (0.022 + k * 0.006), Y, 0.09, 0.003, "BeltGroove", "v8_crankpulley_e", BLACK, 36)
+cylinder(cp + Y * 0.024, Y, 0.035, 0.012, "DamperHub", "v8_crankpulley_e", ALU, 24)
 
 # --- Timing cover ---------------------------------------------------------------
 hull([(C + x, FRONT + dy, z) for x, z in ((-0.13, -1.75), (0.13, -1.75), (0.15, -1.62), (0.12, -1.40), (0.03, -1.37), (-0.03, -1.37), (-0.12, -1.40), (-0.15, -1.62)) for dy in (0.005, 0.045)],
@@ -300,7 +350,7 @@ cylinder((C + 0.04, FRONT - 0.09, -1.862), Z, 0.012, 0.015, "DrainPlug", "v8_oil
 # Blender objects with x, y, z = Unity x, z, y; positions go out in Unity terms,
 # with x mirrored like the mods' other OBJ files (their parser mirrors it back).
 SWAP = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
-lines = ["# 8.3L Duramax for Engine Cloner: one group per V8 part it re-skins, in that part's frame.",
+lines = ["# 6.6L Duramax for Engine Cloner: one group per V8 part it re-skins, in that part's frame.",
          "mtllib duramax.mtl"]
 vb = tb = nb = 1
 used = []
@@ -375,7 +425,7 @@ if RENDER:
     sc.collection.objects.link(cam)
     sc.camera = cam
     target = Vector((C, MID, -1.50))
-    for name, loc in (("front34", (C + 0.95, FRONT + 0.85, -0.95)), ("side", (C - 1.25, MID, -1.35)), ("top", (C + 0.35, MID + 0.45, -0.55))):
+    for name, loc in (("front34", (C + 0.95, FRONT + 0.85, -0.95)), ("side", (C - 1.25, MID, -1.35)), ("top", (C + 0.35, MID + 0.45, -0.55)), ("rear34", (C - 0.9, REAR - 0.85, -0.85))):
         cam.location = loc
         cam.rotation_euler = (target - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         sc.render.filepath = os.path.join(OUT, "duramax_" + name + ".png")

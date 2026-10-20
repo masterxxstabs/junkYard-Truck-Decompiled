@@ -15,7 +15,7 @@ New engines are sold in the **Parts Store** (ComputerPartStore mod) and on
 | Engine - I4 (new) | `engineblock` | $750 |
 | Engine - V8 (new) | `v8_block` | $1500 |
 | Engine - 2J inline-6 (new) | `i6block` | $1800 |
-| Engine - 8.3L Duramax V8 (new) | `v8_block` | $4200 |
+| Engine - 6.6L Duramax V8 turbo-diesel (new) | `v8_block` | $4200 |
 
 A new engine is a **bare block** by default: just the block, rust-free, with every
 part off, taken off the same way the game removes a part, so they all bolt back in
@@ -34,9 +34,9 @@ that type in your world:
 An engine type that isn't anywhere in the level can't be copied, so it isn't for
 sale there (the log says so).
 
-### 8.3L Duramax V8 (2.5)
+### 6.6L Duramax V8 turbo-diesel (2.5, 2.7)
 
-A big V8 for the trucks, built on the game's own V8 so it **works like any engine in
+A big turbo-diesel V8 for the trucks, built on the game's own V8 so it **works like any engine in
 the game**: it drops into the same engine bays (Diamondback, F100), takes all the
 V8's parts (heads, pistons, cam, intake, carb or fuel rail, headers, the
 aftermarket turbos...), bolts in with the hoist, and needs oil, coolant and a
@@ -44,20 +44,23 @@ battery like the others. It's sold as a bare block or complete, like the rest, a
 saved the same way.
 
 What's different:
-* **Its own model (2.6):** a big modern V8, modeled for this mod: a deep-skirt
-  cast block with ribs, freeze plugs and mount bosses, aluminium heads, tall gloss
-  black valve covers with four coil packs each and **DURAMAX** on top, a black
-  composite intake with runners, a throttle body and **8.3L** on the plenum, a
-  cast front cover and a deep black oil pan. It's shown on the V8's own parts
-  (block, heads, valve covers, intake, front cover, oil pan), so they still come
-  off and go on the game's way; a part taken off is the game's loose V8 part.
-* **Power:** it pulls **60% harder** than the game's V8 (setting "8.3L Duramax
+* **Its own model:** a GM-style turbo-diesel V8, modeled for this mod: a
+  deep-skirt cast iron block with ribs, freeze plugs and mount bosses, aluminium
+  heads, valve covers with black injector shrouds (**DURAMAX** on each) and the
+  fuel lines, the turbo sitting in the valley at the back with an up-pipe from
+  each log exhaust manifold, the charge pipe forward to the Y-bridge with its
+  intake horn and **6.6L**, a cast front cover with a big damper, and a deep
+  black oil pan. It's shown on the V8's own parts (block, heads, valve covers,
+  intake, exhaust manifolds, front cover, crank pulley, oil pan), so they still
+  come off and go on the game's way; a part taken off is the game's loose V8
+  part.
+* **Power:** it pulls **60% harder** than the game's V8 (setting "6.6L Duramax
   power", 1.6 = 60% more torque; turbos still add on top).
 
 The model is `UserData/EngineCloner/models/duramax.obj` (and `.mtl`), in the
 download; without it, the Duramax is the game's V8 in charcoal and gloss black.
 It's made by `tools/duramax_model.py` (Blender's Python module) to the frames of
-the game's V8 parts.
+the game's V8 parts. (2.7: from the 8.3L of 2.5/2.6 to the 6.6L turbo-diesel.)
 
 Parts for it are the V8's: buy them as V8 parts.
 
@@ -110,8 +113,8 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 
 | Setting | Default | |
 |---|---|---|
-| New I4 / V8 / 2J inline-6 / 8.3L Duramax price | 750 / 1500 / 1800 / 4200 | Shop prices |
-| 8.3L Duramax power | 1.6 | Its torque compared with the game's V8 |
+| New I4 / V8 / 2J inline-6 / 6.6L Duramax price | 750 / 1500 / 1800 / 4200 | Shop prices |
+| 6.6L Duramax power | 1.6 | Its torque compared with the game's V8 |
 | Engine stand price | 350 | |
 | Move stand key | K | Move a stand you bought |
 | New engines: bare block | **on** | Off: a complete engine (copy of your most complete one, all parts new) |

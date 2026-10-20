@@ -39,7 +39,7 @@ namespace EngineCloner
 			new Kind { id = "i6", name = "Engine - 2J inline-6 (new)", blockName = "i6block", script = typeof(enginei6), game = "i6" },
 			// Built on the game's V8 (its parts, bay and gauges), with its own look
 			// and more power (Duramax.cs).
-			new Kind { id = "duramax", name = "Engine - 8.3L Duramax V8 (new)", blockName = "v8_block", script = typeof(enginev8), game = "v8" },
+			new Kind { id = "duramax", name = "Engine - 6.6L Duramax V8 turbo-diesel (new)", blockName = "v8_block", script = typeof(enginev8), game = "v8" },
 		};
 
 		private const string Category = "Truck Part";

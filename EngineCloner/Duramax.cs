@@ -8,12 +8,12 @@ using Object = UnityEngine.Object;
 
 namespace EngineCloner
 {
-	// The 8.3L Duramax: a big V8 built on the game's own V8, so it fits the same
+	// The 6.6L Duramax turbo-diesel: a big V8 built on the game's own V8, so it fits the same
 	// engine bays, takes the same parts (heads, pistons, intake, turbos...),
 	// mounts, oil and gauges, and is bought, bolted in and saved like our other
 	// engines. It has its own model (UserData/EngineCloner/models/duramax.obj,
 	// made by tools/duramax_model.py): the block, heads, valve covers with coil
-	// packs and "DURAMAX", the intake with "8.3L", the timing cover and the oil
+	// packs and "DURAMAX", the intake with "6.6L", the timing cover and the oil
 	// pan are shown on the V8's own parts, so they still come off and go on the
 	// game's way. And more torque: the game sets the truck's torque from the V8
 	// each time it refreshes the engine, and the Duramax multiplies it.
@@ -60,7 +60,7 @@ namespace EngineCloner
 				{
 					lod.enabled = false;
 				}
-				EngineClonerMod.Log("8.3L Duramax: its own model on " + shown + " part(s).");
+				EngineClonerMod.Log("6.6L Duramax: its own model on " + shown + " part(s).");
 				return;
 			}
 			// No model: the V8 in Duramax colors.
@@ -92,7 +92,7 @@ namespace EngineCloner
 					EngineShop.SetField(d, "paintSlot", 0);
 				}
 			}
-			EngineClonerMod.Log("8.3L Duramax: no " + ModelPath + ", so it's the V8 in Duramax colors.");
+			EngineClonerMod.Log("6.6L Duramax: no " + ModelPath + ", so it's the V8 in Duramax colors.");
 		}
 
 		private static bool Load()
@@ -123,7 +123,7 @@ namespace EngineCloner
 						pieces[node.name] = new KeyValuePair<Mesh, Material[]>(mesh, mats.ToArray());
 					}
 				}
-				EngineClonerMod.Log("Loaded the 8.3L Duramax model: " + pieces.Count + " parts.");
+				EngineClonerMod.Log("Loaded the 6.6L Duramax model: " + pieces.Count + " parts.");
 				return true;
 			}
 			catch (Exception e)
