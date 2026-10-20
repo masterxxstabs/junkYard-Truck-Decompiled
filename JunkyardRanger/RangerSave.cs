@@ -13,8 +13,10 @@ namespace JunkyardRanger
 	// UserData/JunkyardRanger/slot1.txt..slot3.txt and auto.txt, one line each:
 	//
 	//   RANGER;1;id;px;py;pz;qx;qy;qz;qw;paint;gameEngine;snapshot
-	//   BULLBAR;1;px;py;pz;qx;qy;qz;qw;health      (a loose bull bar; a fitted
-	//                                               one is in its Ranger's snapshot)
+	//   ACCESSORY;1;kind;px;py;pz;qx;qy;qz;qw;health   (a loose bull bar, rain guard
+	//                                                    or sun visor; fitted ones are
+	//                                                    in their Ranger's snapshot)
+	//   BULLBAR;1;px;py;pz;qx;qy;qz;qw;health           (1.4.0's loose bull bar)
 	//
 	// The snapshot is every part's state (Engine Cloner's VehicleApi.Snapshot). New
 	// engines bolted in are saved by Engine Cloner (tagged with the Ranger's id);
@@ -57,13 +59,13 @@ namespace JunkyardRanger
 				n++;
 			}
 			int bars = 0;
-			foreach (RangerBullBarItem item in Object.FindObjectsOfType<RangerBullBarItem>())
+			foreach (RangerAccessoryItem item in Object.FindObjectsOfType<RangerAccessoryItem>())
 			{
 				Transform t = item.transform;
 				PickUp pick = item.GetComponent<PickUp>();
 				sb.Append(string.Join(";", new[]
 				{
-					"BULLBAR", "1",
+					"ACCESSORY", "1", item.kind,
 					F(t.position.x), F(t.position.y), F(t.position.z),
 					F(t.rotation.x), F(t.rotation.y), F(t.rotation.z), F(t.rotation.w),
 					F(pick != null ? pick.thisDurability : 100f)
@@ -87,7 +89,7 @@ namespace JunkyardRanger
 				System.IO.File.Delete(path);
 			}
 			System.IO.File.Move(temp, path);
-			RangerMod.Log("Saved " + n + " Ranger(s)" + (bars > 0 ? " and " + bars + " loose bull bar(s)" : "") + " with " + SlotName(slot) + ".");
+			RangerMod.Log("Saved " + n + " Ranger(s)" + (bars > 0 ? " and " + bars + " loose accessories" : "") + " with " + SlotName(slot) + ".");
 		}
 
 		public static void Load(int slot)
@@ -105,9 +107,9 @@ namespace JunkyardRanger
 			int n = 0;
 			foreach (string line in System.IO.File.ReadAllLines(File(slot)))
 			{
-				if (line.StartsWith("BULLBAR;", StringComparison.Ordinal))
+				if (line.StartsWith("BULLBAR;", StringComparison.Ordinal) || line.StartsWith("ACCESSORY;", StringComparison.Ordinal))
 				{
-					LoadBullBar(line);
+					LoadAccessory(line);
 					continue;
 				}
 				string[] f = line.Split(new[] { ';' }, 13);
@@ -137,20 +139,23 @@ namespace JunkyardRanger
 			RangerMod.Log("Restored " + n + " Ranger(s) from " + SlotName(slot) + ".");
 		}
 
-		private static void LoadBullBar(string line)
+		private static void LoadAccessory(string line)
 		{
 			string[] f = line.Split(';');
-			if (f.Length < 10)
+			// BULLBAR lines have no kind.
+			int o = f[0] == "BULLBAR" ? 2 : 3;
+			string kind = f[0] == "BULLBAR" ? "BullBar" : f[2];
+			if (f.Length < o + 8)
 			{
 				return;
 			}
 			try
 			{
-				RangerBullBar.Spawn(new Vector3(P(f[2]), P(f[3]) + 0.05f, P(f[4])), new Quaternion(P(f[5]), P(f[6]), P(f[7]), P(f[8])), P(f[9]));
+				RangerAccessories.Spawn(kind, new Vector3(P(f[o]), P(f[o + 1]) + 0.05f, P(f[o + 2])), new Quaternion(P(f[o + 3]), P(f[o + 4]), P(f[o + 5]), P(f[o + 6])), P(f[o + 7]));
 			}
 			catch (Exception e)
 			{
-				RangerMod.Log("Skipping a bad bull bar save line: " + e.Message);
+				RangerMod.Log("Skipping a bad accessory save line: " + e.Message);
 			}
 		}
 

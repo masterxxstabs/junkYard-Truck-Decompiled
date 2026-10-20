@@ -16,8 +16,11 @@ Steps:
      Diamondback's own headlight lens, two round lamps a side, and its corner
      lamp), and a big rounded bumper with the plate, a black intake and fog
      lights. The Diamondback's firewall and inner fenders go in the engine bay.
-  5. The bull bar (an accessory, group BullBar, in the frame of the Diamondback's
-     brush guard slot, where the mod shows it).
+  5. The two-tone: the body, doors and tailgate cut at TWO_TONE_Z into lower
+     groups that take the second color.
+  6. Accessories the mod shows in slots, each in the frame of the part its slot
+     hangs on: the bull bar (the Diamondback's brush guard slot), rain guards
+     (the doors) and a sun visor (the cab).
 
 Blender frame: X right, Y forward, Z up, the Diamondback root's origin.
 
@@ -820,6 +823,121 @@ for sgn in (1, -1):
         ends.append(pts[-1])
     tube([ends[0], ends[1], ends[2]], 0.017, "BullWingEnd")
 
+# Two-tone paint (like the 2001-04 Edge): the body below a line along the sides
+# (through the wheel arches) is its own paint group, "Lower", with the bumper.
+# The cab and bed, doors and tailgate are cut there and their lower parts become
+# groups of their own (DoorDLower follows the door, and so on).
+TWO_TONE_Z = 1.12
+for src, lower in (("fmainbody", "BodyLower"), ("f100_ddoor", "DoorDLower"), ("f100_pdoor", "DoorPLower"), ("ftailgate", "TailgateLower")):
+    o = bpy.data.objects[src]
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(0, 0, TWO_TONE_Z), plane_no=(0, 0, 1))
+    below = [f for f in bm.faces if f.calc_center_median().z < TWO_TONE_Z]
+    above = [f for f in bm.faces if f not in set(below)]
+    bm_low = bm.copy()
+    # Keep the faces below in the copy, the rest in the original.
+    low_drop = [f for f in bm_low.faces if f.calc_center_median().z >= TWO_TONE_Z]
+    bmesh.ops.delete(bm_low, geom=low_drop, context="FACES")
+    bmesh.ops.delete(bm, geom=below, context="FACES")
+    bm.to_mesh(o.data)
+    bm.free()
+    me = bpy.data.meshes.new(lower)
+    bm_low.to_mesh(me)
+    bm_low.free()
+    for m in o.data.materials:
+        me.materials.append(m)
+    lo = bpy.data.objects.new(lower, me)
+    scene.collection.objects.link(lo)
+    lo["group"] = lower
+    lo["path"] = lower
+    print("two-tone:", src, len(me.polygons), "faces below", TWO_TONE_Z)
+
+# Rain guards (smoked window visors) along the top of each door window and down
+# its front edge, on the outside of the frame. Accessories: the mod shows them
+# in slots on the doors, so they snap on with the game's own snap.
+VISOR = mat("R_Visor", (0.018, 0.018, 0.02), 0.0, 0.12)
+RAIN_PATH = [(0.665, 1.660), (0.600, 1.765), (0.530, 1.870), (0.470, 1.940), (0.400, 1.962), (0.250, 1.970), (0.050, 1.970), (-0.080, 1.962)]
+RAIN_PROFILE = [(o * 0.75, u * 0.75) for o, u in ((0.0, -0.004), (0.008, 0.030), (0.034, 0.052), (0.066, 0.058), (0.070, 0.052), (0.038, 0.046), (0.013, 0.027), (0.004, -0.004))]
+
+
+def window_x(z):
+    """The door window's outer face (x) at height z."""
+    return 0.722 - 0.24 * (z - 1.6) + 0.045
+
+
+def rain_guard(sgn, group):
+    P = [Vector((0, y, z)) for y, z in RAIN_PATH]
+    # A smoother path: two passes of corner cutting.
+    for _ in range(2):
+        Q = [P[0]]
+        for a, b in zip(P, P[1:]):
+            Q += [a.lerp(b, 0.25), a.lerp(b, 0.75)]
+        Q.append(P[-1])
+        P = Q
+    bm = bmesh.new()
+    rings = []
+    for i, p in enumerate(P):
+        t = (P[min(i + 1, len(P) - 1)] - P[max(i - 1, 0)]).normalized()
+        n = Vector((0, -t.z, t.y))
+        if n.y + n.z < 0:
+            n = -n
+        base = Vector((sgn * window_x(p.z), p.y, p.z))
+        end_taper = smooth(i / 4) * smooth((len(P) - 1 - i) / 4)
+        rings.append([bm.verts.new(base + n * (u * end_taper) + Vector((sgn * o * end_taper, 0, 0))) for o, u in RAIN_PROFILE])
+    k = len(RAIN_PROFILE)
+    for i in range(len(rings) - 1):
+        for j in range(k):
+            jj = (j + 1) % k
+            bm.faces.new((rings[i][j], rings[i][jj], rings[i + 1][jj], rings[i + 1][j]))
+    bm.faces.new(list(reversed(rings[0])))
+    bm.faces.new(rings[-1])
+    o = new_object("RainGuard", group, bm, VISOR)
+    o.data.shade_smooth()
+    return o
+
+rain_guard(-1, "RainGuardD")
+rain_guard(1, "RainGuardP")
+
+# Sun visor: a shell over the top of the windshield, bolted to the front of the
+# roof, with two air scoops; body colored (it takes the body's paint).
+SV_TOP = [(0.42, 2.040), (0.55, 2.052), (0.66, 2.056), (0.78, 2.045), (0.87, 2.016), (0.915, 1.984)]
+SV_BOT = [(0.905, 1.976), (0.83, 2.002), (0.70, 2.028), (0.58, 2.036), (0.44, 2.032)]
+SV_HW = 0.76
+bm = bmesh.new()
+rings = []
+xs = [SV_HW * (2 * i / 40 - 1) for i in range(41)]
+for x in xs:
+    e = abs(x) / SV_HW
+    # The ends round off: shallower and drawn back toward the roof.
+    f = 1.0 - smooth((e - 0.82) / 0.18) * 0.85
+    ring = []
+    for y, z in SV_TOP + SV_BOT:
+        yy = 0.42 + (y - 0.42) * f
+        zz = 2.032 + (z - 2.032) * (0.4 + 0.6 * f)
+        ring.append(bm.verts.new((x, yy, zz - 0.012 * e * e)))
+    rings.append(ring)
+k = len(SV_TOP) + len(SV_BOT)
+for i in range(len(rings) - 1):
+    for j in range(k):
+        jj = (j + 1) % k
+        bm.faces.new((rings[i][j], rings[i][jj], rings[i + 1][jj], rings[i + 1][j]))
+bm.faces.new(list(reversed(rings[0])))
+bm.faces.new(rings[-1])
+sv = new_object("SunVisor", "SunVisor", bm, PAINT)
+sv.data.shade_smooth()
+paint_uvs(sv)
+for sx in (-0.30, 0.30):
+    pts = []
+    for y, h, w in ((0.60, 0.002, 0.07), (0.70, 0.024, 0.08), (0.80, 0.020, 0.075), (0.84, 0.002, 0.07)):
+        for side in (-1, 1):
+            z_top = 2.056 - 0.3 * (y - 0.66) ** 2
+            pts += [(sx + side * w, y, z_top - 0.004), (sx + side * w * 0.8, y, z_top + h)]
+    scoop = hull(pts, "SunVisorScoop", "SunVisor", PAINT, 0.006)
+    paint_uvs(scoop)
+SUN_VISOR_BOLTS = [(sx, 0.47, 2.047) for sx in (-0.6, -0.25, 0.25, 0.6)]
+
 # Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
 door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)
 print("door belt line z", round(door_top, 3))
@@ -871,8 +989,15 @@ FOLLOW = {
     "Hood": "cabin_low/hood_low1",
     "Tailgate": "body_low/tailgate",
     "BullBar": "brushguard_e",
+    "DoorDLower": "cabin_low/cardoor_d",
+    "DoorPLower": "cabin_low/cardoor_p",
+    "TailgateLower": "body_low/tailgate",
+    "RainGuardD": "cabin_low/cardoor_d",
+    "RainGuardP": "cabin_low/cardoor_p",
+    "SunVisor": "cabin_low",
 }
-ORDER = ["Body", "Fascia", "Bumper", "Lights", "Glass", "GasDoor", "Hood", "DoorD", "DoorP", "Tailgate", "BullBar"]
+ORDER = ["Body", "BodyLower", "Fascia", "Bumper", "Lights", "Glass", "GasDoor", "Hood", "DoorD", "DoorDLower", "DoorP", "DoorPLower", "Tailgate", "TailgateLower",
+         "BullBar", "RainGuardD", "RainGuardP", "SunVisor"]
 anchors = json.load(open(os.path.join(MODELS, "dpt_anchors.json")))
 
 
@@ -970,6 +1095,8 @@ meta = {
     "layers": {"Tex_RGB_23": ["Tex_RGB_23", "R_Paint", "Tex_RGB_23Mud"]},
     "paintTexture": "ranger_paint.png",
     "hide": ["body_low", "cabin_low"],
+    "twoTone": TWO_TONE_Z,
+    "accessories": {"SunVisor": {"bolts": [[round(x, 4), round(z, 4), round(y, 4)] for x, y, z in SUN_VISOR_BOLTS]}},
 }
 json.dump(meta, open(os.path.join(OUT, "assets", "ranger.json"), "w"), indent=1)
 
@@ -1006,7 +1133,7 @@ if RENDER:
     tint.blend_type = "MULTIPLY"
     tint.inputs["Factor"].default_value = 1.0
     nt.links.new(pt.outputs["Color"], tint.inputs[6])
-    tint.inputs[7].default_value = (0.78, 0.02, 0.015, 1)
+    tint.inputs[7].default_value = tuple(float(c) for c in os.environ.get("UPPER", "0.78,0.02,0.015").split(",")) + (1,)
     mask = nt.nodes.new("ShaderNodeMath")
     mask.operation = "GREATER_THAN"
     mask.inputs[1].default_value = 0.5
@@ -1023,6 +1150,17 @@ if RENDER:
     rough.inputs[2].default_value = 0.6
     rough.inputs[3].default_value = 0.28
     nt.links.new(rough.outputs[0], bsdf.inputs["Roughness"])
+    # Two-tone preview: the lower groups (and the bumper) in their own color.
+    lower = paint.copy()
+    lower.name = "Tex_RGB_23_lower_preview"
+    for n in lower.node_tree.nodes:
+        if n.type == "MIX" and n.blend_type == "MULTIPLY":
+            n.inputs[7].default_value = tuple(float(c) for c in os.environ.get("LOWER", "0.06,0.065,0.07").split(",")) + (1,)
+    for o in scene.objects:
+        if o.type == "MESH" and (str(o.get("group", "")).endswith("Lower") or o.get("group") == "Bumper"):
+            for i, m in enumerate(o.data.materials):
+                if m is paint:
+                    o.data.materials[i] = lower
     sc = scene
     for img in bpy.data.images:
         if img.filepath and not os.path.exists(bpy.path.abspath(img.filepath)):

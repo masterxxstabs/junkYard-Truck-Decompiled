@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.4.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.5.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -38,6 +38,8 @@ namespace TruckPartsQOL
 		private MelonPreferences_Entry<float> ampPrice;
 		private MelonPreferences_Entry<float> cdPrice;
 		private MelonPreferences_Entry<float> rockLightPrice;
+		private MelonPreferences_Entry<float> spacerPrice;
+		private MelonPreferences_Entry<float> spacerInches;
 		private MelonPreferences_Entry<string> rockLightColor;
 		private MelonPreferences_Entry<float> rockLightBrightness;
 		private MelonPreferences_Entry<bool> rockLightsOn;
@@ -117,6 +119,9 @@ namespace TruckPartsQOL
 			ampPrice = c.CreateEntry("AmpPrice", 220f, "Price of the 4-channel amplifier");
 			cdPrice = c.CreateEntry("CdPrice", 5f, "Price of a CD");
 			rockLightPrice = c.CreateEntry("RockLightPrice", 30f, "Price of a rock light");
+			spacerPrice = c.CreateEntry("WheelSpacerPrice", 45f, "Price of a wheel spacer");
+			spacerInches = c.CreateEntry("WheelSpacerInches", 1.5f, "Wheel spacer thickness (inches)", "How far a wheel spacer pushes its wheel out: 1, 1.5, 2 inches... Applies to every spacer.");
+			WheelSpacer.Thickness = Mathf.Clamp(spacerInches.Value, 0.25f, 4f) * 0.0254f;
 			rockLightColor = c.CreateEntry("RockLightColor", "#FFFFFF", "Rock light color", "The color of every rock light, as #RRGGBB (white #FFFFFF, red #FF0000, green #00FF00, blue #0040FF, amber #FF9000, purple #A020F0...). Changes show right away.");
 			rockLightBrightness = c.CreateEntry("RockLightBrightness", 1f, "Rock light brightness", "1 is normal; 0.5 half, 2 twice as bright.");
 			rockLightsOn = c.CreateEntry("RockLightsOn", true, "Rock lights on", "Whether fitted rock lights are lit (the rock light key switches this).");
@@ -206,6 +211,8 @@ namespace TruckPartsQOL
 				return ampPrice.Value;
 			case PartKind.RockLight:
 				return rockLightPrice.Value;
+			case PartKind.WheelSpacer:
+				return spacerPrice.Value;
 			default:
 				return cdPrice.Value;
 			}
@@ -394,6 +401,22 @@ namespace TruckPartsQOL
 				Rigidbody hitBody = hit.rigidbody;
 				bool followBody = hitBody != null && hitBody.GetComponent<PickUp>() == null && Vehicles.FindRoot(hitBody.transform) == vehicle;
 				Transform mount = followBody ? hitBody.transform : vehicle.transform;
+				// A wheel spacer goes on a wheel hub, one per hub.
+				if (held.kind == PartKind.WheelSpacer)
+				{
+					Transform hub = WheelSpacer.HubOf(hit.collider.transform);
+					if (hub == null)
+					{
+						hint = "Look at a wheel (its hub) to fit the " + held.DisplayName + ".";
+						return;
+					}
+					if (hub.GetComponentInChildren<WheelSpacer>() != null)
+					{
+						hint = "This wheel already has a spacer.";
+						return;
+					}
+					mount = hub;
+				}
 				Vector3 pos;
 				Quaternion rot;
 				held.PlacementPose(mount, hit.point, hit.normal, spin, tilt, out pos, out rot);
@@ -666,6 +689,7 @@ namespace TruckPartsQOL
 			ShopItem(PartKind.Subwoofer, 0, "12\" subwoofer box", Price(PartKind.Subwoofer));
 			ShopItem(PartKind.Amplifier, 0, "4-channel amplifier", Price(PartKind.Amplifier));
 			ShopItem(PartKind.RockLight, 0, "Rock light (LED pod)", Price(PartKind.RockLight));
+			ShopItem(PartKind.WheelSpacer, 0, "Wheel spacer " + spacerInches.Value.ToString("0.##") + "\"", Price(PartKind.WheelSpacer));
 			GUILayout.Space(6f);
 			ShopItem(PartKind.Scanner, 0, "OBD scanner (tool, key " + KeyName(scannerKey.Value) + ")", Price(PartKind.Scanner));
 			ShopItem(PartKind.Tarp, 0, "Bed tarp", Price(PartKind.Tarp));

@@ -290,7 +290,14 @@ namespace TruckPartsQOL
 
 		public static void RetryPending()
 		{
-			if (pending.Count == 0 || Time.realtimeSinceStartup > pendingUntil)
+			if (Time.realtimeSinceStartup > pendingUntil)
+			{
+				return;
+			}
+			// Wheels pushed out with no spacer there any more (restored by the game,
+			// or copied with a vehicle) go back on their hubs.
+			WheelSpacer.ResetHubsWithout(Vehicles.AllVehicles());
+			if (pending.Count == 0)
 			{
 				return;
 			}

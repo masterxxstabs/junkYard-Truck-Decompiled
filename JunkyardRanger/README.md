@@ -34,7 +34,8 @@ A new Ranger from the shops comes:
 * with a full tank, fresh fluids, every part new, a hood, and stock wheels;
 * with a new engine bolted in: the I4 by default, complete and with oil (see
   settings: V8, 2J or none, complete or a bare block);
-* painted Ranger red (see settings).
+* painted two-tone like a 2001-04 Edge: white above, charcoal below the line along
+  the sides and on the bumper (see settings).
 
 ## Using it
 
@@ -45,11 +46,27 @@ A new Ranger from the shops comes:
 * **Fuel:** the filler is on the driver's side, behind the rear wheel (where a
   Ranger's is). Open the cap and pour, as usual.
 * **Paint:** spray it with the game's paint cans. The cab and bed, the hood, each
-  door and the tailgate take paint separately, like the game's trucks.
+  door and the tailgate take paint separately, like the game's trucks. **Two-tone:**
+  spray below the line along the sides (through the wheel arches), or the bumper,
+  and you paint the lower color instead, all round the truck.
 * **Engines:** swap them like on the Diamondback. Engines bought from the shop and
   bolted into a Ranger are saved in it.
 
-## Bull bar
+## Accessories
+
+All sold in the same shops, and all fitted **the game's way**, like its winch or
+brush guard: carry the part to its place until the **snap mark** shows, let go and
+it pops on, then tighten any bolts with the ratchet. To take one off, loosen its
+bolts and right-click it; you get the loose part back. They fit Rangers only, come
+back fitted when you load, and loose ones are saved where they lie.
+
+| Part | Price | Where | Bolts |
+|---|---|---|---|
+| Ranger - Bull bar | $350 | Front, on the frame | 4, under the bumper |
+| Ranger - Rain guards (pair) | $60 | Top of each door window (one fits either door; you get two) | none, they snap on |
+| Ranger - Sun visor | $180 | Over the windshield, on the roof; body colored, paint it with the body | 4, on the roof |
+
+### Bull bar
 
 **Ranger - Bull bar** ($350, same shops) is a black steel grille guard: two
 uprights bolted to the frame, a hoop over the grille, and three tubes wrapping
@@ -73,9 +90,12 @@ In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
 | Price | 4500 | Price in the shops |
 | Engine | I4 | The engine a new Ranger comes with: I4, V8, I6_2J or None |
 | Engine: complete | on | On: every part on, ready to run. Off: a bare block to build up |
-| Paint color | #C8102E | A new Ranger's color (#RRGGBB) |
+| Paint color | #E8E8E4 | A new Ranger's color above the two-tone line (#RRGGBB) |
+| Two-tone lower color | #3A3D40 | A new Ranger's color below the line and on the bumper |
 | Weathered paint | off | On: the paint wears through to rust in places, like the game's other trucks |
 | Bull bar price | 350 | Price of the bull bar in the shops |
+| Rain guards price | 60 | Price of a pair of rain guards |
+| Sun visor price | 180 | Price of the sun visor |
 | Spawn key | F7 | Spawns a free Ranger in front of you, no engine in it. None: off |
 
 ## Saving
@@ -107,11 +127,17 @@ part. Deleting a slot, or overwriting it with a new game, clears them too.
   game's own paint mask with clean paint. The headlights, corner lamps and fog
   lights use the Diamondback's own lamp materials (`frontLight`, `frontTurn`).
   Trim is made on the game's shader from the MTL.
-* **Bull bar:** the Diamondback's empty brush guard slot (`brushguard_e`: a hidden
-  part with a snap trigger, four frame bolts and a durability) is renamed
-  `brushguardR_e` on a Ranger and shows the bull bar; the loose bull bar is a game
-  `PickUp` with `attachTo = brushguardR_e`, and the slot's `durability.template`, so
-  the game's own snap, bolt and removal code does the rest.
+* **Accessories:** each has a slot like the game's own (a hidden part named
+  `..._e` with a solid box, a snap trigger, a durability and maybe bolts). The bull
+  bar takes over the Diamondback's empty brush guard slot (`brushguard_e`, renamed
+  `brushguardR_e` on a Ranger); the rain guards (`rainguardD_e`, `rainguardP_e`, on
+  the doors) and the sun visor (`sunvisor_e`, on the cab, with copies of the game's
+  bolts) get new ones. The loose parts are game `PickUp`s with `attachTo` set to
+  their slot, and the slot's `durability.template`, so the game's own snap, bolt and
+  removal code does the rest.
+* **Two-tone:** the body, doors and tailgate are cut at the line in `tools/`, and
+  the lower parts (and the bumper) share the "Lower" paint group; a spray hitting
+  below the line (`twoTone` in `ranger.json`) paints that group.
 * **Painting:** `Interactor.PaintSurface` is patched so a spray at a Ranger paints
   the Ranger (and is saved with it), not the Diamondback's saved colors.
 

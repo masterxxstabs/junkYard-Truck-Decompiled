@@ -238,7 +238,9 @@ real thing:
   Ranger comes back in that Ranger, not in the Diamondback.
 * **Copies don't take other mods' parts along (2.4.1).** A stereo, speakers or rock
   lights fitted to the Diamondback stay on the Diamondback; a Ranger built from it
-  used to get copies of them, which were then saved twice.
+  used to get copies of them, which were then saved twice. (2.4.2: only the mods'
+  own items are left out; a mod's script on one of the game's parts, like a painted
+  rim's, is just taken off, so the rim stays.)
 * **Copies are tagged** (`VehicleTag`), so other mods can save what's fitted to a
   copy under `name#tag` and find that copy again (Truck Parts QOL does).
 

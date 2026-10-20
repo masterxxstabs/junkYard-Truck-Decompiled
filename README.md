@@ -10,9 +10,9 @@ Every mod is separate: install the ones you want. They also work together (see
 
 | Mod | Version | What it does |
 |---|---|---|
-| [Engine Cloner](EngineCloner/) | 2.4.1 | Lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits |
-| [Junkyard Ranger](JunkyardRanger/) | 1.4.1 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
-| [Truck Parts QOL](TruckPartsQOL/) | 1.4.1 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
+| [Engine Cloner](EngineCloner/) | 2.4.2 | Lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits |
+| [Junkyard Ranger](JunkyardRanger/) | 1.5.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
+| [Truck Parts QOL](TruckPartsQOL/) | 1.5.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.1.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
 | [Parts Store Plus](PartsStorePlus/) | 1.1.0 | Sells every dirt bike part and every truck engine part (pistons, bearings, crank...), not just what the junkyard spawns |
@@ -103,8 +103,9 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
     game's engines (I4, V8, 2J), gearbox, wheels and parts. Its dash and seats are
     in the cab.
 * **Comes with:** a new engine (I4 by default, complete, or pick V8, 2J or none), a
-  full tank, and Ranger red paint.
-* **Bull bar ($350):** pops on and bolts down the game's way (snap mark, ratchet).
+  full tank, and two-tone paint (white over charcoal; paint either with the cans).
+* **Accessories:** bull bar, rain guards, sun visor; they pop on (and bolt down) the
+  game's way (snap mark, ratchet).
 * **Spawn key (F7):** a free Ranger in front of you with an empty engine bay, for
   an engine you build yourself.
 * **Like the game's trucks:** doors, hood and tailgate open; fuel on the driver's

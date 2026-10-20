@@ -48,6 +48,11 @@ namespace JunkyardRanger
 				return true;
 			}
 			string group = GroupFor(target.collider.transform, body.transform);
+			// Two-tone: below the line along the sides is the lower color.
+			if (group != null && group != "Hood" && body.transform.InverseTransformPoint(target.point).y < RangerModel.TwoToneLine)
+			{
+				group = "Lower";
+			}
 			if (group == null)
 			{
 				return true; // not a body panel (wheels, engine...): the game's own painting

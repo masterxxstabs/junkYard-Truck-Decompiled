@@ -16,7 +16,8 @@ namespace TruckPartsQOL
 		HardTop,
 		Scanner,
 		Amplifier,
-		RockLight
+		RockLight,
+		WheelSpacer
 	}
 
 	// One stereo item: carried with the game's own PickUp, installed by parenting
@@ -139,6 +140,8 @@ namespace TruckPartsQOL
 					return "4-channel amplifier";
 				case PartKind.RockLight:
 					return "rock light";
+				case PartKind.WheelSpacer:
+					return "wheel spacer";
 				default:
 					return "CD " + cdNumber;
 				}
@@ -152,6 +155,14 @@ namespace TruckPartsQOL
 		// spin degrees round its facing and, for a rock light, tilted by tilt.
 		public void PlacementPose(Transform mountTo, Vector3 point, Vector3 normal, float spin, float tilt, out Vector3 position, out Quaternion rotation)
 		{
+			// A wheel spacer sits on its hub's face, wherever it's aimed.
+			Transform hub = kind == PartKind.WheelSpacer ? WheelSpacer.HubOf(mountTo) : null;
+			if (hub != null)
+			{
+				WheelSpacer.Pose(hub, out position, out rotation);
+				rotation = rotation * Quaternion.Euler(0f, 0f, spin);
+				return;
+			}
 			Vector3 up = Mathf.Abs(Vector3.Dot(normal, mountTo.up)) > 0.9f ? mountTo.forward : mountTo.up;
 			rotation = Quaternion.LookRotation(normal, up);
 			position = point + normal * (halfDepth - inset);

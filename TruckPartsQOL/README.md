@@ -74,6 +74,7 @@ Either way, items are paid from your wallet like any part.
 | Tonneau cover | $250 | Tri-fold hard cover; folds up against the cab |
 | Hard top | $600 | Camper shell to cab height, with a lifting rear glass hatch |
 | OBD scanner | $80 | Tool: pick up the box and it joins your tools on key 8 |
+| Wheel spacer | $45 | Billet 1.5" spacer (thickness in the settings): pushes a wheel out, look and track width |
 | Rock light | $30 | LED pod with 2 bolts; lights the ground below it in the color from the settings |
 
 ## Fitting
@@ -184,6 +185,22 @@ takes it off again.
 
 Color and brightness can be changed in the Mods Menu at any time and show at once.
 Lights only shine while fitted to a vehicle.
+
+## Wheel spacers
+
+A billet aluminium ring that goes between the hub and the wheel, pushing that
+wheel out by its thickness: **1.5"** by default (`WheelSpacerInches` in the
+settings: 1, 1.5, 2...). The track gets wider too, not just the look.
+
+Hold one and look at a wheel (its hub): the green preview shows it on the hub's
+face. Press **Y** and the wheel moves out. One per wheel; buy four for all round.
+**Y** on a fitted spacer (with the wheel off, so you can see it) takes it off and
+the wheel goes back. Saved like the other parts.
+
+| Setting | Default | What it does |
+|---|---|---|
+| Wheel spacer thickness (`WheelSpacerInches`) | 1.5 | How far each spacer pushes its wheel out, in inches |
+| `WheelSpacerPrice` | 45 | Price of one spacer |
 
 ## Bed covers
 

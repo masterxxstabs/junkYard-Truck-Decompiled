@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.4.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.5.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger
@@ -36,6 +36,9 @@ namespace JunkyardRanger
 		private static MelonPreferences_Entry<bool> weathered;
 		private static MelonPreferences_Entry<KeyCode> spawnKey;
 		private static MelonPreferences_Entry<float> bullBarPrice;
+		private static MelonPreferences_Entry<float> rainGuardPrice;
+		private static MelonPreferences_Entry<float> sunVisorPrice;
+		private static MelonPreferences_Entry<string> lowerColor;
 
 		private static string hint = "";
 		private static float hintUntil;
@@ -52,8 +55,11 @@ namespace JunkyardRanger
 			price = c.CreateEntry("Price", 4500f, "Price", "What a new Ranger costs in the shops.");
 			engineKind = c.CreateEntry("Engine", RangerEngine.I4, "Engine", "The engine a new Ranger comes with (the game's own engines), or None to fit your own.");
 			completeEngine = c.CreateEntry("CompleteEngine", true, "Engine: complete", "On: the engine comes with every part on, ready to run. Off: a bare block to build up.");
-			paintColor = c.CreateEntry("PaintColor", "#C8102E", "Paint color", "A new Ranger's color, as #RRGGBB. Repaint it in game with the spray cans.");
+			paintColor = c.CreateEntry("PaintColor", "#E8E8E4", "Paint color", "A new Ranger's color (above the two-tone line), as #RRGGBB. Repaint it in game with the spray cans.");
 			weathered = c.CreateEntry("Weathered", false, "Weathered paint", "On: the paint is worn through to rust in places, like the game's other trucks. Off: clean paint.");
+			rainGuardPrice = c.CreateEntry("RainGuardPrice", 60f, "Rain guards price", "What a pair of rain guards costs in the shops.");
+			sunVisorPrice = c.CreateEntry("SunVisorPrice", 180f, "Sun visor price", "What the sun visor costs in the shops.");
+			lowerColor = c.CreateEntry("LowerColor", "#3A3D40", "Two-tone lower color", "A new Ranger's two-tone: the color below the line along the sides, and the bumper, as #RRGGBB. Repaint it in game with the spray cans (aim below the line).");
 			bullBarPrice = c.CreateEntry("BullBarPrice", 350f, "Bull bar price", "What the Ranger's bull bar costs in the shops.");
 			spawnKey = c.CreateEntry("SpawnKey", KeyCode.F7, "Spawn key", "Press in the level for a free Ranger in front of you, with an empty engine bay to fit your own engine. None turns it off.");
 			ShopProviders.Register(RangerShop.ShopItems);
@@ -123,6 +129,25 @@ namespace JunkyardRanger
 			get { return price != null ? price.Value : 4500f; }
 		}
 
+		public static float RainGuardPrice
+		{
+			get { return rainGuardPrice != null ? rainGuardPrice.Value : 60f; }
+		}
+
+		public static float SunVisorPrice
+		{
+			get { return sunVisorPrice != null ? sunVisorPrice.Value : 180f; }
+		}
+
+		public static Color LowerColor
+		{
+			get
+			{
+				Color c;
+				return ParseColor(lowerColor != null ? lowerColor.Value : "", out c) ? c : new Color(0.23f, 0.24f, 0.25f);
+			}
+		}
+
 		public static float BullBarPrice
 		{
 			get { return bullBarPrice != null ? bullBarPrice.Value : 350f; }
@@ -163,7 +188,7 @@ namespace JunkyardRanger
 			{
 				Color c;
 				string s = paintColor != null ? paintColor.Value : "";
-				return ParseColor(s, out c) ? c : new Color(0.78f, 0.06f, 0.18f);
+				return ParseColor(s, out c) ? c : new Color(0.91f, 0.91f, 0.89f);
 			}
 		}
 

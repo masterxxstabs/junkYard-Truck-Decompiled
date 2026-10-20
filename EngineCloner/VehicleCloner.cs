@@ -314,9 +314,7 @@ namespace EngineCloner
 
 		// Things other mods fitted to the original (a stereo, speakers, rock lights,
 		// a bed cover...) belong to the original: a copy taking them along made a
-		// second of each, which those mods then saved too. Objects carrying a
-		// script from another MelonLoader mod are left out
-		// of the copy; a mod's script on the vehicle itself is just removed.
+		// second of each, which those mods then saved too.
 		private static void StripOtherMods(GameObject copy)
 		{
 			Assembly ours = typeof(VehicleCloner).Assembly;
@@ -328,13 +326,20 @@ namespace EngineCloner
 				{
 					continue;
 				}
-				if (b.gameObject == copy)
+				// A mod's own item fitted to the vehicle (something you can pick up:
+				// a speaker, a rock light) is left out; a mod's script on one of the
+				// game's own objects (a painted rim's paint, on the vehicle itself)
+				// is just taken off, keeping the object.
+				if (b.gameObject != copy && b.GetComponent<PickUp>() != null)
+				{
+					if (!drop.Contains(b.gameObject))
+					{
+						drop.Add(b.gameObject);
+					}
+				}
+				else
 				{
 					strip.Add(b);
-				}
-				else if (!drop.Contains(b.gameObject))
-				{
-					drop.Add(b.gameObject);
 				}
 			}
 			int n = 0;

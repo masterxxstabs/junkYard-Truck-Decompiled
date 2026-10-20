@@ -43,11 +43,9 @@ namespace JunkyardRanger
 			get { return fuelCap; }
 		}
 
-		// The bull bar isn't part of the body: it's shown in the brush guard slot
-		// (RangerBullBar), in that slot's frame.
-		public const string BullBarGroup = "BullBar";
-
-		public static bool BullBar(out Mesh mesh, out Material[] materials)
+		// Accessories (bull bar, rain guards, sun visor) aren't part of the body:
+		// they're shown in their slots (RangerAccessories), in the slot's frame.
+		public static bool Accessory(string group, RangerBody body, out Mesh mesh, out Material[] materials)
 		{
 			mesh = null;
 			materials = null;
@@ -57,16 +55,28 @@ namespace JunkyardRanger
 			}
 			foreach (Group g in groups)
 			{
-				if (g.name == BullBarGroup)
+				if (g.name == group)
 				{
 					GameMaterials.Refresh();
 					mesh = g.mesh;
-					materials = MaterialsFor(g, null);
+					materials = MaterialsFor(g, body);
 					return true;
 				}
 			}
 			return false;
 		}
+
+		// Bolt seats for an accessory, in the Diamondback root's frame.
+		public static List<Vector3> AccessoryBolts(string group)
+		{
+			List<Vector3> list;
+			return accessoryBolts.TryGetValue(group, out list) ? list : new List<Vector3>();
+		}
+
+		private static readonly Dictionary<string, List<Vector3>> accessoryBolts = new Dictionary<string, List<Vector3>>();
+
+		// Two-tone paint: below this height (the root's frame) is the "Lower" group.
+		public static float TwoToneLine = 1.12f;
 
 		public static string ModelPath
 		{
@@ -103,6 +113,27 @@ namespace JunkyardRanger
 				List<object> cap = meta.ContainsKey("fuelCap") ? (List<object>)meta["fuelCap"] : null;
 				// The fuel cap's center in the Diamondback root's frame (Unity terms).
 				fuelCap = cap != null && cap.Count == 3 ? new Vector3((float)(double)cap[0], (float)(double)cap[1], (float)(double)cap[2]) : Vector3.zero;
+				TwoToneLine = meta.ContainsKey("twoTone") ? (float)(double)meta["twoTone"] : 1.12f;
+				accessoryBolts.Clear();
+				Dictionary<string, object> acc = meta.ContainsKey("accessories") ? meta["accessories"] as Dictionary<string, object> : null;
+				if (acc != null)
+				{
+					foreach (KeyValuePair<string, object> a in acc)
+					{
+						List<Vector3> seats = new List<Vector3>();
+						Dictionary<string, object> info = a.Value as Dictionary<string, object>;
+						List<object> bolts = info != null && info.ContainsKey("bolts") ? info["bolts"] as List<object> : null;
+						if (bolts != null)
+						{
+							foreach (object o in bolts)
+							{
+								List<object> v = (List<object>)o;
+								seats.Add(new Vector3((float)(double)v[0], (float)(double)v[1], (float)(double)v[2]));
+							}
+						}
+						accessoryBolts[a.Key] = seats;
+					}
+				}
 				ModelData data = ModelData.Load(obj);
 				mtl = new Dictionary<string, ModelMaterial>();
 				foreach (ModelMaterial m in data.materials)
@@ -230,7 +261,7 @@ namespace JunkyardRanger
 			GameMaterials.Refresh();
 			foreach (Group g in groups)
 			{
-				if (g.name == BullBarGroup)
+				if (RangerAccessories.IsAccessoryGroup(g.name))
 				{
 					continue;
 				}
@@ -272,7 +303,11 @@ namespace JunkyardRanger
 				if (name == BodyMaterial)
 				{
 					list.Add(GameMaterials.Find(BodyMaterial) ?? Fallback(name));
-					list.Add(body.PaintMaterial(g.name, PaintLayerTemplate(), paintTexture, RangerMod.Weathered));
+					// A loose accessory (no Ranger yet) is in primer.
+					if (body != null)
+					{
+						list.Add(body.PaintMaterial(g.name, PaintLayerTemplate(), paintTexture, RangerMod.Weathered));
+					}
 					// No mud layer: the F100's is changed by the game as the F100 gets
 					// dirty (and the copies of it that are found may be the F100's own),
 					// so it covered a Ranger's paint with the F100's mud.

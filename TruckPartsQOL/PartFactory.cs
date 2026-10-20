@@ -52,6 +52,11 @@ namespace TruckPartsQOL
 				part.mass = 3.5f;
 				root.AddComponent<Amplifier>();
 				break;
+			case PartKind.WheelSpacer:
+				size = BuildWheelSpacer(root.transform);
+				part.mass = 1.8f;
+				root.AddComponent<WheelSpacer>();
+				break;
 			case PartKind.RockLight:
 				size = BuildRockLight(root.transform);
 				part.mass = 0.4f;
@@ -276,6 +281,27 @@ namespace TruckPartsQOL
 			}
 			TextMesh label = Text(root, "Label", new Vector3(0f, -0.12f, size.z / 2f + 0.002f), 0.003f, Silver);
 			label.text = "AMP";
+			return size;
+		}
+
+		// Wheel spacer: a billet aluminium ring with five gold studs out of its face
+		// (the wheel goes on them), as thick as the setting (1.5" by default).
+		private static Vector3 BuildWheelSpacer(Transform root)
+		{
+			float t = Mathf.Max(0.01f, WheelSpacer.Thickness);
+			Vector3 size = new Vector3(0.18f, 0.18f, t);
+			GameObject ring = Cylinder(root, "Ring", 0.18f, t, Vector3.zero, Silver);
+			ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			GameObject bore = Cylinder(root, "Bore", 0.085f, t + 0.002f, Vector3.zero, new Color(0.08f, 0.08f, 0.09f));
+			bore.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			for (int i = 0; i < 5; i++)
+			{
+				float a = (90f + 72f * i) * Mathf.Deg2Rad;
+				GameObject stud = Cylinder(root, "Stud" + i, 0.013f, 0.03f, new Vector3(Mathf.Cos(a) * 0.062f, Mathf.Sin(a) * 0.062f, t / 2f + 0.015f), new Color(0.78f, 0.62f, 0.3f));
+				stud.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+				GameObject hole = Cylinder(root, "Hole" + i, 0.022f, t + 0.002f, new Vector3(Mathf.Cos(a + 0.628f) * 0.062f, Mathf.Sin(a + 0.628f) * 0.062f, 0f), new Color(0.1f, 0.1f, 0.11f));
+				hole.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+			}
 			return size;
 		}
 

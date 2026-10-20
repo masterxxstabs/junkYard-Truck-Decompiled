@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -36,16 +37,16 @@ namespace JunkyardRanger
 
 		public static object[][] ShopItems()
 		{
-			GameObject bar = RangerBullBar.Template();
-			if (bar == null)
+			List<object[]> items = new List<object[]> { new object[] { Marker(), Name, RangerMod.Price, Category } };
+			foreach (RangerAccessories.Kind k in RangerAccessories.Kinds)
 			{
-				return new[] { new object[] { Marker(), Name, RangerMod.Price, Category } };
+				GameObject prefab = RangerAccessories.ShopPrefab(k);
+				if (prefab != null)
+				{
+					items.Add(new object[] { prefab, k.shopName, k.price(), Category });
+				}
 			}
-			return new[]
-			{
-				new object[] { Marker(), Name, RangerMod.Price, Category },
-				new object[] { bar, RangerBullBar.ShopName, RangerMod.BullBarPrice, Category },
-			};
+			return items.ToArray();
 		}
 
 		public static void HookStore(HarmonyLib.Harmony harmony)
@@ -116,10 +117,13 @@ namespace JunkyardRanger
 			try
 			{
 				List(list, Marker(), Name, RangerMod.Price);
-				GameObject bar = RangerBullBar.Template();
-				if (bar != null)
+				foreach (RangerAccessories.Kind k in RangerAccessories.Kinds)
 				{
-					List(list, bar, RangerBullBar.ShopName, RangerMod.BullBarPrice);
+					GameObject prefab = RangerAccessories.ShopPrefab(k);
+					if (prefab != null)
+					{
+						List(list, prefab, k.shopName, k.price());
+					}
 				}
 			}
 			catch (Exception ex)

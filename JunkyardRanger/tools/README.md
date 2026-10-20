@@ -37,7 +37,11 @@ section by section so both axles and the cab line up), the hood slopes down to a
 nose with rounded corners, and the 2001-04 front end (swept round the nose's
 outline), mirrors and paint layer are added. Extra close-up views for checking the
 front end: `nose`, `front`, `cornerR`, `sideR`, `lowR`, `top`, `bay` (hood off).
-The bull bar is built here too, as the `BullBar` group, in the frame of the
-Diamondback's brush guard slot (`brushguard_e` in `dpt_anchors.json`).
+The accessories are built here too, each in the frame of the part its slot hangs
+on: `BullBar` (the Diamondback's brush guard slot, `brushguard_e` in
+`dpt_anchors.json`), `RainGuardD` / `RainGuardP` (the doors) and `SunVisor` (the
+cab; its bolt seats are in `ranger.json`). For the two-tone, the body, doors and
+tailgate are cut at `TWO_TONE_Z` into `BodyLower`, `DoorDLower`, `DoorPLower` and
+`TailgateLower`. Preview colors: `UPPER=r,g,b` and `LOWER=r,g,b`.
 
 `unitypkg.py` reads the packages' text-format prefabs, meshes and materials.

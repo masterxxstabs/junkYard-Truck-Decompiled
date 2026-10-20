@@ -140,6 +140,7 @@ namespace TruckPartsQOL
 			now.Add(Make("subwoofer", PartKind.Subwoofer, 0, "Stereo - 12\" subwoofer box"));
 			now.Add(Make("amp", PartKind.Amplifier, 0, "Stereo - 4-channel amplifier"));
 			now.Add(Make("rocklight", PartKind.RockLight, 0, "Lights - Rock light (LED pod)"));
+			now.Add(Make("wheelspacer", PartKind.WheelSpacer, 0, "Wheels - Wheel spacer"));
 			now.Add(Make("scanner", PartKind.Scanner, 0, "Tool - OBD scanner"));
 			now.Add(Make("tarp", PartKind.Tarp, 0, "Bed - Tarp"));
 			now.Add(Make("tonneau", PartKind.Tonneau, 0, "Bed - Tonneau cover (tri-fold)"));

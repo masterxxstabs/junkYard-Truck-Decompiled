@@ -42,7 +42,7 @@ namespace JunkyardRanger
 		{
 			pending.Clear();
 			RangerModel.Reset();
-			RangerBullBar.Reset();
+			RangerAccessories.Reset();
 		}
 
 		public static void Update()
@@ -156,7 +156,7 @@ namespace JunkyardRanger
 				body.LoadPaint(state != null ? state.paint : null);
 				HidePanels(copy);
 				RangerModel.Dress(copy, body);
-				RangerBullBar.FitSlot(copy);
+				RangerAccessories.FitSlots(copy, body);
 				MoveFuelInlet(copy, body);
 				if (state != null && !string.IsNullOrEmpty(state.snapshot))
 				{
@@ -257,7 +257,7 @@ namespace JunkyardRanger
 		// stock wheels on any corner that has none.
 		private static void MakeNew(GameObject copy)
 		{
-			RangerBullBar.Unfit(copy);
+			RangerAccessories.UnfitAll(copy);
 			Component car = copy.GetComponent("car");
 			if (car != null)
 			{
@@ -350,9 +350,10 @@ namespace JunkyardRanger
 	// own paint layer, like the game's trucks, which paint per panel.
 	public class RangerBody : MonoBehaviour
 	{
-		// The paint groups: the body (cab, bed, front end), the hood, the doors and
-		// the tailgate.
-		public static readonly string[] Groups = { "Body", "Hood", "DoorD", "DoorP", "Tailgate" };
+		// The paint groups: the body (cab, bed, front end), the hood, the doors, the
+		// tailgate, and the two-tone's lower color (below the line along the sides,
+		// and the bumper).
+		public static readonly string[] Groups = { "Body", "Hood", "DoorD", "DoorP", "Tailgate", "Lower" };
 
 		public string id;
 		public Transform gasDoor;
@@ -365,6 +366,10 @@ namespace JunkyardRanger
 
 		public static string GroupOf(string part)
 		{
+			if (part.EndsWith("Lower", StringComparison.Ordinal) || part == "Bumper")
+			{
+				return "Lower";
+			}
 			return Array.IndexOf(Groups, part) >= 0 ? part : "Body";
 		}
 
@@ -420,7 +425,7 @@ namespace JunkyardRanger
 			Vector2 f;
 			if (!colors.TryGetValue(group, out c))
 			{
-				c = RangerMod.PaintColor;
+				c = DefaultColor(group);
 			}
 			if (!finish.TryGetValue(group, out f))
 			{
@@ -438,12 +443,18 @@ namespace JunkyardRanger
 		}
 
 		// "Body=r,g,b,m,s/Hood=..." (missing groups get the default color).
+		// A new Ranger's colors: the two-tone's lower color below the line, the
+		// paint color everywhere else.
+		private static Color DefaultColor(string group)
+		{
+			return group == "Lower" ? RangerMod.LowerColor : RangerMod.PaintColor;
+		}
+
 		public void LoadPaint(string saved)
 		{
-			Color def = RangerMod.PaintColor;
 			foreach (string g in Groups)
 			{
-				colors[g] = def;
+				colors[g] = DefaultColor(g);
 				finish[g] = new Vector2(0.25f, 0.62f);
 			}
 			if (string.IsNullOrEmpty(saved))
@@ -483,7 +494,7 @@ namespace JunkyardRanger
 			List<string> parts = new List<string>();
 			foreach (string g in Groups)
 			{
-				Color c = colors.ContainsKey(g) ? colors[g] : RangerMod.PaintColor;
+				Color c = colors.ContainsKey(g) ? colors[g] : DefaultColor(g);
 				Vector2 f = finish.ContainsKey(g) ? finish[g] : new Vector2(0.25f, 0.62f);
 				parts.Add(g + "=" + S(c.r) + "," + S(c.g) + "," + S(c.b) + "," + S(f.x) + "," + S(f.y));
 			}
