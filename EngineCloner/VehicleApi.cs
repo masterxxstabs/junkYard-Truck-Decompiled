@@ -168,13 +168,13 @@ namespace EngineCloner
 			return null;
 		}
 
-		// A new engine ("i4", "v8", "i6") bolted into the vehicle's engine bay:
+		// A new engine ("i4", "v8", "i6", "duramax") bolted into the vehicle's engine bay:
 		// complete (every part on, new) or a bare block, with or without oil. It's
 		// one of this mod's engines, so it's saved with the vehicle.
 		public static GameObject MountNewEngine(GameObject vehicle, string kind, bool complete, bool withOil)
 		{
 			EngineShop.Kind k = EngineShop.KindOf(kind);
-			Transform bay = k != null ? Bay(vehicle, kind) : null;
+			Transform bay = k != null ? Bay(vehicle, k.game) : null;
 			if (bay == null)
 			{
 				EngineClonerMod.Log("No engine bay for a " + kind + " in " + vehicle.name + ".");
@@ -204,7 +204,7 @@ namespace EngineCloner
 		public static bool MountEngine(GameObject block, GameObject vehicle)
 		{
 			EngineShop.Kind k = EngineShop.KindOf(block);
-			Transform bay = k != null ? Bay(vehicle, k.id) : null;
+			Transform bay = k != null ? Bay(vehicle, k.game) : null;
 			if (bay == null)
 			{
 				return false;

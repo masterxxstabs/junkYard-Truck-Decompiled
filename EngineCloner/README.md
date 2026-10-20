@@ -15,6 +15,7 @@ New engines are sold in the **Parts Store** (ComputerPartStore mod) and on
 | Engine - I4 (new) | `engineblock` | $750 |
 | Engine - V8 (new) | `v8_block` | $1500 |
 | Engine - 2J inline-6 (new) | `i6block` | $1800 |
+| Engine - 8.3L Duramax V8 (new) | `v8_block` | $4200 |
 
 A new engine is a **bare block** by default: just the block, rust-free, with every
 part off, taken off the same way the game removes a part, so they all bolt back in
@@ -32,6 +33,23 @@ that type in your world:
 
 An engine type that isn't anywhere in the level can't be copied, so it isn't for
 sale there (the log says so).
+
+### 8.3L Duramax V8 (2.5)
+
+A big V8 for the trucks, built on the game's own V8 so it **works like any engine in
+the game**: it drops into the same engine bays (Diamondback, F100), takes all the
+V8's parts (heads, pistons, cam, intake, carb or fuel rail, headers, the
+aftermarket turbos...), bolts in with the hoist, and needs oil, coolant and a
+battery like the others. It's sold as a bare block or complete, like the rest, and
+saved the same way.
+
+What's different:
+* **Power:** it pulls **60% harder** than the game's V8 (setting "8.3L Duramax
+  power", 1.6 = 60% more torque; turbos still add on top).
+* **Look:** a charcoal block with gloss black valve covers and intake (they keep
+  their paint when you take them off; repaint them with the cans if you like).
+
+Parts for it are the V8's: buy them as V8 parts.
 
 **Saving:** bought engines, and debug clones, are saved per save slot in
 `UserData/EngineCloner/slotN.txt` (`auto.txt` for the autosave):
@@ -82,7 +100,8 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 
 | Setting | Default | |
 |---|---|---|
-| New I4 / V8 / 2J inline-6 price | 750 / 1500 / 1800 | Shop prices |
+| New I4 / V8 / 2J inline-6 / 8.3L Duramax price | 750 / 1500 / 1800 / 4200 | Shop prices |
+| 8.3L Duramax power | 1.6 | Its torque compared with the game's V8 |
 | Engine stand price | 350 | |
 | Move stand key | K | Move a stand you bought |
 | New engines: bare block | **on** | Off: a complete engine (copy of your most complete one, all parts new) |

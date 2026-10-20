@@ -27,13 +27,19 @@ namespace EngineCloner
 			public string name;
 			public string blockName;
 			public Type script;
+			// The game's engine it's built on and fits like ("i4", "v8", "i6"): its
+			// own id, except for our own engines (the Duramax is a V8).
+			public string game;
 		}
 
 		public static readonly Kind[] Kinds =
 		{
-			new Kind { id = "i4", name = "Engine - I4 (new)", blockName = "engineblock", script = typeof(engine) },
-			new Kind { id = "v8", name = "Engine - V8 (new)", blockName = "v8_block", script = typeof(enginev8) },
-			new Kind { id = "i6", name = "Engine - 2J inline-6 (new)", blockName = "i6block", script = typeof(enginei6) },
+			new Kind { id = "i4", name = "Engine - I4 (new)", blockName = "engineblock", script = typeof(engine), game = "i4" },
+			new Kind { id = "v8", name = "Engine - V8 (new)", blockName = "v8_block", script = typeof(enginev8), game = "v8" },
+			new Kind { id = "i6", name = "Engine - 2J inline-6 (new)", blockName = "i6block", script = typeof(enginei6), game = "i6" },
+			// Built on the game's V8 (its parts, bay and gauges), with its own look
+			// and more power (Duramax.cs).
+			new Kind { id = "duramax", name = "Engine - 8.3L Duramax V8 (new)", blockName = "v8_block", script = typeof(enginev8), game = "v8" },
 		};
 
 		private const string Category = "Truck Part";
@@ -56,9 +62,16 @@ namespace EngineCloner
 
 		public static Kind KindOf(GameObject block)
 		{
+			// Ours say what they are (a Duramax and a V8 share the V8's script).
+			ShopEngine marker = block.GetComponent<ShopEngine>();
+			Kind own = marker != null ? KindOf(marker.kind) : null;
+			if (own != null)
+			{
+				return own;
+			}
 			foreach (Kind k in Kinds)
 			{
-				if (block.GetComponent(k.script) != null)
+				if (k.id == k.game && block.GetComponent(k.script) != null)
 				{
 					return k;
 				}
@@ -114,6 +127,10 @@ namespace EngineCloner
 			template.name = k.blockName;
 			StripGameSave(template);
 			Freshen(template, k, bare);
+			if (k.id == "duramax")
+			{
+				Duramax.Style(template);
+			}
 			ShopEngine marker = template.AddComponent<ShopEngine>();
 			marker.kind = k.id;
 			marker.RecordMountBolts();
