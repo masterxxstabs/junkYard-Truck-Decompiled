@@ -44,10 +44,20 @@ battery like the others. It's sold as a bare block or complete, like the rest, a
 saved the same way.
 
 What's different:
+* **Its own model (2.6):** a big modern V8, modeled for this mod: a deep-skirt
+  cast block with ribs, freeze plugs and mount bosses, aluminium heads, tall gloss
+  black valve covers with four coil packs each and **DURAMAX** on top, a black
+  composite intake with runners, a throttle body and **8.3L** on the plenum, a
+  cast front cover and a deep black oil pan. It's shown on the V8's own parts
+  (block, heads, valve covers, intake, front cover, oil pan), so they still come
+  off and go on the game's way; a part taken off is the game's loose V8 part.
 * **Power:** it pulls **60% harder** than the game's V8 (setting "8.3L Duramax
   power", 1.6 = 60% more torque; turbos still add on top).
-* **Look:** a charcoal block with gloss black valve covers and intake (they keep
-  their paint when you take them off; repaint them with the cans if you like).
+
+The model is `UserData/EngineCloner/models/duramax.obj` (and `.mtl`), in the
+download; without it, the Duramax is the game's V8 in charcoal and gloss black.
+It's made by `tools/duramax_model.py` (Blender's Python module) to the frames of
+the game's V8 parts.
 
 Parts for it are the V8's: buy them as V8 parts.
 

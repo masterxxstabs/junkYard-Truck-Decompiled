@@ -1,28 +1,73 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace EngineCloner
 {
 	// The 8.3L Duramax: a big V8 built on the game's own V8, so it fits the same
 	// engine bays, takes the same parts (heads, pistons, intake, turbos...),
 	// mounts, oil and gauges, and is bought, bolted in and saved like our other
-	// engines. Its own look (a charcoal block with gloss black valve covers and
-	// intake) and more torque: the game sets the truck's torque from the V8 each
-	// time it refreshes the engine, and the Duramax multiplies it (DuramaxPower).
+	// engines. It has its own model (UserData/EngineCloner/models/duramax.obj,
+	// made by tools/duramax_model.py): the block, heads, valve covers with coil
+	// packs and "DURAMAX", the intake with "8.3L", the timing cover and the oil
+	// pan are shown on the V8's own parts, so they still come off and go on the
+	// game's way. And more torque: the game sets the truck's torque from the V8
+	// each time it refreshes the engine, and the Duramax multiplies it.
 	internal static class Duramax
 	{
 		private static readonly Color Block = new Color(0.17f, 0.18f, 0.19f);
 		private static readonly Color Covers = new Color(0.035f, 0.035f, 0.04f);
 
+		// The model's pieces by the V8 part they're shown on, loaded once.
+		private static Dictionary<string, KeyValuePair<Mesh, Material[]>> pieces;
+		private static bool tried;
+
+		public static string ModelPath
+		{
+			get { return Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetDirectoryName(Application.dataPath), "UserData"), "EngineCloner"), "models"), "duramax.obj"); }
+		}
+
 		// On the shop's template: every copy (bought, saved, bolted into a truck)
 		// is made from it.
 		public static void Style(GameObject block)
 		{
-			Renderer r = block.GetComponent<Renderer>();
-			if (r != null)
+			if (Load() && pieces.Count > 0)
 			{
-				Material[] mats = r.sharedMaterials;
+				int shown = 0;
+				foreach (Transform t in block.GetComponentsInChildren<Transform>(true))
+				{
+					KeyValuePair<Mesh, Material[]> piece;
+					if (!pieces.TryGetValue(t == block.transform ? "v8_block" : t.name, out piece))
+					{
+						continue;
+					}
+					MeshFilter f = t.GetComponent<MeshFilter>();
+					MeshRenderer r = t.GetComponent<MeshRenderer>();
+					if (f == null || r == null)
+					{
+						continue;
+					}
+					f.sharedMesh = piece.Key;
+					r.sharedMaterials = piece.Value;
+					shown++;
+				}
+				// The V8's lower-detail look at a distance would come back: one look.
+				foreach (LODGroup lod in block.GetComponentsInChildren<LODGroup>(true))
+				{
+					lod.enabled = false;
+				}
+				EngineClonerMod.Log("8.3L Duramax: its own model on " + shown + " part(s).");
+				return;
+			}
+			// No model: the V8 in Duramax colors.
+			Renderer br = block.GetComponent<Renderer>();
+			if (br != null)
+			{
+				Material[] mats = br.sharedMaterials;
 				for (int i = 0; i < mats.Length; i++)
 				{
 					if (mats[i] != null)
@@ -30,16 +75,14 @@ namespace EngineCloner
 						mats[i] = new Material(mats[i]) { name = mats[i].name + " (Duramax)", color = Block };
 					}
 				}
-				r.sharedMaterials = mats;
+				br.sharedMaterials = mats;
 			}
-			int painted = 0;
 			foreach (durability d in block.GetComponentsInChildren<durability>(true))
 			{
 				string n = d.name;
-				if (n == "valveCoverD_e" || n == "valveCoverP_e" || n == "intakeMan_e")
+				if (n == "v8_valvecoverD_e" || n == "v8_valvecoverP_e" || n == "v8_intakeman_e" || n == "valveCoverD_e" || n == "valveCoverP_e" || n == "intakeMan_e")
 				{
-					// The game's own paint (as from a paint can): it's applied when the
-					// part starts, and goes with the part when it's taken off.
+					// The game's own paint (as from a paint can).
 					EngineShop.SetField(d, "painted", true);
 					EngineShop.SetField(d, "red", Covers.r);
 					EngineShop.SetField(d, "green", Covers.g);
@@ -47,10 +90,128 @@ namespace EngineCloner
 					EngineShop.SetField(d, "metallic", 0.3f);
 					EngineShop.SetField(d, "smoothness", 0.75f);
 					EngineShop.SetField(d, "paintSlot", 0);
-					painted++;
 				}
 			}
-			EngineClonerMod.Log("8.3L Duramax: charcoal block, " + painted + " part(s) in gloss black.");
+			EngineClonerMod.Log("8.3L Duramax: no " + ModelPath + ", so it's the V8 in Duramax colors.");
+		}
+
+		private static bool Load()
+		{
+			if (tried)
+			{
+				return pieces != null;
+			}
+			tried = true;
+			if (!File.Exists(ModelPath))
+			{
+				return false;
+			}
+			try
+			{
+				ModelData data = ModelData.Load(ModelPath);
+				Material template = StandardTemplate();
+				Dictionary<string, Material> materials = new Dictionary<string, Material>();
+				pieces = new Dictionary<string, KeyValuePair<Mesh, Material[]>>();
+				foreach (ModelNode node in data.roots)
+				{
+					foreach (ModelMesh m in node.meshes)
+					{
+						List<Material> mats = new List<Material>();
+						Mesh mesh = BuildMesh(m, data, template, materials, mats);
+						mesh.name = "Duramax_" + node.name;
+						Object.DontDestroyOnLoad(mesh);
+						pieces[node.name] = new KeyValuePair<Mesh, Material[]>(mesh, mats.ToArray());
+					}
+				}
+				EngineClonerMod.Log("Loaded the 8.3L Duramax model: " + pieces.Count + " parts.");
+				return true;
+			}
+			catch (Exception e)
+			{
+				pieces = null;
+				EngineClonerMod.Log("Couldn't load " + ModelPath + ": " + e.Message);
+				return false;
+			}
+		}
+
+		// The game's Standard shader, from a material it already uses.
+		private static Material StandardTemplate()
+		{
+			foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+			{
+				if (m != null && m.shader != null && m.shader.name == "Standard")
+				{
+					return m;
+				}
+			}
+			return null;
+		}
+
+		private static Mesh BuildMesh(ModelMesh m, ModelData data, Material template, Dictionary<string, Material> made, List<Material> mats)
+		{
+			Mesh mesh = new Mesh();
+			if (m.positions.Count > 65000)
+			{
+				mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+			}
+			Vector3[] v = new Vector3[m.positions.Count];
+			for (int i = 0; i < v.Length; i++)
+			{
+				v[i] = new Vector3(m.positions[i].x, m.positions[i].y, m.positions[i].z);
+			}
+			mesh.vertices = v;
+			mesh.subMeshCount = m.submeshes.Count;
+			for (int s = 0; s < m.submeshes.Count; s++)
+			{
+				mesh.SetTriangles(m.submeshes[s].ToArray(), s);
+				ModelMaterial spec = m.materials[s] >= 0 && m.materials[s] < data.materials.Count ? data.materials[m.materials[s]] : null;
+				string name = spec != null ? spec.name : "D_Black";
+				Material mat;
+				if (!made.TryGetValue(name, out mat))
+				{
+					mat = template != null ? new Material(template) : new Material(Shader.Find("Standard"));
+					mat.name = "Duramax_" + name;
+					if (mat.HasProperty("_MainTex"))
+					{
+						mat.mainTexture = null;
+					}
+					foreach (string tex in new[] { "_BumpMap", "_MetallicGlossMap", "_OcclusionMap", "_DetailAlbedoMap", "_DetailNormalMap", "_EmissionMap" })
+					{
+						if (mat.HasProperty(tex))
+						{
+							mat.SetTexture(tex, null);
+						}
+					}
+					float[] c = spec != null ? spec.color : new[] { 0.1f, 0.1f, 0.1f, 1f };
+					mat.color = new Color(c[0], c[1], c[2], 1f);
+					if (mat.HasProperty("_Metallic"))
+					{
+						mat.SetFloat("_Metallic", spec != null ? spec.metallic : 0f);
+					}
+					if (mat.HasProperty("_Glossiness"))
+					{
+						mat.SetFloat("_Glossiness", spec != null ? spec.smoothness : 0.4f);
+					}
+					Object.DontDestroyOnLoad(mat);
+					made[name] = mat;
+				}
+				mats.Add(mat);
+			}
+			if (m.normals.Count == v.Length)
+			{
+				Vector3[] n = new Vector3[v.Length];
+				for (int i = 0; i < n.Length; i++)
+				{
+					n[i] = new Vector3(m.normals[i].x, m.normals[i].y, m.normals[i].z);
+				}
+				mesh.normals = n;
+			}
+			else
+			{
+				mesh.RecalculateNormals();
+			}
+			mesh.RecalculateBounds();
+			return mesh;
 		}
 
 		public static bool Is(Component engine)
