@@ -43,6 +43,9 @@ namespace EngineCloner
 		};
 
 		private const string Category = "Truck Part";
+		// The Duramax is also listed in its own category, first in the Parts
+		// Store's list ("All").
+		public const string DuramaxCategory = "6.6L Duramax Diesel";
 
 		private static GameObject holder;
 		private static readonly Dictionary<string, GameObject> templates = new Dictionary<string, GameObject>();
@@ -129,7 +132,15 @@ namespace EngineCloner
 			Freshen(template, k, bare);
 			if (k.id == "duramax")
 			{
-				Duramax.Style(template);
+				try
+				{
+					Duramax.Style(template);
+				}
+				catch (Exception e)
+				{
+					// Still for sale, in the V8's look.
+					EngineClonerMod.Log("Couldn't give the Duramax its look: " + e);
+				}
 			}
 			ShopEngine marker = template.AddComponent<ShopEngine>();
 			marker.kind = k.id;
@@ -442,34 +453,42 @@ namespace EngineCloner
 			{
 				foreach (Kind k in Kinds)
 				{
-					// Our entry for this engine (by name: templates are remade per level).
-					object entry = null;
-					foreach (object e in list)
-					{
-						if ((string)nameField.GetValue(e) == k.name)
-						{
-							entry = e;
-							break;
-						}
-					}
 					GameObject t = Template(k);
-					if (t == null)
+					foreach (string category in k.id == "duramax" ? new[] { Category, DuramaxCategory } : new[] { Category })
 					{
-						if (entry != null)
+						// Our entry for this engine (by name: templates are remade per level).
+						object entry = null;
+						foreach (object e in list)
+						{
+							if ((string)nameField.GetValue(e) == k.name && (string)categoryField.GetValue(e) == category)
+							{
+								entry = e;
+								break;
+							}
+						}
+						if (t == null)
+						{
+							if (entry != null)
+							{
+								list.Remove(entry);
+							}
+							continue;
+						}
+						if (entry == null)
+						{
+							entry = Activator.CreateInstance(entryType);
+							nameField.SetValue(entry, k.name);
+							categoryField.SetValue(entry, category);
+							list.Add(entry);
+						}
+						prefabField.SetValue(entry, t);
+						priceField.SetValue(entry, Price(k));
+						if (category == DuramaxCategory && list.IndexOf(entry) != 0)
 						{
 							list.Remove(entry);
+							list.Insert(0, entry);
 						}
-						continue;
 					}
-					if (entry == null)
-					{
-						entry = Activator.CreateInstance(entryType);
-						nameField.SetValue(entry, k.name);
-						categoryField.SetValue(entry, Category);
-						list.Add(entry);
-					}
-					prefabField.SetValue(entry, t);
-					priceField.SetValue(entry, Price(k));
 				}
 				// The engine stand, too.
 				object[][] stand = StandShop.ShopItems();

@@ -36,6 +36,9 @@ namespace JunkAutoPC
 		public const string I4 = "I4 ENGINE";
 		public const string V8 = "V8 ENGINE";
 		public const string I6 = "2J INLINE-6 ENGINE";
+		// Engine Cloner's Duramax: its own section, with every part that fits it
+		// (it's built on the V8, so it takes the V8's parts).
+		public const string Duramax = "6.6L DURAMAX DIESEL";
 		public static readonly string[] Engines = { I4, V8, I6 };
 
 		private static MethodInfo getCatalog;
@@ -223,6 +226,14 @@ namespace JunkAutoPC
 			p.price = Mathf.Max(0f, price);
 			p.vehicle = storeCategory == "Truck Part" ? Truck : storeCategory == "Dirt Bike Part" ? Bike : Other;
 			p.category = Classify(storeName + " " + description);
+			// The Duramax itself heads its own section.
+			if (storeName.IndexOf("Duramax", StringComparison.OrdinalIgnoreCase) >= 0)
+			{
+				p.vehicle = Duramax;
+				p.category = "ENGINE";
+				list.Add(p);
+				return;
+			}
 			// Whole vehicles (the ATV) get their own shelf.
 			if (storeName.StartsWith("Vehicle", StringComparison.OrdinalIgnoreCase))
 			{
@@ -236,10 +247,15 @@ namespace JunkAutoPC
 			List<string> engines = EnginesOf(prefab, storeName);
 			if (storeCategory == "Truck Part" && engines.Count > 0)
 			{
-				for (int i = 0; i < engines.Count; i++)
+				List<string> shelves = new List<string>(engines);
+				if (engines.Contains(V8))
+				{
+					shelves.Add(Duramax);
+				}
+				for (int i = 0; i < shelves.Count; i++)
 				{
 					Product copy = i == 0 ? p : p.MemberwiseCloneProduct();
-					copy.vehicle = engines[i];
+					copy.vehicle = shelves[i];
 					list.Add(copy);
 				}
 				return;

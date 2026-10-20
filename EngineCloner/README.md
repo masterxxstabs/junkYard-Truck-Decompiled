@@ -7,8 +7,16 @@ mode) are saved with your save slot.
 
 ## Buying a new engine
 
-New engines are sold in the **Parts Store** (ComputerPartStore mod) and on
-**JunkAuto.com** (JunkAuto PC mod, under 1982 Diamondback Pickup → Engine):
+New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine
+in the catalog: I4 / V8 / 2J Inline-6 Engine → Engine) and in the **Parts Store**
+(ComputerPartStore mod, Truck Parts).
+
+The **6.6L Duramax** has its own category in both:
+* **JunkAuto.com (1.2 and later):** **6.6L Duramax Diesel → Engine**, with every
+  part that fits it under the other categories.
+* **Parts Store:** category **6.6L Duramax Diesel**, at the top of the **All**
+  list (and in Truck Parts as before).
+
 
 | Engine | Block | Default price |
 |---|---|---|
