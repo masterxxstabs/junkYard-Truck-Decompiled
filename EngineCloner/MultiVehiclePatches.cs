@@ -36,6 +36,27 @@ namespace EngineCloner
 			EngineShop.SetField(__instance, "canRun", false);
 			EngineShop.SetField(__instance, "canCrank", false);
 		}
+
+		private static readonly HashSet<int> reported = new HashSet<int>();
+
+		// The game refreshes the engine of the kind the truck it's wired to says it
+		// has, even when that truck has no such engine (a Ranger with no engine, or
+		// one being built): then that engine's parts are missing and Refresh throws,
+		// which stopped getting in halfway. That engine just can't run or crank.
+		private static System.Exception Finalizer(System.Exception __exception, MonoBehaviour __instance)
+		{
+			if (__exception == null || __instance == null)
+			{
+				return __exception;
+			}
+			EngineShop.SetField(__instance, "canRun", false);
+			EngineShop.SetField(__instance, "canCrank", false);
+			if (reported.Add(__instance.GetInstanceID()))
+			{
+				EngineClonerMod.Log(__instance.name + " is missing parts the game looks for (" + __exception.GetType().Name + "); it won't run until it's complete. Carrying on.");
+			}
+			return null;
+		}
 	}
 
 	// Fuel and additive go into the vehicle the game is wired to (FluidHandler's

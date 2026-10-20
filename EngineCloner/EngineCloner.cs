@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.4.3", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.4.4", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
