@@ -160,6 +160,15 @@ namespace EngineCloner
 				v[i] = new Vector3(m.positions[i].x, m.positions[i].y, m.positions[i].z);
 			}
 			mesh.vertices = v;
+			if (m.uvs.Count == v.Length)
+			{
+				Vector2[] uv = new Vector2[v.Length];
+				for (int i = 0; i < uv.Length; i++)
+				{
+					uv[i] = new Vector2(m.uvs[i].x, m.uvs[i].y);
+				}
+				mesh.uv = uv;
+			}
 			mesh.subMeshCount = m.submeshes.Count;
 			for (int s = 0; s < m.submeshes.Count; s++)
 			{
@@ -184,6 +193,20 @@ namespace EngineCloner
 					}
 					float[] c = spec != null ? spec.color : new[] { 0.1f, 0.1f, 0.1f, 1f };
 					mat.color = new Color(c[0], c[1], c[2], 1f);
+					// The casting's grain: its color texture and normal map.
+					if (spec != null && spec.image != null && mat.HasProperty("_MainTex"))
+					{
+						mat.mainTexture = Texture(spec.image, name, false);
+					}
+					if (spec != null && spec.normalImage != null && mat.HasProperty("_BumpMap"))
+					{
+						mat.SetTexture("_BumpMap", Texture(spec.normalImage, name + "_n", true));
+						if (mat.HasProperty("_BumpScale"))
+						{
+							mat.SetFloat("_BumpScale", 1f);
+						}
+						mat.EnableKeyword("_NORMALMAP");
+					}
 					if (mat.HasProperty("_Metallic"))
 					{
 						mat.SetFloat("_Metallic", spec != null ? spec.metallic : 0f);
@@ -210,8 +233,20 @@ namespace EngineCloner
 			{
 				mesh.RecalculateNormals();
 			}
+			mesh.RecalculateTangents();
 			mesh.RecalculateBounds();
 			return mesh;
+		}
+
+		private static Texture2D Texture(byte[] png, string name, bool linear)
+		{
+			Texture2D t = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
+			t.LoadImage(png);
+			t.name = "Duramax_" + name;
+			t.wrapMode = TextureWrapMode.Repeat;
+			t.anisoLevel = 4;
+			Object.DontDestroyOnLoad(t);
+			return t;
 		}
 
 		public static bool Is(Component engine)

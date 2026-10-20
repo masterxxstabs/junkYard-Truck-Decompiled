@@ -44,21 +44,36 @@ battery like the others. It's sold as a bare block or complete, like the rest, a
 saved the same way.
 
 What's different:
-* **Its own model:** a GM-style turbo-diesel V8, modeled for this mod: a
-  deep-skirt cast iron block with ribs, freeze plugs and mount bosses, aluminium
-  heads, valve covers with black injector shrouds (**DURAMAX** on each) and the
-  fuel lines, the turbo sitting in the valley at the back with an up-pipe from
-  each log exhaust manifold, the charge pipe forward to the Y-bridge with its
-  intake horn and **6.6L**, a cast front cover with a big damper, and a deep
-  black oil pan. It's shown on the V8's own parts (block, heads, valve covers,
-  intake, exhaust manifolds, front cover, crank pulley, oil pan), so they still
+* **Its own model (2.8):** a GM-style turbo-diesel V8, modeled for this mod, with
+  rounded castings and real surface texture (cast iron, sand-cast aluminium,
+  textured plastic and rubber, each with a normal map for the grain):
+  * **Block:** deep skirt, water jacket bulges, ribs, freeze plugs, engine mounts
+    with their rubbers, the bellhousing flange and its bolts, the dipstick with a
+    yellow handle, the high-pressure fuel pump and its lines.
+  * **Heads:** exhaust ports, glow plugs, lifting eyes.
+  * **Valve covers:** bolted down all round, ribbed black injector shrouds with
+    **DURAMAX**, the fuel lines, the oil cap and a crankcase breather.
+  * **Intake:** the valley manifold, the cast Y-bridge with a ribbed rubber
+    intake horn and **6.6L**, the EGR cooler, the wiring harness and clips; the
+    turbo in the valley with its heat shield and actuator, and the charge pipe.
+  * **Exhaust:** log manifolds with bolts, up-pipes with flex joints.
+  * **Front:** the cast front cover and its bolts, the damper, the water pump,
+    a seven-blade fan on its clutch, the alternator, the A/C compressor, the
+    power steering pump, an idler and a serpentine belt round them all; the
+    thermostat housing and upper radiator hose.
+  * **Below:** a ribbed oil pan with its bolts and drain plug, the oil filter, the
+    starter.
+
+  It's shown on the V8's own parts (18 of them: block, heads, valve covers,
+  intake, exhaust manifolds, front cover, crank pulley, water pump, fan,
+  alternator, belt, thermostat hose, oil filter, starter, oil pan), so they still
   come off and go on the game's way; a part taken off is the game's loose V8
   part.
 * **Power:** it pulls **60% harder** than the game's V8 (setting "6.6L Duramax
   power", 1.6 = 60% more torque; turbos still add on top).
 
-The model is `UserData/EngineCloner/models/duramax.obj` (and `.mtl`), in the
-download; without it, the Duramax is the game's V8 in charcoal and gloss black.
+The model is `UserData/EngineCloner/models/duramax.obj` (with `.mtl` and its
+`duramax_*.png` textures), in the download; without it, the Duramax is the game's V8 in charcoal and gloss black.
 It's made by `tools/duramax_model.py` (Blender's Python module) to the frames of
 the game's V8 parts. (2.7: from the 8.3L of 2.5/2.6 to the 6.6L turbo-diesel.)
 
