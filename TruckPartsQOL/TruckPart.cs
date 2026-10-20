@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 namespace TruckPartsQOL
@@ -295,6 +296,52 @@ namespace TruckPartsQOL
 				}
 			}
 			return false;
+		}
+
+		// The name a vehicle is saved under. Copies made by Engine Cloner (a Ranger,
+		// a cloned truck) keep the original's name, since the game finds vehicles by
+		// name; a tagged one (VehicleTag) is saved as name#tag.
+		public static string SaveName(GameObject vehicle)
+		{
+			string tag = Tag(vehicle);
+			return tag != null ? vehicle.name + "#" + tag : vehicle.name;
+		}
+
+		public static string Tag(GameObject vehicle)
+		{
+			Component c = vehicle != null ? vehicle.GetComponent("VehicleTag") : null;
+			FieldInfo id = c != null ? c.GetType().GetField("id") : null;
+			string value = id != null ? id.GetValue(c) as string : null;
+			return string.IsNullOrEmpty(value) ? null : value;
+		}
+
+		private static MethodInfo isCopy;
+		private static bool lookedForIsCopy;
+
+		// Whether Engine Cloner made this vehicle (false without Engine Cloner).
+		public static bool IsCopy(GameObject vehicle)
+		{
+			if (!lookedForIsCopy)
+			{
+				lookedForIsCopy = true;
+				foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+				{
+					Type api = a.GetType("EngineCloner.VehicleApi", false);
+					if (api != null)
+					{
+						isCopy = api.GetMethod("IsCopy", new[] { typeof(GameObject) });
+						break;
+					}
+				}
+			}
+			try
+			{
+				return isCopy != null && (bool)isCopy.Invoke(null, new object[] { vehicle });
+			}
+			catch (Exception)
+			{
+				return false;
+			}
 		}
 
 		public static GameObject FindRoot(Transform t)

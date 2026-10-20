@@ -308,7 +308,78 @@ namespace EngineCloner
 			copy.transform.localPosition = Vector3.zero;
 			copy.transform.localRotation = Quaternion.identity;
 			EngineShop.StripGameSave(copy);
+			StripOtherMods(copy);
 			return copy;
+		}
+
+		// Things other mods fitted to the original (a stereo, speakers, rock lights,
+		// a bed cover...) belong to the original: a copy taking them along made a
+		// second of each, which those mods then saved too. Objects carrying a
+		// script from another MelonLoader mod are left out
+		// of the copy; a mod's script on the vehicle itself is just removed.
+		private static void StripOtherMods(GameObject copy)
+		{
+			Assembly ours = typeof(VehicleCloner).Assembly;
+			List<GameObject> drop = new List<GameObject>();
+			List<Component> strip = new List<Component>();
+			foreach (MonoBehaviour b in copy.GetComponentsInChildren<MonoBehaviour>(true))
+			{
+				if (b == null || b.GetType().Assembly == ours || !IsMelon(b.GetType().Assembly))
+				{
+					continue;
+				}
+				if (b.gameObject == copy)
+				{
+					strip.Add(b);
+				}
+				else if (!drop.Contains(b.gameObject))
+				{
+					drop.Add(b.gameObject);
+				}
+			}
+			int n = 0;
+			foreach (GameObject go in drop)
+			{
+				// A child of one already dropped is gone with it.
+				if (go != null)
+				{
+					Object.DestroyImmediate(go);
+					n++;
+				}
+			}
+			foreach (Component c in strip)
+			{
+				if (c != null)
+				{
+					Object.DestroyImmediate(c);
+				}
+			}
+			if (n > 0)
+			{
+				EngineClonerMod.Log("Copy of " + copy.name + ": left out " + n + " part(s) other mods fitted to the original.");
+			}
+		}
+
+		private static readonly Dictionary<Assembly, bool> modAssemblies = new Dictionary<Assembly, bool>();
+
+		private static bool IsMelon(Assembly a)
+		{
+			bool mod;
+			if (modAssemblies.TryGetValue(a, out mod))
+			{
+				return mod;
+			}
+			// A MelonLoader mod or plugin carries a MelonInfo attribute.
+			try
+			{
+				mod = a.GetCustomAttributes(typeof(MelonLoader.MelonInfoAttribute), false).Length > 0;
+			}
+			catch (Exception)
+			{
+				mod = false;
+			}
+			modAssemblies[a] = mod;
+			return mod;
 		}
 
 		// Put a copy made by CopyInactive into the world at this pose and start it.

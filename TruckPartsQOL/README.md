@@ -244,6 +244,12 @@ exact spot on the vehicle, loose parts where they lie), head unit power, volume,
 mode, track and the CD in the slot, bed cover open/closed and height, painted rims,
 and whether you own the OBD scanner. Turbo paint is saved by the game itself.
 
+**Rangers and other copies (1.4.1):** a part fitted to a Junkyard Ranger is saved on
+that Ranger (by its tag, `dirt pickup truck#ranger-...`) and comes back on it, not on
+the Diamondback: since Rangers are rebuilt a moment after the level loads, those
+parts wait for their Ranger. Duplicates in older saves (a part saved twice, from a
+Ranger that copied the Diamondback's parts) are dropped on loading.
+
 Files, in `UserData/TruckPartsQOL/`:
 
 | Game slot | ES3 file | Truck Parts QOL file |

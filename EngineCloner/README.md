@@ -236,6 +236,11 @@ real thing:
   in the game's own save (they save themselves).
 * **Engines in copies are saved with the copy.** A bought engine bolted into a
   Ranger comes back in that Ranger, not in the Diamondback.
+* **Copies don't take other mods' parts along (2.4.1).** A stereo, speakers or rock
+  lights fitted to the Diamondback stay on the Diamondback; a Ranger built from it
+  used to get copies of them, which were then saved twice.
+* **Copies are tagged** (`VehicleTag`), so other mods can save what's fitted to a
+  copy under `name#tag` and find that copy again (Truck Parts QOL does).
 
 For mod authors: `EngineCloner.VehicleApi` (see `VehicleApi.cs`) copies a game
 vehicle, takes its engine out, bolts in a new or existing engine, tags the copy for

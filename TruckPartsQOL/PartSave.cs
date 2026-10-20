@@ -100,7 +100,7 @@ namespace TruckPartsQOL
 					GameObject root = part.Vehicle;
 					if (part.installed && root != null)
 					{
-						vehicle = root.name;
+						vehicle = Vehicles.SaveName(root);
 						mountPath = PathFrom(root.transform, t.parent) + "|" + t.parent.name.Replace(";", "").Replace("|", "");
 						p = t.localPosition;
 						r = t.localRotation;
@@ -121,6 +121,10 @@ namespace TruckPartsQOL
 					}));
 					sb.Append("\n");
 					parts++;
+				}
+				foreach (string line in pending)
+				{
+					sb.Append(line).Append("\n");
 				}
 				int rims = SaveRims(sb);
 				if (TruckPartsQOLMod.ScannerOwned)
@@ -169,14 +173,11 @@ namespace TruckPartsQOL
 				legacy = true;
 				TruckPartsQOLMod.ScannerOwned = TruckPartsQOLMod.LegacyScannerOwned;
 			}
-			Dictionary<string, GameObject> vehicles = new Dictionary<string, GameObject>();
-			foreach (GameObject vehicle in Vehicles.AllVehicles())
-			{
-				if (!vehicles.ContainsKey(vehicle.name))
-				{
-					vehicles[vehicle.name] = vehicle;
-				}
-			}
+			pending.Clear();
+			pendingUntil = Time.realtimeSinceStartup + PendingFor;
+			Dictionary<string, GameObject> vehicles = VehiclesBySaveName();
+			HashSet<string> seen = new HashSet<string>();
+			int duplicates = 0;
 			int count = 0;
 			int rims = 0;
 			foreach (string line in File.ReadAllLines(path))
@@ -184,6 +185,11 @@ namespace TruckPartsQOL
 				string[] f = line.Split(';');
 				if (f.Length > 0 && f[0] == "RIM")
 				{
+					if (f.Length > 1 && f[1].IndexOf('#') >= 0 && !vehicles.ContainsKey(f[1]))
+					{
+						pending.Add(line);
+						continue;
+					}
 					rims += LoadRim(f, vehicles) ? 1 : 0;
 					continue;
 				}
@@ -196,65 +202,23 @@ namespace TruckPartsQOL
 				{
 					continue;
 				}
+				// The same part saved twice (copies of a vehicle used to take along
+				// the parts fitted to it): keep one.
+				if (!seen.Add(DuplicateKey(f)))
+				{
+					duplicates++;
+					continue;
+				}
+				// On a vehicle that isn't here yet (a copy another mod rebuilds after
+				// the level loads, like a Ranger): wait for it.
+				if (f[2].IndexOf('#') >= 0 && !vehicles.ContainsKey(f[2]))
+				{
+					pending.Add(line);
+					continue;
+				}
 				try
 				{
-					PartKind kind = (PartKind)Enum.Parse(typeof(PartKind), f[0]);
-					int cd = int.Parse(f[1], Inv);
-					Vector3 p = new Vector3(P(f[4]), P(f[5]), P(f[6]));
-					Quaternion r = new Quaternion(P(f[7]), P(f[8]), P(f[9]), P(f[10]));
-					GameObject vehicle;
-					Transform mount = null;
-					if (f[2].Length > 0 && vehicles.TryGetValue(f[2], out vehicle))
-					{
-						mount = Find(vehicle.transform, f[3]) ?? vehicle.transform;
-					}
-					TruckPart part;
-					if (mount != null && BedCover.IsCover(kind))
-					{
-						// Covers refit to the bed rather than restoring a pose.
-						part = PartFactory.Create(kind, cd, mount.position + Vector3.up, mount.rotation);
-						BedCover cover = part.GetComponent<BedCover>();
-						cover.open = f.Length > 16 && f[16] == "1";
-						cover.heightOffset = f.Length > 17 ? P(f[17]) : 0f;
-						string problem;
-						if (!cover.Fit(Vehicles.FindRoot(mount) ?? mount.gameObject, false, out problem))
-						{
-							TruckPartsQOLMod.Log("Couldn't refit a " + part.DisplayName + ": " + problem);
-						}
-					}
-					else if (mount != null)
-					{
-						part = PartFactory.Create(kind, cd, mount.TransformPoint(p), mount.rotation * r);
-						part.Install(mount, mount.TransformPoint(p), mount.rotation * r * Vector3.forward);
-						part.transform.localPosition = p;
-						part.transform.localRotation = r;
-						// Each bolt's turns; parts saved before bolts existed were fitted
-						// for good, so they come back tight.
-						if (part.Bolts != null)
-						{
-							if (f.Length > 18 && f[18].Length > 0)
-							{
-								part.Bolts.Load(f[18]);
-							}
-							else
-							{
-								part.Bolts.SetAll(PartBolts.Tight);
-							}
-						}
-					}
-					else
-					{
-						part = PartFactory.Create(kind, cd, p + Vector3.up * 0.1f, r);
-					}
-					HeadUnit unit = part.GetComponent<HeadUnit>();
-					if (unit != null)
-					{
-						unit.powerOn = f[11] == "1";
-						unit.volume = P(f[12]);
-						unit.mode = int.Parse(f[13], Inv);
-						unit.track = int.Parse(f[14], Inv);
-						unit.insertedCd = int.Parse(f[15], Inv);
-					}
+					Restore(f, vehicles);
 					count++;
 				}
 				catch (Exception e)
@@ -262,7 +226,9 @@ namespace TruckPartsQOL
 					TruckPartsQOLMod.Log("Skipping bad stereo save line: " + e.Message);
 				}
 			}
-			TruckPartsQOLMod.Log("Restored " + count + " part(s) and " + rims + " painted rim(s) from " + (legacy ? "the old shared save" : SlotName(slot)) + ".");
+			TruckPartsQOLMod.Log("Restored " + count + " part(s) and " + rims + " painted rim(s) from " + (legacy ? "the old shared save" : SlotName(slot)) + "."
+				+ (duplicates > 0 ? " Dropped " + duplicates + " duplicate(s)." : "")
+				+ (pending.Count > 0 ? " " + pending.Count + " wait for their vehicle." : ""));
 			if (legacy)
 			{
 				try
@@ -294,7 +260,7 @@ namespace TruckPartsQOL
 				string where;
 				if (vehicle != null)
 				{
-					vehicleName = vehicle.name;
+					vehicleName = Vehicles.SaveName(vehicle);
 					where = PathFrom(vehicle.transform, t) + "|" + Clean(t.name);
 				}
 				else
@@ -312,6 +278,150 @@ namespace TruckPartsQOL
 				count++;
 			}
 			return count;
+		}
+
+		// Parts saved on a vehicle that comes later (a copy of the Diamondback that
+		// another mod rebuilds once the level is up): their save lines, until the
+		// vehicle is here. Still unplaced ones are written back out when saving,
+		// so they're never lost.
+		private static readonly List<string> pending = new List<string>();
+		private static float pendingUntil;
+		private const float PendingFor = 120f;
+
+		public static void RetryPending()
+		{
+			if (pending.Count == 0 || Time.realtimeSinceStartup > pendingUntil)
+			{
+				return;
+			}
+			Dictionary<string, GameObject> vehicles = VehiclesBySaveName();
+			int placed = 0;
+			for (int i = pending.Count - 1; i >= 0; i--)
+			{
+				string[] f = pending[i].Split(';');
+				bool rim = f[0] == "RIM";
+				if (!vehicles.ContainsKey(rim ? f[1] : f[2]))
+				{
+					continue;
+				}
+				pending.RemoveAt(i);
+				try
+				{
+					if (rim)
+					{
+						LoadRim(f, vehicles);
+					}
+					else
+					{
+						Restore(f, vehicles);
+					}
+					placed++;
+				}
+				catch (Exception e)
+				{
+					TruckPartsQOLMod.Log("Skipping bad stereo save line: " + e.Message);
+				}
+			}
+			if (placed > 0)
+			{
+				TruckPartsQOLMod.Log("Restored " + placed + " part(s) on vehicles that came in after the level loaded.");
+			}
+		}
+
+		// Vehicles by the name they're saved under: the name, and for a copy made by
+		// Engine Cloner (a Ranger...), name#tag, since copies keep the original's name.
+		private static Dictionary<string, GameObject> VehiclesBySaveName()
+		{
+			Dictionary<string, GameObject> vehicles = new Dictionary<string, GameObject>();
+			foreach (GameObject vehicle in Vehicles.AllVehicles())
+			{
+				string key = Vehicles.SaveName(vehicle);
+				// Two by the same name: the game's own vehicle, not a copy of it.
+				GameObject other;
+				if (!vehicles.TryGetValue(key, out other) || Vehicles.IsCopy(other) && !Vehicles.IsCopy(vehicle))
+				{
+					vehicles[key] = vehicle;
+				}
+			}
+			return vehicles;
+		}
+
+		private static string DuplicateKey(string[] f)
+		{
+			if (f.Length < 11 || f[2].Length == 0)
+			{
+				return string.Join(";", f) + ";" + Guid.NewGuid();   // loose parts are never duplicates
+			}
+			StringBuilder sb = new StringBuilder();
+			sb.Append(f[0]).Append(';').Append(f[1]).Append(';').Append(f[2]).Append(';').Append(f[3]);
+			for (int i = 4; i < 7; i++)
+			{
+				float v;
+				sb.Append(';').Append(float.TryParse(f[i], NumberStyles.Float, Inv, out v) ? Mathf.RoundToInt(v * 200f).ToString(Inv) : f[i]);
+			}
+			return sb.ToString();
+		}
+
+		// One saved part, put back (fitted to its vehicle if that's here).
+		private static void Restore(string[] f, Dictionary<string, GameObject> vehicles)
+		{
+			PartKind kind = (PartKind)Enum.Parse(typeof(PartKind), f[0]);
+			int cd = int.Parse(f[1], Inv);
+			Vector3 p = new Vector3(P(f[4]), P(f[5]), P(f[6]));
+			Quaternion r = new Quaternion(P(f[7]), P(f[8]), P(f[9]), P(f[10]));
+			GameObject vehicle;
+			Transform mount = null;
+			if (f[2].Length > 0 && vehicles.TryGetValue(f[2], out vehicle))
+			{
+				mount = Find(vehicle.transform, f[3]) ?? vehicle.transform;
+			}
+			TruckPart part;
+			if (mount != null && BedCover.IsCover(kind))
+			{
+				// Covers refit to the bed rather than restoring a pose.
+				part = PartFactory.Create(kind, cd, mount.position + Vector3.up, mount.rotation);
+				BedCover cover = part.GetComponent<BedCover>();
+				cover.open = f.Length > 16 && f[16] == "1";
+				cover.heightOffset = f.Length > 17 ? P(f[17]) : 0f;
+				string problem;
+				if (!cover.Fit(Vehicles.FindRoot(mount) ?? mount.gameObject, false, out problem))
+				{
+					TruckPartsQOLMod.Log("Couldn't refit a " + part.DisplayName + ": " + problem);
+				}
+			}
+			else if (mount != null)
+			{
+				part = PartFactory.Create(kind, cd, mount.TransformPoint(p), mount.rotation * r);
+				part.Install(mount, mount.TransformPoint(p), mount.rotation * r * Vector3.forward);
+				part.transform.localPosition = p;
+				part.transform.localRotation = r;
+				// Each bolt's turns; parts saved before bolts existed were fitted
+				// for good, so they come back tight.
+				if (part.Bolts != null)
+				{
+					if (f.Length > 18 && f[18].Length > 0)
+					{
+						part.Bolts.Load(f[18]);
+					}
+					else
+					{
+						part.Bolts.SetAll(PartBolts.Tight);
+					}
+				}
+			}
+			else
+			{
+				part = PartFactory.Create(kind, cd, p + Vector3.up * 0.1f, r);
+			}
+			HeadUnit unit = part.GetComponent<HeadUnit>();
+			if (unit != null)
+			{
+				unit.powerOn = f[11] == "1";
+				unit.volume = P(f[12]);
+				unit.mode = int.Parse(f[13], Inv);
+				unit.track = int.Parse(f[14], Inv);
+				unit.insertedCd = int.Parse(f[15], Inv);
+			}
 		}
 
 		private static bool LoadRim(string[] f, Dictionary<string, GameObject> vehicles)

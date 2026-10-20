@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.4.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.4.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -273,6 +273,10 @@ namespace TruckPartsQOL
 				return;
 			}
 			UpdateRockLights();
+			if (Time.frameCount % 30 == 0)
+			{
+				PartSave.RetryPending();
+			}
 			if (Input.GetKeyDown(shopKey.Value))
 			{
 				if (StoreIntegration.Active)
