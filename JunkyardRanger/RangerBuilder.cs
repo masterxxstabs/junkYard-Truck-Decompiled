@@ -351,9 +351,9 @@ namespace JunkyardRanger
 	public class RangerBody : MonoBehaviour
 	{
 		// The paint groups: the body (cab, bed, front end), the hood, the doors, the
-		// tailgate, and the two-tone's lower color (below the line along the sides,
-		// and the bumper).
-		public static readonly string[] Groups = { "Body", "Hood", "DoorD", "DoorP", "Tailgate", "Lower" };
+		// tailgate, the two-tone's lower color (below the line along the sides, and
+		// the bumper), and the sun visor.
+		public static readonly string[] Groups = { "Body", "Hood", "DoorD", "DoorP", "Tailgate", "Lower", "SunVisor" };
 
 		public string id;
 		public Transform gasDoor;
@@ -482,6 +482,12 @@ namespace JunkyardRanger
 				catch (FormatException)
 				{
 				}
+			}
+			// Saved before the sun visor had its own paint: it was the body's.
+			if (saved.IndexOf("SunVisor=", StringComparison.Ordinal) < 0)
+			{
+				colors["SunVisor"] = colors["Body"];
+				finish["SunVisor"] = finish["Body"];
 			}
 			foreach (string g in Groups)
 			{

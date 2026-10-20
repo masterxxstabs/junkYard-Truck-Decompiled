@@ -861,12 +861,12 @@ VISOR = mat("R_Visor", (0.018, 0.018, 0.02), 0.0, 0.12)
 RAIN_PATH = [(0.665, 1.660), (0.600, 1.765), (0.530, 1.870), (0.470, 1.940), (0.400, 1.962), (0.250, 1.970), (0.050, 1.970), (-0.080, 1.962)]
 # (o out from the window, u along the frame's outward normal: negative, so the
 # guard hangs out and down over the top of the window, the way a rain guard does.)
-RAIN_PROFILE = [(o * 0.75, -u * 0.75 + 0.012) for o, u in ((0.0, -0.004), (0.008, 0.030), (0.034, 0.052), (0.066, 0.058), (0.070, 0.052), (0.038, 0.046), (0.013, 0.027), (0.004, -0.004))]
+RAIN_PROFILE = [(o * 0.6, -u * 0.75 + 0.008) for o, u in ((0.0, -0.004), (0.008, 0.030), (0.034, 0.052), (0.066, 0.058), (0.070, 0.052), (0.038, 0.046), (0.013, 0.027), (0.004, -0.004))]
 
 
 def window_x(z):
     """The door window's outer face (x) at height z."""
-    return 0.722 - 0.24 * (z - 1.6) + 0.045
+    return 0.722 - 0.24 * (z - 1.6) + 0.024
 
 
 def rain_guard(sgn, group):
@@ -908,6 +908,7 @@ SV_TOP = [(0.42, 2.040), (0.55, 2.052), (0.66, 2.056), (0.78, 2.045), (0.87, 2.0
 SV_BOT = [(0.905, 1.976), (0.83, 2.002), (0.70, 2.028), (0.58, 2.036), (0.44, 2.032)]
 SV_HW = 0.74
 SV_DEPTH = 0.68          # front to back: overhangs the windshield by about 12 cm
+SV_DROP = 0.02           # down onto the roof
 bm = bmesh.new()
 rings = []
 xs = [SV_HW * (2 * i / 40 - 1) for i in range(41)]
@@ -919,7 +920,7 @@ for x in xs:
     for y, z in SV_TOP + SV_BOT:
         yy = 0.42 + (y - 0.42) * f * SV_DEPTH
         zz = 2.032 + (z - 2.032) * (0.4 + 0.6 * f)
-        ring.append(bm.verts.new((x, yy, zz - 0.012 * e * e)))
+        ring.append(bm.verts.new((x, yy, zz - 0.012 * e * e - SV_DROP)))
     rings.append(ring)
 k = len(SV_TOP) + len(SV_BOT)
 for i in range(len(rings) - 1):
@@ -936,11 +937,11 @@ for sx in (-0.30, 0.30):
     for y0, h, w in ((0.60, 0.002, 0.07), (0.70, 0.024, 0.08), (0.80, 0.020, 0.075), (0.84, 0.002, 0.07)):
         y = 0.42 + (y0 - 0.42) * SV_DEPTH
         for side in (-1, 1):
-            z_top = 2.056 - 0.3 * (y - 0.66) ** 2
+            z_top = 2.056 - 0.3 * (y - 0.66) ** 2 - SV_DROP
             pts += [(sx + side * w, y, z_top - 0.004), (sx + side * w * 0.8, y, z_top + h)]
     scoop = hull(pts, "SunVisorScoop", "SunVisor", PAINT, 0.006)
     paint_uvs(scoop)
-SUN_VISOR_BOLTS = [(sx, 0.47, 2.047) for sx in (-0.6, -0.25, 0.25, 0.6)]
+SUN_VISOR_BOLTS = [(sx, 0.47, 2.047 - SV_DROP) for sx in (-0.6, -0.25, 0.25, 0.6)]
 
 # Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
 door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)

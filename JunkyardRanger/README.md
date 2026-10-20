@@ -46,7 +46,7 @@ A new Ranger from the shops comes:
 * **Fuel:** the filler is on the driver's side, behind the rear wheel (where a
   Ranger's is). Open the cap and pour, as usual.
 * **Paint:** spray it with the game's paint cans. The cab and bed, the hood, each
-  door and the tailgate take paint separately, like the game's trucks. **Two-tone:**
+  door, the tailgate and the sun visor take paint separately, like the game's trucks. **Two-tone:**
   spray below the line along the sides (through the wheel arches), or the bumper,
   and you paint the lower color instead, all round the truck.
 * **Engines:** swap them like on the Diamondback. Engines bought from the shop and
@@ -64,7 +64,7 @@ back fitted when you load, and loose ones are saved where they lie.
 |---|---|---|---|
 | Ranger - Bull bar | $350 | Front, on the frame | 4, under the bumper |
 | Ranger - Rain guards (pair) | $60 | Top of each door window (one fits either door; you get two) | none, they snap on |
-| Ranger - Sun visor | $180 | Over the windshield, on the roof; body colored, paint it with the body | 4, on the roof |
+| Ranger - Sun visor | $180 | Over the windshield, on the roof; comes in the body color, and paints on its own with the paint cans | 4, on the roof |
 
 ### Bull bar
 

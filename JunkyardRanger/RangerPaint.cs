@@ -77,6 +77,8 @@ namespace JunkyardRanger
 				{
 				case "hood_low1":
 					return "Hood";
+				case "sunvisor_e":
+					return "SunVisor";
 				case "cardoor_d":
 					return "DoorD";
 				case "cardoor_p":
