@@ -113,13 +113,24 @@ namespace JunkyardRanger
 					renderer.sharedMaterials = materials;
 				}
 				Bounds b = mesh.bounds;
+				Bounds grip = GripBounds(mesh);
 				foreach (BoxCollider box in slot.GetComponents<BoxCollider>())
 				{
-					box.center = b.center;
 					// The trigger reaches a little past the part, so the snap mark
-					// shows as you bring it up.
-					box.size = box.isTrigger ? b.size + Vector3.one * 0.25f : b.size;
+					// shows as you bring it up; it's only on while you carry a part
+					// that fits (see UpdateTriggers), or it would be in the way of
+					// everything you look at (the driver's seat, through the door).
+					// The solid box is what you aim at to take the part off: for a
+					// rain guard, just its top (its whole bounding box would fill the
+					// top of the window).
+					box.center = box.isTrigger ? b.center : grip.center;
+					box.size = box.isTrigger ? b.size + Vector3.one * 0.25f : grip.size;
+					if (box.isTrigger)
+					{
+						box.enabled = false;
+					}
 				}
+				Register(slot);
 				durability d = slot.GetComponent<durability>();
 				if (d != null)
 				{
@@ -133,6 +144,85 @@ namespace JunkyardRanger
 				if (d != null)
 				{
 					d.numBolts = CountBolts(slot);
+				}
+			}
+		}
+
+		// The part's top: what's above the lowest of its highest 8 cm (the bounds
+		// of the part for anything flat; the strip along the roof for a rain guard).
+		private static Bounds GripBounds(Mesh mesh)
+		{
+			Bounds all = mesh.bounds;
+			if (all.size.y < 0.25f)
+			{
+				return all;
+			}
+			Vector3[] v = mesh.vertices;
+			float top = all.max.y - 0.08f;
+			Bounds b = new Bounds();
+			bool any = false;
+			foreach (Vector3 p in v)
+			{
+				if (p.y < top)
+				{
+					continue;
+				}
+				if (!any)
+				{
+					b = new Bounds(p, Vector3.zero);
+					any = true;
+				}
+				else
+				{
+					b.Encapsulate(p);
+				}
+			}
+			return any ? b : all;
+		}
+
+		// Every slot on every Ranger, for UpdateTriggers.
+		private static readonly List<Transform> slots = new List<Transform>();
+
+		private static void Register(Transform slot)
+		{
+			if (!slots.Contains(slot))
+			{
+				slots.Add(slot);
+			}
+		}
+
+		private static float nextTriggerCheck;
+
+		// Slot triggers are on only while you carry a loose accessory, and only on
+		// the empty slots it fits.
+		public static void UpdateTriggers()
+		{
+			if (Time.time < nextTriggerCheck)
+			{
+				return;
+			}
+			nextTriggerCheck = Time.time + 0.2f;
+			slots.RemoveAll(t => t == null);
+			Kind held = null;
+			foreach (RangerAccessoryItem item in Object.FindObjectsOfType<RangerAccessoryItem>())
+			{
+				PickUp pick = item.GetComponent<PickUp>();
+				if (pick != null && pick.holding)
+				{
+					held = KindById(item.kind);
+					break;
+				}
+			}
+			foreach (Transform slot in slots)
+			{
+				Renderer r = slot.GetComponent<Renderer>();
+				bool on = held != null && Array.IndexOf(held.fits, slot.name) >= 0 && (r == null || !r.enabled);
+				foreach (BoxCollider box in slot.GetComponents<BoxCollider>())
+				{
+					if (box.isTrigger && box.enabled != on)
+					{
+						box.enabled = on;
+					}
 				}
 			}
 		}
@@ -160,6 +250,7 @@ namespace JunkyardRanger
 			solid.enabled = false;
 			BoxCollider trigger = go.AddComponent<BoxCollider>();
 			trigger.isTrigger = true;
+			trigger.enabled = false;
 			durability d = go.AddComponent<durability>();
 			d.health = 0f;
 			d.canDetach = false;
@@ -231,7 +322,7 @@ namespace JunkyardRanger
 			}
 			foreach (BoxCollider box in slot.GetComponents<BoxCollider>())
 			{
-				box.enabled = box.isTrigger;
+				box.enabled = false;
 			}
 			durability d = slot.GetComponent<durability>();
 			if (d != null)

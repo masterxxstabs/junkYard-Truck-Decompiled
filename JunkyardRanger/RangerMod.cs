@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.5.2", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.5.3", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger
@@ -87,6 +87,7 @@ namespace JunkyardRanger
 				RangerBuilder.Spawn();
 			}
 			RangerBuilder.Update();
+			RangerAccessories.UpdateTriggers();
 		}
 
 		public override void OnGUI()
