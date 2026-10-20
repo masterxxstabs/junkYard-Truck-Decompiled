@@ -379,6 +379,16 @@ namespace JunkyardRanger
 			}
 			m = template != null ? new Material(template) : new Material(GameMaterials.Standard() ?? new Material(Shader.Find("Standard")));
 			m.name = "Ranger_Paint_" + group;
+			// Paint shows wherever the paint mask is (no leftover rust or dirt from
+			// whichever copy of the F100's layer this came from).
+			if (m.HasProperty("_Cutoff"))
+			{
+				m.SetFloat("_Cutoff", 0.5f);
+			}
+			if (m.HasProperty("_RustIntensity"))
+			{
+				m.SetFloat("_RustIntensity", 0f);
+			}
 			if (!weathered && paintTexture != null)
 			{
 				m.mainTexture = paintTexture;

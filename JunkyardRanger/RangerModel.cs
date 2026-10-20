@@ -17,7 +17,7 @@ namespace JunkyardRanger
 	// Materials are the game's own, found by name in the loaded game (the F100's
 	// body, glass and trim). The body ("Tex_RGB_23", the F100's) is drawn in the
 	// F100's layers: its base, a paint layer (ranger_paint.png: the game's paint
-	// mask, tinted with the paint color) and its mud layer. R_* materials (lamps,
+	// mask, tinted with the paint color); not its mud layer. R_* materials (lamps,
 	// chrome, black trim) are made from the MTL's values on the game's shader.
 	internal static class RangerModel
 	{
@@ -273,11 +273,9 @@ namespace JunkyardRanger
 				{
 					list.Add(GameMaterials.Find(BodyMaterial) ?? Fallback(name));
 					list.Add(body.PaintMaterial(g.name, PaintLayerTemplate(), paintTexture, RangerMod.Weathered));
-					Material mud = GameMaterials.Find("Tex_RGB_23Mud");
-					if (mud != null)
-					{
-						list.Add(mud);
-					}
+					// No mud layer: the F100's is changed by the game as the F100 gets
+					// dirty (and the copies of it that are found may be the F100's own),
+					// so it covered a Ranger's paint with the F100's mud.
 				}
 				else
 				{

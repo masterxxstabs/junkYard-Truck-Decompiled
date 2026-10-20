@@ -103,7 +103,7 @@ part. Deleting a slot, or overwriting it with a new game, clears them too.
   tailgate are in the frame of the Diamondback's own door, hood and tailgate, and are
   hung on them, so they swing with them.
 * **Materials:** the game's own, by name: the F100's body, drawn in its layers
-  (base, paint, mud), with the paint layer's texture (`ranger_paint.png`) being the
+  (base and paint; not the F100's mud layer, which the game dirties with the F100), with the paint layer's texture (`ranger_paint.png`) being the
   game's own paint mask with clean paint. The headlights, corner lamps and fog
   lights use the Diamondback's own lamp materials (`frontLight`, `frontTurn`).
   Trim is made on the game's shader from the MTL.
