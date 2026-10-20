@@ -164,8 +164,10 @@ or a turbo still goes through the game's own painting code.
 Buy as many as you like (`Lights - Rock light` in the Parts Store, or the F9 shop)
 and fit them **like the speakers**: hold one, look at the spot (under the body or the
 bed, in a wheel well, on the frame, behind the bumper...), press **Y**, then tighten
-its 2 bolts with the ratchet. A fitted light faces out of the surface it's on, so
-one under the truck shines down on the ground. **Y** on a fitted light (bolts out)
+its 2 bolts with the ratchet. A fitted light always points **down at the ground**,
+tilted a little out from the truck, whichever way the surface it's on faces (an
+inner fender well, the side of the frame...); only on top of something does it face
+straight up out of it. **Y** on a fitted light (bolts out)
 takes it off again.
 
 | Setting | Default | What it does |

@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.3.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.3.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL

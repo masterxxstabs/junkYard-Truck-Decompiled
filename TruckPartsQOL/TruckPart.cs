@@ -173,6 +173,10 @@ namespace TruckPartsQOL
 			Vector3 up = Mathf.Abs(Vector3.Dot(normal, mountTo.up)) > 0.9f ? mountTo.forward : mountTo.up;
 			transform.rotation = Quaternion.LookRotation(normal, up);
 			transform.position = point + normal * (halfDepth - inset);
+			if (kind == PartKind.RockLight)
+			{
+				AimAtGround(mountTo, point, normal);
+			}
 			if (bolts != null)
 			{
 				// Fitted loose: bolt it down with the ratchet.
@@ -185,6 +189,28 @@ namespace TruckPartsQOL
 				Pick.pickable = false;
 			}
 			installed = true;
+		}
+
+		// A rock light hangs off whatever it's fitted to (an inner fender, the
+		// frame, under the body) on its bracket and points down at the ground,
+		// tilted a little out from the truck, whichever way that surface faces.
+		private void AimAtGround(Transform mountTo, Vector3 point, Vector3 normal)
+		{
+			GameObject vehicle = Vehicles.FindRoot(mountTo);
+			Transform v = vehicle != null ? vehicle.transform : mountTo;
+			Vector3 down = -v.up;
+			Vector3 outward = Vector3.ProjectOnPlane(point - v.position, v.up);
+			outward = outward.sqrMagnitude > 0.0001f ? outward.normalized : Vector3.zero;
+			Vector3 aim = (down + outward * 0.35f).normalized;
+			// On a surface that faces up (the top of something), down would point
+			// into it: then it faces straight out of the surface as before.
+			if (Vector3.Dot(aim, normal) < -0.1f)
+			{
+				return;
+			}
+			transform.rotation = Quaternion.LookRotation(aim, Mathf.Abs(Vector3.Dot(aim, v.forward)) > 0.95f ? v.up : v.forward);
+			// Its back, turned off the surface, must not sink into it.
+			transform.position = point + normal * 0.045f;
 		}
 
 		public void Remove()
