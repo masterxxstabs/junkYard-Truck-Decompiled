@@ -79,8 +79,10 @@ Either way, items are paid from your wallet like any part.
 ## Fitting
 
 * **Pick up** a part with the normal left click.
-* **Install:** hold it, look at the spot on the vehicle where you want it (dash,
-  doors, rear deck, bed, floor...) and press **Y**. It mounts flush to that surface,
+* **Install:** hold it and look at the spot on the vehicle where you want it (dash,
+  doors, rear deck, bed, floor...). A **see-through green preview** shows exactly
+  where and how it will sit. **R** turns it 15 degrees (Shift+R the other way); for
+  a rock light **F** tilts its aim 10 degrees (Shift+F back). Press **Y** to fit it. It mounts flush to that surface,
   facing out; door speakers sink into the panel. Mounted on a door, it swings with
   the door. On a floor the amp lies lengthwise along the vehicle.
 * **Bolt it down** like any part in the game: take out the **ratchet (tool 2)**, aim
@@ -167,7 +169,8 @@ bed, in a wheel well, on the frame, behind the bumper...), press **Y**, then tig
 its 2 bolts with the ratchet. A fitted light always points **down at the ground**,
 tilted a little out from the truck, whichever way the surface it's on faces (an
 inner fender well, the side of the frame...); only on top of something does it face
-straight up out of it. **Y** on a fitted light (bolts out)
+straight up out of it. While placing, the green preview shows where it will point;
+tilt it with **F** / **Shift+F** and turn it with **R**. **Y** on a fitted light (bolts out)
 takes it off again.
 
 | Setting | Default | What it does |
@@ -176,6 +179,8 @@ takes it off again.
 | Rock light brightness (`RockLightBrightness`) | 1 | 0.5 half, 2 twice as bright |
 | Rock lights on (`RockLightsOn`) | on | Whether fitted lights are lit |
 | Rock lights on / off (`RockLightKey`) | **L** | Switches them all on or off |
+| Turn while fitting (`RotateKey`) | **R** | 15 degrees per press, Shift: the other way (every part) |
+| Tilt while fitting (`TiltKey`) | **F** | Rock lights: tilt the aim 10 degrees, Shift: back (up to 60) |
 
 Color and brightness can be changed in the Mods Menu at any time and show at once.
 Lights only shine while fitted to a vehicle.

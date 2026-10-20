@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.3.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.4.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -42,6 +42,13 @@ namespace TruckPartsQOL
 		private MelonPreferences_Entry<float> rockLightBrightness;
 		private MelonPreferences_Entry<bool> rockLightsOn;
 		private MelonPreferences_Entry<KeyCode> rockLightKey;
+		private MelonPreferences_Entry<KeyCode> rotateKey;
+		private MelonPreferences_Entry<KeyCode> tiltKey;
+
+		// How the held part is turned for fitting (reset when you pick up another).
+		private TruckPart placing;
+		private float spin;
+		private float tilt;
 
 		private bool shopOpen;
 		private Rect shopRect = new Rect(40f, 40f, 320f, 10f);
@@ -114,6 +121,8 @@ namespace TruckPartsQOL
 			rockLightBrightness = c.CreateEntry("RockLightBrightness", 1f, "Rock light brightness", "1 is normal; 0.5 half, 2 twice as bright.");
 			rockLightsOn = c.CreateEntry("RockLightsOn", true, "Rock lights on", "Whether fitted rock lights are lit (the rock light key switches this).");
 			rockLightKey = c.CreateEntry("RockLightKey", KeyCode.L, "Rock lights on / off");
+			rotateKey = c.CreateEntry("RotateKey", KeyCode.R, "Fitting: turn the part 15 degrees (Shift: the other way)");
+			tiltKey = c.CreateEntry("TiltKey", KeyCode.F, "Fitting a rock light: tilt its aim 10 degrees (Shift: the other way)");
 			StoreIntegration.PriceOf = Price;
 			ShopProviders.Register(StoreIntegration.ShopItems);
 			MigrateOldSettings(c);
@@ -277,6 +286,7 @@ namespace TruckPartsQOL
 			}
 			hint = "";
 			UpdateScanner();
+			PlacementPreview.Hide();
 			if (!shopOpen && Camera.main != null && !ObdScanner.Equipped)
 			{
 				HandleLook();
@@ -358,16 +368,36 @@ namespace TruckPartsQOL
 				{
 					return;
 				}
-				hint = Key(useKey) + " Install " + held.DisplayName;
+				if (held != placing)
+				{
+					placing = held;
+					spin = 0f;
+					tilt = 0f;
+				}
+				bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+				if (rotateKey.Value != KeyCode.None && Input.GetKeyDown(rotateKey.Value))
+				{
+					spin = Mathf.Repeat(spin + (shift ? -15f : 15f), 360f);
+				}
+				if (held.CanTilt && tiltKey.Value != KeyCode.None && Input.GetKeyDown(tiltKey.Value))
+				{
+					tilt = Mathf.Clamp(tilt + (shift ? -10f : 10f), -60f, 60f);
+				}
+				hint = Key(useKey) + " Install " + held.DisplayName + "   " + Key(rotateKey) + " Turn" + (held.CanTilt ? "   " + Key(tiltKey) + " Tilt" : "") + "  (Shift: back)";
+				// Mount to the rigidbody that was hit (a door...) so the part moves
+				// with it; otherwise to the vehicle itself. Not to anything that can
+				// be picked up and carried off (an engine block, cargo).
+				Rigidbody hitBody = hit.rigidbody;
+				bool followBody = hitBody != null && hitBody.GetComponent<PickUp>() == null && Vehicles.FindRoot(hitBody.transform) == vehicle;
+				Transform mount = followBody ? hitBody.transform : vehicle.transform;
+				Vector3 pos;
+				Quaternion rot;
+				held.PlacementPose(mount, hit.point, hit.normal, spin, tilt, out pos, out rot);
+				PlacementPreview.Show(held, pos, rot);
 				if (Input.GetKeyDown(useKey.Value))
 				{
-					// Mount to the rigidbody that was hit (a door...) so the part moves
-					// with it; otherwise to the vehicle itself. Not to anything that can
-					// be picked up and carried off (an engine block, cargo).
-					Rigidbody hitBody = hit.rigidbody;
-					bool followBody = hitBody != null && hitBody.GetComponent<PickUp>() == null && Vehicles.FindRoot(hitBody.transform) == vehicle;
-					Transform mount = followBody ? hitBody.transform : vehicle.transform;
-					held.Install(mount, hit.point, hit.normal);
+					PlacementPreview.Hide();
+					held.Install(mount, hit.point, hit.normal, spin, tilt);
 				}
 				return;
 			}
