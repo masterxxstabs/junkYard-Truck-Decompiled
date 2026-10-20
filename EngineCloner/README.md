@@ -44,36 +44,50 @@ battery like the others. It's sold as a bare block or complete, like the rest, a
 saved the same way.
 
 What's different:
-* **Its own model (2.8):** a GM-style turbo-diesel V8, modeled for this mod, with
-  rounded castings and real surface texture (cast iron, sand-cast aluminium,
-  textured plastic and rubber, each with a normal map for the grain):
-  * **Block:** deep skirt, water jacket bulges, ribs, freeze plugs, engine mounts
-    with their rubbers, the bellhousing flange and its bolts, the dipstick with a
-    yellow handle, the high-pressure fuel pump and its lines.
-  * **Heads:** exhaust ports, glow plugs, lifting eyes.
-  * **Valve covers:** bolted down all round, ribbed black injector shrouds with
-    **DURAMAX**, the fuel lines, the oil cap and a crankcase breather.
-  * **Intake:** the valley manifold, the cast Y-bridge with a ribbed rubber
-    intake horn and **6.6L**, the EGR cooler, the wiring harness and clips; the
-    turbo in the valley with its heat shield and actuator, and the charge pipe.
-  * **Exhaust:** log manifolds with bolts, up-pipes with flex joints.
-  * **Front:** the cast front cover and its bolts, the damper, the water pump,
-    a seven-blade fan on its clutch, the alternator, the A/C compressor, the
-    power steering pump, an idler and a serpentine belt round them all; the
-    thermostat housing and upper radiator hose.
-  * **Below:** a ribbed oil pan with its bolts and drain plug, the oil filter, the
-    starter.
+* **Its own model (2.9):** a GM-style turbo-diesel V8, modeled for this mod. Each
+  part has its own baked textures, like the game's engines: shading in the
+  corners, grime that collects low down and in the gaps, worn edges, cast grain,
+  and a metal/gloss map (bare metal, paint, plastic and rubber each look their
+  own).
+  * **Block:** deep skirt flaring out to the banks, cylinder barrels, deck bolt
+    bosses, ribs, freeze plugs, the oil cooler on the passenger's side, engine
+    mounts with their rubbers, the bellhousing flange and its bolts, the
+    dipstick tube up to the game's dipstick.
+  * **Heads:** aluminium, with exhaust port faces, head bolts, glow plugs and
+    lifting eyes.
+  * **Valve covers:** cast rocker housings bolted all round, rounded black
+    injector covers with **DURAMAX** and ribbed ends, the oil filler neck and a
+    yellow **oil cap**, and a crankcase breather.
+  * **Intake:** a smooth cast valley manifold, the Y-bridge with **6.6L**, its
+    coupler and clamps, the EGR valve and cooler, the wiring harness and the
+    charge pipe.
+  * **Turbo:** a variable-geometry turbo in the valley: aluminium compressor
+    scroll with its wheel in the inlet, cast iron turbine housing, actuator, oil
+    lines, pedestal.
+  * **Air:** a rubber inlet elbow and MAF housing off the turbo, and a pleated
+    cone air filter.
+  * **Fuel:** the CP3 high-pressure pump, fuel rails along both heads, steel
+    injector lines with their nuts, feed lines, and the glow plug harness.
+  * **Exhaust:** cast log manifolds and up-pipes with braided flex joints to
+    the turbo.
+  * **Front:** the front cover and its bolts, the damper, the water pump,
+    a nine-blade fan on its clutch, the alternator (and its fan), the A/C
+    compressor, the power steering pump, an idler and a ribbed serpentine belt
+    round them all; the thermostat housing with the upper hose, and the lower
+    hose.
+  * **Below:** an oil pan with a deep sump, its bolts and drain plug; the oil
+    filter; the starter and solenoid.
 
-  It's shown on the V8's own parts (18 of them: block, heads, valve covers,
-  intake, exhaust manifolds, front cover, crank pulley, water pump, fan,
-  alternator, belt, thermostat hose, oil filter, starter, oil pan), so they still
-  come off and go on the game's way; a part taken off is the game's loose V8
-  part.
+  It's shown on the V8's own parts (26 of them), so the engine comes apart,
+  wears and goes back together the game's way. The V8's gasoline parts get
+  diesel looks: the distributor is the turbo, the plug wires are the fuel lines,
+  the carb and air cleaner are the inlet and air filter, the fuel pump is the
+  CP3. A part taken off is the game's loose V8 part.
 * **Power:** it pulls **60% harder** than the game's V8 (setting "6.6L Duramax
   power", 1.6 = 60% more torque; turbos still add on top).
 
 The model is `UserData/EngineCloner/models/duramax.obj` (with `.mtl` and its
-`duramax_*.png` textures), in the download; without it, the Duramax is the game's V8 in charcoal and gloss black.
+`duramax_*` textures, three per part), in the download; without it, the Duramax is the game's V8 in charcoal and gloss black.
 It's made by `tools/duramax_model.py` (Blender's Python module) to the frames of
 the game's V8 parts. (2.7: from the 8.3L of 2.5/2.6 to the 6.6L turbo-diesel.)
 

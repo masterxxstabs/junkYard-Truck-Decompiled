@@ -112,15 +112,16 @@ ORIGIN = Vector((C, MID, -1.60))     # where the banks' bore axes meet
 # glossy and metallic it is, and how coarse the casting is.
 SURF = {
     #            base color             metal rough  worn edge             wear grime bump
-    "Iron":     ((0.115, 0.12, 0.125),  0.15, 0.72, (0.33, 0.32, 0.30),   0.55, 0.85, 1.0),
-    "Alu":      ((0.40, 0.40, 0.385),   0.75, 0.55, (0.66, 0.66, 0.64),   0.45, 0.80, 0.8),
-    "AluMach":  ((0.62, 0.62, 0.62),    0.90, 0.32, (0.78, 0.78, 0.78),   0.20, 0.45, 0.1),
+    "Iron":     ((0.095, 0.10, 0.105),  0.15, 0.72, (0.30, 0.29, 0.27),   0.55, 1.00, 1.0),
+    "Alu":      ((0.27, 0.27, 0.26),    0.70, 0.58, (0.55, 0.55, 0.53),   0.45, 1.00, 0.8),
+    "AluMach":  ((0.48, 0.48, 0.48),    0.90, 0.35, (0.70, 0.70, 0.70),   0.20, 0.60, 0.1),
+    "Pulley":   ((0.20, 0.20, 0.21),    0.85, 0.48, (0.55, 0.55, 0.56),   0.50, 0.80, 0.3),
     "Plastic":  ((0.032, 0.032, 0.035), 0.00, 0.42, (0.09, 0.09, 0.095),  0.35, 0.40, 0.25),
     "Rubber":   ((0.022, 0.022, 0.024), 0.00, 0.82, (0.06, 0.06, 0.06),   0.25, 0.35, 0.2),
-    "Steel":    ((0.50, 0.50, 0.52),    1.00, 0.35, (0.72, 0.72, 0.72),   0.30, 0.50, 0.1),
+    "Steel":    ((0.38, 0.38, 0.40),    1.00, 0.40, (0.65, 0.65, 0.65),   0.30, 0.70, 0.1),
     "DarkSteel": ((0.10, 0.10, 0.11),   0.60, 0.50, (0.40, 0.40, 0.40),   0.50, 0.60, 0.3),
     "Zinc":     ((0.56, 0.53, 0.42),    1.00, 0.32, (0.72, 0.70, 0.62),   0.30, 0.50, 0.1),
-    "Exhaust":  ((0.17, 0.105, 0.07),   0.35, 0.88, (0.28, 0.22, 0.18),   0.40, 0.45, 1.3),
+    "Exhaust":  ((0.12, 0.08, 0.06),    0.35, 0.88, (0.26, 0.21, 0.17),   0.40, 0.60, 1.3),
     "Filter":   ((0.03, 0.075, 0.24),   0.30, 0.35, (0.55, 0.55, 0.57),   0.40, 0.50, 0.1),
     "Yellow":   ((0.85, 0.58, 0.03),    0.00, 0.40, (0.95, 0.80, 0.30),   0.20, 0.40, 0.1),
     "Copper":   ((0.60, 0.34, 0.20),    1.00, 0.35, (0.80, 0.55, 0.40),   0.30, 0.40, 0.1),
@@ -408,7 +409,7 @@ def text(body, size, center, normal, up, name, slot, surf, depth=0.0025):
     return add_mesh(me, name, slot, surf, 30)
 
 
-def pulley(center, r, slot, name="Pulley", ribs=6, surf="Steel", depth=0.026, hub=True):
+def pulley(center, r, slot, name="Pulley", ribs=6, surf="Pulley", depth=0.026, hub=True):
     """A serpentine pulley: ribbed rim, flanges, web and hub, axis along y."""
     w = depth / 2
     prof = [(0, -w - 0.004), (r * 0.42, -w - 0.004), (r * 0.42, -w), (r + 0.003, -w), (r + 0.003, -w + 0.002)]
@@ -679,33 +680,25 @@ def turbo():
     revolve([(0, -0.03), (0.028, -0.03), (0.036, -0.022), (0.036, 0.018), (0.03, 0.03), (0, 0.03)], T, X, "CenterHousing", s_, "Iron", 32)
     tube([T + Z * 0.035, T + Z * 0.06 + Y * 0.02, T + Z * 0.07 + Y * 0.08, Vector((C - 0.02, 1.88, -1.17))], 0.004, "OilFeed", s_, "Steel", 10)
     tube([T - Z * 0.035, T - Z * 0.06, T - Z * 0.09 + Y * 0.01], 0.012, "OilDrain", s_, "Rubber", 14)
-    # Turbine: scroll, outlet, VGT actuator, heat shield.
-    revolve([(0, 0.0), (0.06, 0.0), (0.066, -0.006), (0.066, -0.024), (0.05, -0.034), (0, -0.034)], T - X * 0.03, X, "TurbBack", s_, "Exhaust", 48)
-    tscroll = []
-    tr = []
+    # Turbine: a cast scroll housing round the back plate, outlet, inlet flange.
+    els = [("capsule", T - X * 0.035, T - X * 0.06, 0.05)]
     for k in range(n + 1):
         f = k / n
         a = math.pi * 0.6 + f * 2 * math.pi * 0.85
-        rc = 0.052 + 0.02 * (1 - f)
-        tscroll.append(T - X * 0.05 + (Y * math.cos(a) + Z * math.sin(a)) * rc)
-        tr.append(0.03 - 0.016 * f)
-    tscroll = [TURB_IN - Z * 0.01, TURB_IN] + tscroll
-    tr = [0.03, 0.03] + tr
-    tube(tscroll, 0.02, "TurbScroll", s_, "Exhaust", 24, 1, radii=tr)
-    revolve([(0.034, 0.0), (0.05, 0.0), (0.05, -0.03), (0.056, -0.034), (0.056, -0.044), (0.034, -0.044)], T - X * 0.06, X, "TurbOutlet", s_, "Exhaust", 48)
-    revolve([(0.044, 0.0), (0.06, 0.0), (0.06, 0.008), (0.044, 0.008)], TURB_IN - Z * 0.012, Z, "TurbInletFlange", s_, "Exhaust", 32)
+        rc = 0.05 + 0.018 * (1 - f)
+        els.append(("ball", T - X * 0.048 + (Y * math.cos(a) + Z * math.sin(a)) * rc, 0.03 - 0.014 * f))
+    els.append(("capsule", TURB_IN + Z * 0.004, T - X * 0.05 + (Y * math.cos(math.pi * 0.6) + Z * math.sin(math.pi * 0.6)) * 0.068, 0.028))
+    meta(els, "TurbHousing", s_, "Exhaust", 0.003, 7000)
+    revolve([(0.03, 0.0), (0.046, 0.0), (0.046, -0.022), (0.052, -0.026), (0.052, -0.036), (0.034, -0.036)], T - X * 0.075, X, "TurbOutlet", s_, "Exhaust", 48)
+    cylinder(T - X * 0.1, X, 0.031, 0.02, "OutletBore", s_, "DarkSteel", 32)
+    box(TURB_IN - Z * 0.004, (X, Y, Z), (0.036, 0.03, 0.006), "TurbInletFlange", s_, "Exhaust", 0.004)
+    for dx in (-0.026, 0.026):
+        bolt(TURB_IN - Z * 0.01 + X * dx, -Z, s_, 0.005)
     act = T - X * 0.035 + Z * 0.075 + Y * 0.035
     box(act, (X, Y, Z), (0.03, 0.028, 0.02), "VGTActuator", s_, "Plastic", 0.01)
     box(act + Y * 0.035 + Z * 0.004, (X, Y, Z), (0.01, 0.009, 0.007), "VGTPlug", s_, "Plastic", 0.003, 2)
     for dx in (-0.02, 0.02):
         bolt(act + X * dx + Z * 0.02 - Y * 0.02, Z, s_, 0.0045)
-    sh = []
-    for k in range(13):
-        a = math.radians(-10 + k * 15)
-        for dx in (-0.075, -0.015):
-            for dr in (0.078, 0.084):
-                sh.append(T + X * dx + (Y * -math.cos(a) + Z * math.sin(a)) * dr)
-    hull(sh, "HeatShield", s_, "Steel", 0.003, 2)
     box(T - Z * 0.07, (X, Y, Z), (0.045, 0.04, 0.03), "Pedestal", s_, "Iron", 0.014)
     for dx in (-0.03, 0.03):
         bolt(T - Z * 0.07 + X * dx + Y * 0.04, Y, s_, 0.006)
@@ -719,11 +712,11 @@ def inlet():
     tube(path, 0.045, "InletElbow", s_, "Rubber", 32, 3, radii=[0.05, 0.05, 0.05, 0.05, 0.052, 0.052])
     for k, p in ((0, path[0] + X * 0.012), (1, path[-1] - Y * 0.012)):
         clamp(p, X if k == 0 else Y, 0.052, s_, 0.01)
-    # Bellows ribs on the elbow.
+    # Two moulded ridges on the elbow.
     bends = smooth_path(path, 3)
-    for k in range(8, len(bends) - 8, 3):
+    for k in (len(bends) // 3, 2 * len(bends) // 3):
         t = (bends[k + 1] - bends[k - 1]).normalized()
-        revolve([(0.05, -0.003), (0.054, -0.001), (0.054, 0.001), (0.05, 0.003)], bends[k], t, "Bellow", s_, "Rubber", 32)
+        revolve([(0.05, -0.005), (0.055, -0.002), (0.055, 0.002), (0.05, 0.005)], bends[k], t, "Ridge", s_, "Rubber", 32)
     maf = Vector((COMP_IN.x + 0.06, 1.95, -1.085))
     cylinder(maf, Y, 0.054, 0.07, "MAFHousing", s_, "Plastic", 40, bev=0.006)
     box(maf + Z * 0.06, (X, Y, Z), (0.018, 0.022, 0.012), "MAFSensor", s_, "Plastic", 0.004)
@@ -740,8 +733,8 @@ def air_filter():
     # A pleated cone filter on the MAF housing, rubber base, end cap.
     pleats = 40
     prof = [(0, -0.12), (0.06, -0.12), (0.062, -0.115), (0.062, -0.10), (0.058, -0.095), (0.056, -0.09), (0.05, 0.03), (0.048, 0.035), (0, 0.035)]
-    revolve(prof, AIRF + Y * 0.08, Y, "FilterBody", s_, "FilterMedia", pleats * 2,
-            rmod=lambda a, i: 1.0 + (0.05 * (0.5 + 0.5 * math.cos(a * pleats)) if 5 <= i <= 6 else 0.0), sharp=70)
+    revolve(prof, AIRF + Y * 0.08, Y, "FilterBody", s_, "FilterMedia", pleats * 4,
+            rmod=lambda a, i: 1.0 + (0.09 * abs(math.cos(a * pleats / 2)) if 5 <= i <= 6 else 0.0), sharp=50)
     revolve([(0.054, -0.012), (0.062, -0.012), (0.064, -0.006), (0.064, 0.006), (0.062, 0.012), (0.054, 0.012)], AIRF - Y * 0.035, Y, "FilterBase", s_, "Rubber", 48)
     clamp(AIRF - Y * 0.036, Y, 0.064, s_, 0.01)
     revolve([(0, 0.0), (0.052, 0.0), (0.054, 0.006), (0.05, 0.012), (0.025, 0.016), (0, 0.016)], AIRF + Y * 0.115, Y, "FilterCap", s_, "DarkSteel", 48)
@@ -831,11 +824,23 @@ def manifold(side, s_):
     p4 = TURB_IN - Z * 0.05 + X * side * 0.02
     tube([start, p1, p2, p3, p4, TURB_IN - Z * 0.012], 0.023, "UpPipe", s_, "Exhaust", 20, 2)
     # A braided flex section on each up-pipe.
-    pts = smooth_path([start, p1, p2, p3, p4, TURB_IN - Z * 0.012], 2)
-    k0 = len(pts) // 2
-    for k in range(k0 - 3, k0 + 3):
-        t = (pts[k + 1] - pts[k - 1]).normalized()
-        revolve([(0.023, -0.003), (0.026, -0.0015), (0.026, 0.0015), (0.023, 0.003)], pts[k], t, "Flex", s_, "Steel", 24)
+    pts = smooth_path([start, p1, p2, p3, p4, TURB_IN - Z * 0.012], 3)
+    run = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        run.append(run[-1] + (b - a).length)
+    mid = run[-1] * 0.45
+    k = 0
+    for d in [mid - 0.035 + j * 0.007 for j in range(11)]:
+        while k < len(run) - 2 and run[k + 1] < d:
+            k += 1
+        f = (d - run[k]) / max(1e-6, run[k + 1] - run[k])
+        p = pts[k].lerp(pts[k + 1], f)
+        t = (pts[k + 1] - pts[k]).normalized()
+        revolve([(0.022, -0.0035), (0.0265, -0.0012), (0.0265, 0.0012), (0.022, 0.0035)], p, t, "Flex", s_, "Steel", 24)
+    for d in (mid - 0.042, mid + 0.042):
+        k = max(0, min(len(run) - 2, next((j for j in range(len(run) - 1) if run[j + 1] >= d), len(run) - 2)))
+        t = (pts[k + 1] - pts[k]).normalized()
+        revolve([(0.022, -0.004), (0.027, -0.004), (0.027, 0.004), (0.022, 0.004)], pts[k], t, "FlexCollar", s_, "Steel", 24)
     revolve([(0.022, -0.006), (0.034, -0.006), (0.034, 0.006), (0.022, 0.006)], start - Y * 0.004, Y, "PipeFlange", s_, "Exhaust", 24)
 
 
@@ -885,7 +890,7 @@ def water_pump():
         for dz in (-0.02, 0.025):
             bolt(WP - Y * 0.05 + X * sx * 0.12 + Z * dz, Y, s_, 0.006)
     revolve([(0, -0.03), (0.025, -0.03), (0.022, 0.0), (0, 0.0)], WP, Y, "PumpShaft", s_, "Steel", 24)
-    pulley(WP, 0.07, s_, "PumpPulley", ribs=0, surf="Steel")
+    pulley(WP, 0.07, s_, "PumpPulley", ribs=0)
     # The pump's inlet for the lower hose, to the passenger's side.
     tube([WP - Y * 0.07 + X * 0.06 - Z * 0.07, WP - Y * 0.05 + X * 0.15 - Z * 0.08, WP - Y * 0.04 + X * 0.19 - Z * 0.09], 0.02, "PumpInlet", s_, "Alu", 24, 1)
 
@@ -900,42 +905,41 @@ def fan():
         box(FAN - Y * 0.055 + d * 0.05, (d, Y, tg), (0.014, 0.012, 0.0018), "ClutchFin", s_, "Alu", 0.001, 1)
     cylinder(FAN + Y * 0.004, Y, 0.016, 0.006, "Bimetal", s_, "Steel", 24)
     revolve([(0.04, -0.004), (0.072, -0.004), (0.072, 0.004), (0.04, 0.004)], FAN - Y * 0.01, Y, "Spider", s_, "DarkSteel", 48)
-    # Nine pitched, twisted blades with real thickness.
+    # Nine broad, curved, pitched blades with real thickness and round tips.
     blades = 9
     for k in range(blades):
         t0 = k / blades * 2 * math.pi
         bm = bmesh.new()
         rows = []
-        for j in range(9):
-            f = j / 8
-            rr = 0.066 + f * 0.14
-            th = t0 + 0.30 * f * f                  # swept back toward the tip
-            chord = 0.068 - 0.018 * f
-            pitch = math.radians(34 - 16 * f)       # twisted: flatter at the tip
-            thick = 0.0045 - 0.002 * f
+        J = 10
+        for j in range(J + 1):
+            f = j / J
+            rr = 0.07 + f * 0.135
+            th = t0 + 0.12 * f
+            tip = math.sqrt(max(0.0, 1 - ((f - 0.8) / 0.2) ** 2)) if f > 0.8 else 1.0
+            chord = (0.05 + 0.03 * f) * max(0.15, tip)
+            pitch = math.radians(30 - 8 * f)
+            thick = 0.0028
             rad = X * math.cos(th) + Z * math.sin(th)
             tang = X * -math.sin(th) + Z * math.cos(th)
             cv = tang * math.cos(pitch) + Y * math.sin(pitch)
             nv = -tang * math.sin(pitch) + Y * math.cos(pitch)
             row = []
-            m = 8
-            for q in range(m):
-                u = -0.5 + q / (m - 1)
-                row.append(FAN - Y * 0.01 + rad * rr + cv * chord * u + nv * (thick * (1 - (2 * u) ** 2) + 0.004 * (1 - 4 * u * u)))
-            for q in range(m - 1, -1, -1):
-                u = -0.5 + q / (m - 1)
-                row.append(FAN - Y * 0.01 + rad * rr + cv * chord * u + nv * (-thick * (1 - (2 * u) ** 2) * 0.4 + 0.004 * (1 - 4 * u * u)))
+            m = 7
+            for side_ in (1, -1):
+                for q in (range(m) if side_ > 0 else range(m - 1, -1, -1)):
+                    u = -0.5 + q / (m - 1)
+                    camber = 0.006 * (1 - 4 * u * u)
+                    row.append(FAN - Y * 0.012 + rad * rr + cv * chord * u + nv * (camber + side_ * thick * math.sqrt(max(0.0, 1 - 4 * u * u)) + 0.0006 * side_))
             rows.append([bm.verts.new(p) for p in row])
         cnt = len(rows[0])
         for j in range(len(rows) - 1):
             for q in range(cnt):
                 qq = (q + 1) % cnt
-                try:
-                    bm.faces.new((rows[j][q], rows[j][qq], rows[j + 1][qq], rows[j + 1][q]))
-                except ValueError:
-                    pass
+                bm.faces.new((rows[j][q], rows[j][qq], rows[j + 1][qq], rows[j + 1][q]))
         bm.faces.new(list(reversed(rows[0])))
         bm.faces.new(rows[-1])
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
         new_object("FanBlade", s_, bm, "Plastic", 60)
     revolve([(0.05, -0.016), (0.074, -0.016), (0.074, -0.004), (0.05, -0.004)], FAN, Y, "BladeHub", s_, "Plastic", 48)
     for k in range(4):
@@ -1220,9 +1224,10 @@ def bake_material(surf):
     Lk.new(geo.outputs["Position"], sepz.inputs[0])
 
     wear_ = op("MULTIPLY", op("MULTIPLY", edge_, remap(nM, 0.40, 0.62)), wear, True)
-    cav = remap(aov, 0.95, 0.40)
-    low = op("MULTIPLY", remap(sepz.outputs["Z"], -1.50, -1.86), nL)
-    dirt = op("MULTIPLY", op("ADD", op("MULTIPLY", cav, 0.85), op("MULTIPLY", low, 0.45)), remap(nM, 0.25, 0.75, 0.45, 1.0), True)
+    cav = remap(aov, 0.98, 0.55)
+    low = op("MULTIPLY", remap(sepz.outputs["Z"], -1.45, -1.86), nL)
+    film = op("ADD", 0.12, op("MULTIPLY", remap(nL, 0.5, 0.75), 0.35))
+    dirt = op("MULTIPLY", op("ADD", op("ADD", cav, op("MULTIPLY", low, 0.6)), film), remap(nM, 0.25, 0.75, 0.55, 1.0), True)
     grime_ = op("MULTIPLY", dirt, grime, True)
 
     col = mix(remap(nL, 0.3, 0.7), tuple(c * 0.84 for c in base), tuple(min(1.0, c * 1.16) for c in base))
@@ -1230,8 +1235,8 @@ def bake_material(surf):
         col = mix(op("MULTIPLY", remap(nM, 0.45, 0.68), 0.75), col, RUST)
     col = mix(remap(nF, 0.35, 0.65, 0.0, 0.25), col, tuple(c * 0.75 for c in base))
     col = mix(wear_, col, edge)
-    col = mix(op("MULTIPLY", grime_, 0.85), col, GRIME)
-    shade = op("ADD", op("MULTIPLY", aov, 0.5), 0.5)
+    col = mix(op("MULTIPLY", grime_, 0.9), col, GRIME)
+    shade = op("ADD", op("MULTIPLY", aov, 0.65), 0.35)
     sh = N.new("ShaderNodeCombineColor")
     for k in ("Red", "Green", "Blue"):
         Lk.new(shade, sh.inputs[k])
@@ -1463,11 +1468,13 @@ if RENDER:
     target = Vector((C, MID, -1.45))
     views = os.environ.get("VIEWS", "front34,side,top,rear34,front").split(",")
     spots = {"front34": (C + 0.95, FRONT + 0.85, -0.95), "side": (C - 1.25, MID, -1.35), "top": (C + 0.35, MID + 0.45, -0.55),
-             "rear34": (C - 0.9, REAR - 0.85, -0.85), "front": (C + 0.25, FRONT + 1.2, -1.30), "pside": (C + 1.2, MID + 0.2, -1.2)}
+             "rear34": (C - 0.9, REAR - 0.85, -0.85), "front": (C + 0.25, FRONT + 1.2, -1.30), "pside": (C + 1.2, MID + 0.2, -1.2),
+             "turbo": (C - 0.35, REAR - 0.45, -0.95), "fan": (C + 0.45, FRONT + 0.6, -1.25), "under": (C + 0.8, MID + 0.3, -1.95)}
+    aims = {"turbo": Vector((C, 1.72, -1.22)), "fan": Vector((C, BELT_Y, -1.45))}
     for name in views:
         loc = spots[name]
         cam.location = loc
-        cam.rotation_euler = (target - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+        cam.rotation_euler = (aims.get(name, target) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         sc.render.filepath = os.path.join(OUT, "preview_" + name + ".png")
         bpy.ops.render.render(write_still=True)
         print("rendered", name, flush=True)
