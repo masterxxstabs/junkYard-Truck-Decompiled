@@ -26,8 +26,9 @@ Click **My Computer** as usual. The mail screen has a new link under
   part slots on the engine blocks in the level. A part that fits more than one
   engine is listed under each. Bought engine blocks are under their engine too.
 * **6.6L Duramax Diesel (1.2):** Engine Cloner's Duramax has its own section: the
-  engine under **Engine**, and every part that fits it (it takes the V8's parts)
-  under the usual categories.
+  engine under **Engine**, its bolt-on accessories (1.2.1) under **Performance &
+  Accessories**, and every part that fits it (it takes the V8's parts) under the
+  usual categories.
 * **Cart:** change quantities, see subtotal, shipping and total, then **Place
   Order**. It's paid from your cash, the same way the Parts Store pays.
 * **Order Status:** every order with its items, total, and time to arrival or

@@ -86,6 +86,9 @@ What's different:
   * **Below:** an oil pan with a deep sump, its bolts and drain plug; the oil
     filter; the starter and solenoid.
 
+  * **Fuel filter head (2.10):** in the valley, with its ribbed cap, yellow
+    primer button and bleed screw.
+
   It's shown on the V8's own parts (26 of them), so the engine comes apart,
   wears and goes back together the game's way. The V8's gasoline parts get
   diesel looks: the distributor is the turbo, the plug wires are the fuel lines,
@@ -100,6 +103,29 @@ It's made by `tools/duramax_model.py` (Blender's Python module) to the frames of
 the game's V8 parts. (2.7: from the 8.3L of 2.5/2.6 to the 6.6L turbo-diesel.)
 
 Parts for it are the V8's: buy them as V8 parts.
+
+#### Duramax accessories (2.10)
+
+Bolt-ons for the Duramax, sold next to it (JunkAuto: **6.6L Duramax Diesel →
+Performance & Accessories**; Parts Store: category **6.6L Duramax Diesel**). They
+fit the game's way: carry one to its place on a Duramax and the snap mark shows;
+let go and it pops on, then tighten its bolts with the ratchet. Undo the bolts and
+right-click it to take it off.
+
+| Accessory | Goes on | Bolts | Pull | Price |
+|---|---|---|---|---|
+| Ram intake horn (billet) | the intake's Y-bridge (front of the engine) | 4 | +6% | $450 |
+| Turbo blanket | the turbo's turbine housing | snaps on | +3% | $140 |
+| Lift pump & filter kit | the driver's side of the block, low | 4 | +6% | $650 |
+
+* **Needs its part:** the horn only fits while the intake is on, the blanket while
+  the turbo is on.
+* **Pull:** each one multiplies the Duramax's torque while it's fitted (all three
+  together: about +16%). It counts from the next time the game refreshes the
+  engine, for example when you get in.
+* **Saving:** fitted accessories are saved with the engine; loose ones on their
+  own.
+* **Prices:** settings "Duramax ram intake horn price" and so on.
 
 **Saving:** bought engines, and debug clones, are saved per save slot in
 `UserData/EngineCloner/slotN.txt` (`auto.txt` for the autosave):
@@ -153,6 +179,7 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 | New I4 / V8 / 2J inline-6 / 6.6L Duramax price | 750 / 1500 / 1800 / 4200 | Shop prices |
 | 6.6L Duramax power | 1.6 | Its torque compared with the game's V8 |
 | Engine stand price | 350 | |
+| Duramax ram intake horn / turbo blanket / lift pump kit price | 450 / 140 / 650 | Shop prices of the Duramax accessories |
 | Move stand key | K | Move a stand you bought |
 | New engines: bare block | **on** | Off: a complete engine (copy of your most complete one, all parts new) |
 | New engines come with oil | off | Off: shipped dry |

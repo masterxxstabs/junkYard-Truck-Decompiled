@@ -16,6 +16,8 @@ namespace EngineCloner
 	//
 	//   ENGINE;kind;place;vehicle;px;py;pz;rx;ry;rz;rw;state
 	//
+	// and one per loose Duramax accessory (DuramaxAccessories.SaveLines).
+	//
 	// place: loose (world pose), stand (on the engine stand) or vehicle (bolted in
 	// the named vehicle, pose relative to it). state is a snapshot of the block:
 	// the engine's condition and fluid numbers, and for every part slot and bolt
@@ -80,6 +82,7 @@ namespace EngineCloner
 					})).Append('\n');
 					n++;
 				}
+				int accessories = DuramaxAccessories.SaveLines(sb);
 				string path = File(slot);
 				Directory.CreateDirectory(Path.GetDirectoryName(path));
 				string temp = path + ".tmp";
@@ -89,7 +92,7 @@ namespace EngineCloner
 					System.IO.File.Delete(path);
 				}
 				System.IO.File.Move(temp, path);
-				EngineClonerMod.Log("Saved " + n + " bought/cloned engine(s) with " + SlotName(slot) + ".");
+				EngineClonerMod.Log("Saved " + n + " bought/cloned engine(s)" + (accessories > 0 ? " and " + accessories + " loose Duramax accessor" + (accessories == 1 ? "y" : "ies") : "") + " with " + SlotName(slot) + ".");
 			}
 			catch (Exception e)
 			{
@@ -176,6 +179,18 @@ namespace EngineCloner
 			foreach (string line in all)
 			{
 				string[] f = line.Split(';');
+				try
+				{
+					if (DuramaxAccessories.LoadLine(f))
+					{
+						continue;
+					}
+				}
+				catch (Exception e)
+				{
+					EngineClonerMod.Log("Skipping a bad accessory save line: " + e.Message);
+					continue;
+				}
 				if (f.Length < 12 || f[0] != "ENGINE")
 				{
 					continue;

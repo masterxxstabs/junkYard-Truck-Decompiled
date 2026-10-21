@@ -27,6 +27,21 @@ namespace EngineCloner
 		private static Dictionary<string, KeyValuePair<Mesh, Material[]>> pieces;
 		private static bool tried;
 
+		// One of the model's pieces (the accessories' looks), loaded on first use.
+		public static bool Piece(string name, out Mesh mesh, out Material[] materials)
+		{
+			KeyValuePair<Mesh, Material[]> piece;
+			mesh = null;
+			materials = null;
+			if (!Load() || !pieces.TryGetValue(name, out piece))
+			{
+				return false;
+			}
+			mesh = piece.Key;
+			materials = piece.Value;
+			return true;
+		}
+
 		public static string ModelPath
 		{
 			get { return Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetDirectoryName(Application.dataPath), "UserData"), "EngineCloner"), "models"), "duramax.obj"); }
@@ -62,6 +77,7 @@ namespace EngineCloner
 					lod.enabled = false;
 				}
 				EngineClonerMod.Log("6.6L Duramax: its own model on " + shown + " part(s).");
+				DuramaxAccessories.FitSlots(block);
 				return;
 			}
 			// No model: the V8 in Duramax colors.
@@ -335,7 +351,7 @@ namespace EngineCloner
 				float v = Get(car, name);
 				if (f != null && v > 0f)
 				{
-					f.SetValue(car, v * EngineClonerMod.DuramaxPower);
+					f.SetValue(car, v * EngineClonerMod.DuramaxPower * DuramaxAccessories.PowerOf(__instance.gameObject));
 				}
 			}
 		}

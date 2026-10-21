@@ -490,6 +490,43 @@ namespace EngineCloner
 						}
 					}
 				}
+				// The Duramax's accessories, under its category, just after it.
+				int at = 0;
+				foreach (object e in list)
+				{
+					if ((string)nameField.GetValue(e) == KindOf("duramax").name && (string)categoryField.GetValue(e) == DuramaxCategory)
+					{
+						at = list.IndexOf(e) + 1;
+						break;
+					}
+				}
+				foreach (object[] item in DuramaxAccessories.ShopItems())
+				{
+					string name = (string)item[1];
+					object entry = null;
+					foreach (object e in list)
+					{
+						if ((string)nameField.GetValue(e) == name)
+						{
+							entry = e;
+							break;
+						}
+					}
+					if (entry == null)
+					{
+						entry = Activator.CreateInstance(entryType);
+						nameField.SetValue(entry, name);
+						categoryField.SetValue(entry, DuramaxCategory);
+					}
+					else
+					{
+						list.Remove(entry);
+					}
+					prefabField.SetValue(entry, item[0]);
+					priceField.SetValue(entry, (float)item[2]);
+					list.Insert(Math.Min(at, list.Count), entry);
+					at = list.IndexOf(entry) + 1;
+				}
 				// The engine stand, too.
 				object[][] stand = StandShop.ShopItems();
 				object standEntry = null;

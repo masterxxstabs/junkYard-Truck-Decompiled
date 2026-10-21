@@ -226,11 +226,11 @@ namespace JunkAutoPC
 			p.price = Mathf.Max(0f, price);
 			p.vehicle = storeCategory == "Truck Part" ? Truck : storeCategory == "Dirt Bike Part" ? Bike : Other;
 			p.category = Classify(storeName + " " + description);
-			// The Duramax itself heads its own section.
+			// The Duramax heads its own section, with its accessories.
 			if (storeName.IndexOf("Duramax", StringComparison.OrdinalIgnoreCase) >= 0)
 			{
 				p.vehicle = Duramax;
-				p.category = "ENGINE";
+				p.category = storeName.StartsWith("Engine - ", StringComparison.OrdinalIgnoreCase) ? "ENGINE" : "PERFORMANCE & ACCESSORIES";
 				list.Add(p);
 				return;
 			}

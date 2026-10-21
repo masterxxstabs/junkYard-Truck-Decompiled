@@ -22,6 +22,15 @@ back on the game's way. The V8's gasoline parts get diesel looks:
   v8_alternator_e, altfan, v8_fanbelt_e, v8_hosethermostat_e, v8_hose_e,
   v8_oilfilter_e, v8_starter_e, v8_oilpan_e
 
+Accessories, each on a slot of its own that the mod adds (it fits the game's
+way: carry it there, it snaps on, bolt it down):
+
+  acc_ramhorn        a polished billet ram horn on the Y-bridge (on the intake)
+  acc_turboblanket   a heat blanket round the turbine housing (on the turbo)
+  acc_liftpump       a lift pump and filter kit on the driver's side of the block
+
+Their bolt seats go in duramax_acc.json.
+
 Textures are baked per part, like the game's engines: each part is unwrapped and
 gets its own color map (shading in the corners, grime, worn edges, cast grain),
 normal map and metal/smoothness map.
@@ -73,8 +82,19 @@ SLOTS = {
     "v8_hosethermostat_e": ("v8_block/v8_intakeman_e/v8_hosethermostat_e", 512),
     "v8_hose_e": ("v8_block/v8_waterpump_e/v8_hose_e", 256),
 }
+# Accessories: slots the mod adds to the Duramax, each shown in the frame of the
+# part it hangs on (and only fits while that part is on), with the seats of its
+# bolts (duramax_acc.json).
+ACC = {
+    "acc_ramhorn": ("v8_intakeman_e", 512),
+    "acc_turboblanket": ("v8_distributor_e", 512),
+    "acc_liftpump": ("v8_block", 512),
+}
+SEATS = {}      # accessory -> [(seat, direction into the part)]
 by_path = {o.get("path", o.name): o for o in scene.objects}
 frames = {slot: by_path[path].matrix_world.copy() for slot, (path, _) in SLOTS.items()}
+for acc, (parent, _) in ACC.items():
+    frames[acc] = frames[parent]
 for o in list(scene.objects):
     bpy.data.objects.remove(o)
 
@@ -116,7 +136,7 @@ SURF = {
     "Alu":      ((0.27, 0.27, 0.26),    0.70, 0.58, (0.55, 0.55, 0.53),   0.45, 1.00, 0.8),
     "AluMach":  ((0.48, 0.48, 0.48),    0.90, 0.35, (0.70, 0.70, 0.70),   0.20, 0.60, 0.1),
     "Pulley":   ((0.20, 0.20, 0.21),    0.85, 0.48, (0.55, 0.55, 0.56),   0.50, 0.80, 0.3),
-    "Plastic":  ((0.032, 0.032, 0.035), 0.00, 0.42, (0.09, 0.09, 0.095),  0.35, 0.40, 0.25),
+    "Plastic":  ((0.020, 0.020, 0.022), 0.00, 0.50, (0.075, 0.075, 0.08), 0.35, 0.40, 0.25),
     "Rubber":   ((0.022, 0.022, 0.024), 0.00, 0.82, (0.06, 0.06, 0.06),   0.25, 0.35, 0.2),
     "Steel":    ((0.38, 0.38, 0.40),    1.00, 0.40, (0.65, 0.65, 0.65),   0.30, 0.70, 0.1),
     "DarkSteel": ((0.10, 0.10, 0.11),   0.60, 0.50, (0.40, 0.40, 0.40),   0.50, 0.60, 0.3),
@@ -127,6 +147,10 @@ SURF = {
     "Copper":   ((0.60, 0.34, 0.20),    1.00, 0.35, (0.80, 0.55, 0.40),   0.30, 0.40, 0.1),
     "Badge":    ((0.78, 0.78, 0.80),    1.00, 0.22, (0.90, 0.90, 0.90),   0.10, 0.20, 0.0),
     "FilterMedia": ((0.55, 0.12, 0.10), 0.00, 0.80, (0.70, 0.30, 0.25),   0.10, 0.30, 0.6),
+    "Polished": ((0.78, 0.78, 0.79),    1.00, 0.12, (0.90, 0.90, 0.90),   0.05, 0.25, 0.0),
+    "Anodized": ((0.025, 0.11, 0.42),   0.80, 0.30, (0.60, 0.60, 0.62),   0.35, 0.35, 0.05),
+    "Fabric":   ((0.50, 0.43, 0.31),    0.00, 0.92, (0.62, 0.56, 0.44),   0.10, 0.70, 2.5),
+    "Braided":  ((0.42, 0.42, 0.44),    1.00, 0.45, (0.62, 0.62, 0.64),   0.20, 0.55, 3.0),
 }
 
 pieces = []
@@ -204,7 +228,7 @@ def frame_of(axis):
     return axis, u, v
 
 
-def revolve(profile, center, axis, name, slot, surf, seg=32, rmod=None, sharp=35, phase=0.0):
+def revolve(profile, center, axis, name, slot, surf, seg=32, rmod=None, sharp=35, phase=0.0, loop=False):
     """A solid of revolution: profile is (radius, distance along the axis) from
     one end to the other; a radius of 0 closes that end. rmod(angle, index)
     multiplies a ring's radius (for flutes, pleats, ribs)."""
@@ -236,6 +260,13 @@ def revolve(profile, center, axis, name, slot, surf, seg=32, rmod=None, sharp=35
             for k in range(seg):
                 kk = (k + 1) % seg
                 bm.faces.new((a_[k], a_[kk], b_[kk], b_[k]))
+    if loop:
+        # A hollow ring: the profile closes on itself (a tube wall, a bell).
+        a_, b_ = rings[-1], rings[0]
+        for k in range(seg):
+            kk = (k + 1) % seg
+            bm.faces.new((a_[k], a_[kk], b_[kk], b_[k]))
+        return new_object(name, slot, bm, surf, sharp)
     if len(rings[0]) > 1:
         bm.faces.new(list(reversed(rings[0])))
     if len(rings[-1]) > 1:
@@ -640,6 +671,22 @@ def intake():
     tube([(C - 0.09, FRONT - 0.04, -1.29), (C - 0.095, 2.05, -1.283), (C - 0.09, 1.85, -1.286), (C - 0.08, REAR + 0.06, -1.29)], 0.009, "Harness", s_, "Rubber", 12)
     for k in range(4):
         box(Vector((C - 0.093, REAR + 0.15 + k * 0.13, -1.285)), (X, Y, Z), (0.012, 0.008, 0.012), "HarnessClip", s_, "Plastic", 0.003, 2)
+    # Fuel filter head in the valley: a cast head on a stand, ribbed cap,
+    # primer button, bleed screw and its lines.
+    FF = Vector((C - 0.055, 1.90, -1.262))
+    cylinder(FF - Z * 0.03, Z, 0.016, 0.04, "FilterStand", s_, "Alu", 20, bev=0.004)
+    cylinder(FF, Z, 0.036, 0.03, "FilterHead", s_, "Alu", 36, bev=0.006)
+    revolve([(0, -0.012), (0.034, -0.012), (0.036, -0.008), (0.036, 0.02), (0.03, 0.026), (0, 0.026)], FF + Z * 0.027, Z, "FilterCap", s_, "Plastic", 48,
+            rmod=lambda a, i: 1.0 + (0.05 * max(0.0, math.cos(a * 8)) if i in (3, 4) else 0.0))
+    cylinder(FF + Z * 0.058, Z, 0.011, 0.012, "Primer", s_, "Yellow", 24, bev=0.003)
+    cylinder(FF - X * 0.04 + Z * 0.004, X, 0.0055, 0.014, "BleedScrew", s_, "Steel", 6)
+    for dy in (-1, 1):
+        tube([FF + Y * dy * 0.036, FF + Y * dy * 0.06 - Z * 0.01, FF + Y * dy * 0.08 - Z * 0.04 - X * 0.02], 0.0045, "FilterLine", s_, "Steel", 10, 2)
+    # Intake air temperature sensor on the bridge, and the inlet flange bolts.
+    cylinder(Vector((C + 0.04, FRONT - 0.06, -1.215)), Vector((0.6, 0, 0.8)), 0.009, 0.03, "IATSensor", s_, "Plastic", 16, bev=0.002)
+    for k in range(4):
+        a = k / 4 * 2 * math.pi + math.pi / 4
+        bolt(Vector((C, FRONT + 0.012, -1.195)) + (X * math.cos(a) + Z * math.sin(a)) * 0.046, Y, s_, 0.0045)
     # Charge pipe: turbo outlet forward to the bridge.
     tube([COMP_OUT + Y * 0.01, COMP_OUT + Y * 0.06 + Z * 0.01, Vector((C + 0.03, 1.95, -1.17)), Vector((C + 0.01, 2.05, -1.19)), Vector((C, 2.12, -1.24)), Vector((C, FRONT - 0.15, -1.29))],
          0.03, "ChargePipe", s_, "Alu", 28, 2)
@@ -1110,6 +1157,103 @@ def oil_pan():
 
 
 # =============================================================================
+# Accessories
+# =============================================================================
+def acc_ramhorn():
+    """A polished billet ram horn: an elbow off the Y-bridge's inlet, turning up
+    to a bell mouth, with its flange, sensor and four bolts (the game's)."""
+    s_ = "acc_ramhorn"
+    base = Vector((C, FRONT + 0.012, -1.195))
+    box(base + Y * 0.005, (X, Y, Z), (0.064, 0.005, 0.064), "HornFlange", s_, "Polished", 0.016, 4)
+    path = [base + Y * 0.008, base + Y * 0.045, base + Y * 0.07 + Z * 0.025, base + Y * 0.08 + Z * 0.06, base + Y * 0.08 + Z * 0.085]
+    tube(path, 0.058, "HornElbow", s_, "Polished", 40, 3)
+    top = base + Y * 0.08 + Z * 0.085
+    revolve([(0.056, -0.004), (0.06, 0.0), (0.066, 0.012), (0.071, 0.02), (0.072, 0.024), (0.069, 0.027), (0.062, 0.022), (0.054, 0.012), (0.05, 0.0), (0.05, -0.004)],
+            top, Z, "HornBell", s_, "Polished", 48, loop=True)
+    cylinder(top + Z * 0.004, Z, 0.05, 0.004, "HornBore", s_, "DarkSteel", 40)
+    cylinder(top - Z * 0.02, Z, 0.034, 0.006, "Screen", s_, "DarkSteel", 32)
+    for k in range(6):
+        a = k / 6 * math.pi
+        d = X * math.cos(a) + Y * math.sin(a)
+        box(top - Z * 0.016, (d, Z, d.cross(Z)), (0.048, 0.002, 0.0012), "ScreenBar", s_, "Steel", 0.0005, 1)
+    sens = base + Y * 0.035 + X * 0.058
+    cylinder(sens, X, 0.011, 0.016, "IATBoss", s_, "Polished", 20, bev=0.003)
+    cylinder(sens + X * 0.016, X, 0.008, 0.018, "IATSensor", s_, "Plastic", 16, bev=0.002)
+    box(sens + X * 0.028, (X, Y, Z), (0.006, 0.009, 0.007), "IATPlug", s_, "Plastic", 0.002, 2)
+    SEATS[s_] = [(base + Y * 0.011 + (X * sx + Z * sz) * 0.048, -Y) for sx in (-1, 1) for sz in (-1, 1)]
+
+
+def acc_turboblanket():
+    """A heat blanket round the turbine housing: quilted fabric, two spring wire
+    straps. It snaps on (no bolts)."""
+    s_ = "acc_turboblanket"
+    T = TURBO
+    n = 24
+    els = []
+    for k in range(32):
+        a = k / 32 * 2 * math.pi
+        els.append(("ball", T - X * 0.048 + (Y * math.cos(a) + Z * math.sin(a)) * 0.048, 0.034))
+    for k in range(n + 1):
+        f = k / n
+        a = math.pi * 0.6 + f * 2 * math.pi * 0.85
+        rc = 0.05 + 0.018 * (1 - f)
+        els.append(("ball", T - X * 0.048 + (Y * math.cos(a) + Z * math.sin(a)) * rc, 0.03 - 0.014 * f + 0.008))
+    meta(els, "Blanket", s_, "Fabric", 0.003, 8000)
+
+    def outline(a):
+        d = (a - math.pi * 0.6) % (2 * math.pi)
+        f = d / (2 * math.pi * 0.85)
+        if f > 1:
+            return 0.048 + 0.034 + 0.002
+        return max(0.048 + 0.034, 0.05 + 0.018 * (1 - f) + 0.03 - 0.014 * f + 0.008) + 0.002
+    for dx in (-0.036, -0.06):
+        pts = []
+        for k in range(49):
+            a = k / 48 * 2 * math.pi
+            pts.append(T + X * dx + (Y * math.cos(a) + Z * math.sin(a)) * outline(a))
+        tube(pts, 0.0032, "Strap", s_, "Steel", 10, 0)
+    # Quilting seams between the straps.
+    for dx in (-0.024, -0.048, -0.072):
+        pts = []
+        for k in range(49):
+            a = k / 48 * 2 * math.pi
+            pts.append(T + X * dx + (Y * math.cos(a) + Z * math.sin(a)) * (outline(a) - 0.004 - (0.006 if dx == -0.072 else 0.0)))
+        tube(pts, 0.0015, "Seam", s_, "Fabric", 6, 0)
+    SEATS[s_] = []
+
+
+def acc_liftpump():
+    """A lift pump and filter kit on the driver's side of the block: anodized
+    filter head with its two filters, the pump, braided lines with AN fittings,
+    on a bracket bolted to the block (four of the game's bolts)."""
+    s_ = "acc_liftpump"
+    xo = C - 0.196
+    box(Vector((C - 0.158, 1.90, -1.665)), (X, Y, Z), (0.003, 0.075, 0.036), "Bracket", s_, "DarkSteel", 0.002, 2)
+    for dy in (-0.035, 0.035):
+        box(Vector((C - 0.172, 1.91 + dy, -1.668)), (X, Y, Z), (0.012, 0.01, 0.012), "Standoff", s_, "DarkSteel", 0.003, 2)
+    head = Vector((xo, 1.91, -1.668))
+    box(head, (X, Y, Z), (0.024, 0.058, 0.017), "FilterHead", s_, "Anodized", 0.006, 3)
+    for y in (1.883, 1.937):
+        revolve([(0, 0.0), (0.019, 0.0), (0.022, 0.006), (0.022, 0.062), (0.019, 0.07), (0.01, 0.072), (0, 0.072)], Vector((xo, y, -1.685)), -Z, "Filter", s_, "Plastic", 40,
+                rmod=lambda a, i: 1.0 + (0.06 * max(0.0, math.cos(a * 12)) if i in (4, 5) else 0.0))
+        revolve([(0.019, -0.002), (0.024, -0.002), (0.024, 0.004), (0.019, 0.004)], Vector((xo, y, -1.686)), -Z, "FilterRing", s_, "Anodized", 40)
+    motor = Vector((xo, 1.826, -1.668))
+    revolve([(0, -0.026), (0.02, -0.026), (0.024, -0.02), (0.024, 0.02), (0.02, 0.026), (0, 0.026)], motor, Y, "PumpMotor", s_, "Anodized", 36)
+    cylinder(motor - Y * 0.03, Y, 0.016, 0.01, "MotorCap", s_, "DarkSteel", 28, bev=0.003)
+    tube([motor - Y * 0.03 + Z * 0.01, motor - Y * 0.05 + Z * 0.02, motor - Y * 0.08 + Z * 0.01 - X * 0.01], 0.003, "PumpWire", s_, "Rubber", 8, 2)
+    for p, d in ((head + Y * 0.06 + Z * 0.004, Y), (head - X * 0.026 + Y * 0.03, -X), (motor - X * 0.026, -X)):
+        cylinder(p + d * 0.006, d, 0.0075, 0.012, "ANFitting", s_, "Anodized", 6)
+        cylinder(p + d * 0.014, d, 0.0068, 0.008, "ANNut", s_, "Anodized", 6)
+    # Braided lines: forward to the injection pump, back to the tank.
+    a0 = head + Y * 0.08 + Z * 0.004
+    tube([a0, a0 + Y * 0.04 + X * 0.004, Vector((C - 0.19, 2.08, -1.70)), Vector((C - 0.17, 2.20, -1.68)), Vector((C - 0.14, 2.28, -1.66))], 0.0062, "FeedLine", s_, "Braided", 12, 2)
+    b0 = head - X * 0.04 + Y * 0.03
+    tube([b0, b0 - X * 0.01 - Z * 0.01, Vector((xo - 0.03, 1.80, -1.72)), Vector((xo - 0.025, 1.66, -1.74)), Vector((xo - 0.02, 1.60, -1.745))], 0.0062, "ReturnLine", s_, "Braided", 12, 2)
+    cylinder(Vector((xo - 0.02, 1.598, -1.745)), Y, 0.0075, 0.012, "LineEnd", s_, "Anodized", 6)
+    SEATS[s_] = [(Vector((C - 0.161, y, z)), X) for y in (1.845, 1.955) for z in (-1.648, -1.684)]
+
+
+# =============================================================================
 block()
 for side, h, c, m in ((-1, "v8_headD_e", "v8_valvecoverD_e", "v8_exhaustmanD_e"), (1, "v8_headP_e", "v8_valvecoverP_e", "v8_exhaustmanP_e")):
     head(side, h)
@@ -1134,6 +1278,9 @@ lower_hose()
 oil_filter()
 starter()
 oil_pan()
+acc_ramhorn()
+acc_turboblanket()
+acc_liftpump()
 print("modeled", len(pieces), "pieces")
 
 # =============================================================================
@@ -1297,7 +1444,9 @@ stats = {}
 by_slot = {}
 for o in pieces:
     by_slot.setdefault(o["slot"], []).append(o)
-for slot, (_, size) in SLOTS.items():
+ALL = dict(SLOTS)
+ALL.update(ACC)
+for slot, (_, size) in ALL.items():
     objs = by_slot.get(slot, [])
     if not objs:
         continue
@@ -1415,6 +1564,20 @@ for slot, J in parts.items():
             "map_Kd duramax_%s.jpg" % slot, "map_Bump duramax_%s_n.png" % slot, "map_Pm duramax_%s_m.png" % slot, ""]
 open(os.path.join(OUT, "duramax.obj"), "w").write("\n".join(lines) + "\n")
 open(os.path.join(OUT, "duramax.mtl"), "w").write("\n".join(mtl))
+# The accessories: which part each hangs on, and its bolt seats (point and the
+# direction into the part), in that part's frame.
+import json
+acc = {}
+for name, (parent, _) in ACC.items():
+    U = SWAP @ frames[name] @ SWAP
+    Ui = U.inverted()
+    seats = []
+    for p, d in SEATS.get(name, []):
+        pu = Ui @ (SWAP @ Vector(p).to_4d())
+        du = (Ui.to_3x3() @ (SWAP.to_3x3() @ Vector(d))).normalized()
+        seats.append([round(pu.x, 5), round(pu.y, 5), round(pu.z, 5), round(du.x, 4), round(du.y, 4), round(du.z, 4)])
+    acc[name] = {"parent": parent, "bolts": seats}
+open(os.path.join(OUT, "duramax_acc.json"), "w").write(json.dumps(acc, indent=1))
 print("exported %d parts, %d triangles" % (len(parts), sum(stats.values())))
 for s, n in stats.items():
     print("  %-22s %6d" % (s, n))
@@ -1469,8 +1632,9 @@ if RENDER:
     views = os.environ.get("VIEWS", "front34,side,top,rear34,front").split(",")
     spots = {"front34": (C + 0.95, FRONT + 0.85, -0.95), "side": (C - 1.25, MID, -1.35), "top": (C + 0.35, MID + 0.45, -0.55),
              "rear34": (C - 0.9, REAR - 0.85, -0.85), "front": (C + 0.25, FRONT + 1.2, -1.30), "pside": (C + 1.2, MID + 0.2, -1.2),
-             "turbo": (C - 0.35, REAR - 0.45, -0.95), "fan": (C + 0.45, FRONT + 0.6, -1.25), "under": (C + 0.8, MID + 0.3, -1.95)}
-    aims = {"turbo": Vector((C, 1.72, -1.22)), "fan": Vector((C, BELT_Y, -1.45))}
+             "turbo": (C - 0.35, REAR - 0.45, -0.95), "fan": (C + 0.45, FRONT + 0.6, -1.25), "under": (C + 0.8, MID + 0.3, -1.95),
+             "horn": (C + 0.35, FRONT + 0.55, -0.95), "pump": (C - 0.7, 1.95, -1.55)}
+    aims = {"turbo": Vector((C, 1.72, -1.22)), "fan": Vector((C, BELT_Y, -1.45)), "horn": Vector((C, FRONT + 0.06, -1.17)), "pump": Vector((C - 0.19, 1.91, -1.67))}
     for name in views:
         loc = spots[name]
         cam.location = loc
