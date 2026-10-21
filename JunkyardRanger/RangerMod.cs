@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.6.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.7.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger
@@ -39,6 +39,12 @@ namespace JunkyardRanger
 		private static MelonPreferences_Entry<float> bullBarPrice;
 		private static MelonPreferences_Entry<float> rainGuardPrice;
 		private static MelonPreferences_Entry<float> sunVisorPrice;
+		private static MelonPreferences_Entry<float> lightBarPrice;
+		private static MelonPreferences_Entry<float> headacheRackPrice;
+		private static MelonPreferences_Entry<float> sideStepPrice;
+		private static MelonPreferences_Entry<float> snorkelPrice;
+		private static MelonPreferences_Entry<float> exhaustPrice;
+		private static MelonPreferences_Entry<KeyCode> lightBarKey;
 		private static MelonPreferences_Entry<string> lowerColor;
 
 		private static string hint = "";
@@ -62,6 +68,12 @@ namespace JunkyardRanger
 			sunVisorPrice = c.CreateEntry("SunVisorPrice", 180f, "Sun visor price", "What the sun visor costs in the shops.");
 			lowerColor = c.CreateEntry("LowerColor", "#3A3D40", "Two-tone lower color", "A new Ranger's two-tone: the color below the line along the sides, and the bumper, as #RRGGBB. Repaint it in game with the spray cans (aim below the line).");
 			bullBarPrice = c.CreateEntry("BullBarPrice", 350f, "Bull bar price", "What the Ranger's bull bar costs in the shops.");
+			lightBarPrice = c.CreateEntry("LightBarPrice", 380f, "Light bar price", "What the roof LED light bar costs in the shops.");
+			headacheRackPrice = c.CreateEntry("HeadacheRackPrice", 420f, "Headache rack price", "What the headache rack (on the bed rails) costs in the shops.");
+			sideStepPrice = c.CreateEntry("SideStepPrice", 260f, "Side steps price", "What a pair of side steps costs in the shops.");
+			snorkelPrice = c.CreateEntry("SnorkelPrice", 300f, "Snorkel price", "What the snorkel costs in the shops.");
+			exhaustPrice = c.CreateEntry("ExhaustPrice", 550f, "Performance exhaust price", "What the performance exhaust costs in the shops (the truck pulls 8% harder with it).");
+			lightBarKey = c.CreateEntry("LightBarKey", KeyCode.G, "Light bar key", "Switches the roof light bar's lamps on and off.");
 			spawnKey = c.CreateEntry("SpawnKey", KeyCode.F7, "Spawn key", "Press in the level for a free Ranger in front of you, with an empty engine bay to fit your own engine. None turns it off.");
 			ShopProviders.Register(RangerShop.ShopItems);
 			VehicleApi.Saving += RangerSave.Save;
@@ -73,11 +85,13 @@ namespace JunkyardRanger
 		public override void OnLateInitializeMelon()
 		{
 			RangerShop.HookStore(HarmonyInstance);
+			RangerUpgrades.Patch(HarmonyInstance);
 		}
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
 		{
 			RangerBuilder.Reset();
+			RangerUpgrades.Reset();
 			RangerShop.HookStore(HarmonyInstance);
 		}
 
@@ -89,6 +103,11 @@ namespace JunkyardRanger
 			}
 			RangerBuilder.Update();
 			RangerAccessories.UpdateTriggers();
+			if (lightBarKey != null && lightBarKey.Value != KeyCode.None && Input.GetKeyDown(lightBarKey.Value))
+			{
+				RangerUpgrades.LightBarOn = !RangerUpgrades.LightBarOn;
+			}
+			RangerUpgrades.UpdateLights();
 		}
 
 		public override void OnGUI()
@@ -153,6 +172,31 @@ namespace JunkyardRanger
 		public static float BullBarPrice
 		{
 			get { return bullBarPrice != null ? bullBarPrice.Value : 350f; }
+		}
+
+		public static float LightBarPrice
+		{
+			get { return lightBarPrice != null ? lightBarPrice.Value : 380f; }
+		}
+
+		public static float HeadacheRackPrice
+		{
+			get { return headacheRackPrice != null ? headacheRackPrice.Value : 420f; }
+		}
+
+		public static float SideStepPrice
+		{
+			get { return sideStepPrice != null ? sideStepPrice.Value : 260f; }
+		}
+
+		public static float SnorkelPrice
+		{
+			get { return snorkelPrice != null ? snorkelPrice.Value : 300f; }
+		}
+
+		public static float ExhaustPrice
+		{
+			get { return exhaustPrice != null ? exhaustPrice.Value : 550f; }
 		}
 
 		// "i4", "v8", "i6", or null for none.

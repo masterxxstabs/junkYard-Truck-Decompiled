@@ -20,7 +20,9 @@ Steps:
      groups that take the second color.
   6. Accessories the mod shows in slots, each in the frame of the part its slot
      hangs on: the bull bar (the Diamondback's brush guard slot), rain guards
-     (the doors) and a sun visor (the cab).
+     (the doors), a sun visor, a roof light bar, side steps and a snorkel (the
+     cab), a headache rack and a performance exhaust (the bed). Their bolt seats
+     (and the light bar's lamps) go in ranger.json.
 
 Blender frame: X right, Y forward, Z up, the Diamondback root's origin.
 
@@ -943,6 +945,196 @@ for sx in (-0.30, 0.30):
     paint_uvs(scoop)
 SUN_VISOR_BOLTS = [(sx, 0.47, 2.047 - SV_DROP) for sx in (-0.6, -0.25, 0.25, 0.6)]
 
+# ------------------------------------------------------------------ more accessories (1.7)
+# Placed by casting rays at the body, so each sits on the real surface.
+from mathutils.bvhtree import BVHTree
+
+
+def body_tree(groups):
+    verts, polys = [], []
+    for o in scene.objects:
+        if o.type != "MESH" or o.get("group") not in groups:
+            continue
+        base = len(verts)
+        mw = o.matrix_world
+        verts += [mw @ v.co for v in o.data.vertices]
+        polys += [[base + i for i in p.vertices] for p in o.data.polygons]
+    return BVHTree.FromPolygons(verts, polys)
+
+
+SHELL = body_tree({"Body", "BodyLower"})
+SHELL_DOORS = body_tree({"Body", "BodyLower", "DoorD", "DoorP", "DoorDLower", "DoorPLower"})
+
+
+def hit(tree, origin, direction, default):
+    loc, _, _, _ = tree.ray_cast(Vector(origin), Vector(direction).normalized())
+    if loc is None:
+        print("ray missed", origin, direction, "using", default)
+        return Vector(default)
+    return loc
+
+
+def gtube(points, r, name, group, material, seg=14, caps=True, passes=0):
+    """A round tube along a path (corners cut `passes` times)."""
+    P = [Vector(p) for p in points]
+    for _ in range(passes):
+        Q = [P[0]]
+        for a, b in zip(P, P[1:]):
+            Q += [a.lerp(b, 0.25), a.lerp(b, 0.75)]
+        Q.append(P[-1])
+        P = Q
+    bm = bmesh.new()
+    rings = []
+    prev_n = None
+    for i, p in enumerate(P):
+        t = (P[min(i + 1, len(P) - 1)] - P[max(i - 1, 0)]).normalized()
+        if prev_n is None:
+            up = Vector((0, 0, 1)) if abs(t.z) < 0.9 else Vector((1, 0, 0))
+            n = t.cross(up).normalized()
+        else:
+            n = (prev_n - t * prev_n.dot(t)).normalized()
+        prev_n = n
+        b = t.cross(n)
+        rings.append([bm.verts.new(p + (n * math.cos(a) + b * math.sin(a)) * r) for a in (2 * math.pi * k / seg for k in range(seg))])
+    for i in range(len(rings) - 1):
+        for k in range(seg):
+            kk = (k + 1) % seg
+            bm.faces.new((rings[i][k], rings[i][kk], rings[i + 1][kk], rings[i + 1][k]))
+    if caps:
+        bm.faces.new(list(reversed(rings[0])))
+        bm.faces.new(rings[-1])
+    o = new_object(name, group, bm, material)
+    o.data.shade_smooth()
+    return o
+
+
+def cyl(center, axis, r, length, name, group, material, seg=24, r2=None):
+    axis = Vector(axis).normalized()
+    up = Vector((0, 0, 1)) if abs(axis.z) < 0.9 else Vector((1, 0, 0))
+    u = axis.cross(up).normalized()
+    v = axis.cross(u)
+    c = Vector(center)
+    pts = []
+    for end, rr in ((-0.5, r), (0.5, r if r2 is None else r2)):
+        for k in range(seg):
+            a = 2 * math.pi * k / seg
+            pts.append(c + axis * length * end + (u * math.cos(a) + v * math.sin(a)) * rr)
+    o = hull(pts, name, group, material)
+    o.data.shade_smooth()
+    o.data.set_sharp_from_angle(angle=math.radians(40))
+    return o
+
+
+LENS_LB = mat("R_LightBarLens", (0.86, 0.9, 0.93), 0.0, 0.05)
+STAINLESS = mat("R_Stainless", (0.62, 0.62, 0.64), 1.0, 0.22)
+SNORKEL = mat("R_Snorkel", (0.03, 0.03, 0.032), 0.0, 0.66)
+RUBBER_R = mat("R_Rubber", (0.02, 0.02, 0.022), 0.0, 0.85)
+
+# Bolt seats of the accessories that bolt down: (seat, direction the bolt goes
+# in). A seat is where an undone bolt sits; ten turns drive it 2 cm in.
+ACC_BOLTS = {}
+ACC_LIGHTS = {}
+
+
+def seats(group, points, into):
+    into = Vector(into).normalized()
+    ACC_BOLTS[group] = [(Vector(p) - into * 0.02, into) for p in points]
+
+
+# Roof light bar: a black aluminium housing behind the sun visor, a clear lens
+# with two rows of LED cups, end brackets down to rubber feet on the roof. The
+# mod puts two work lights in it (toggled with a key).
+LB_Y = 0.30
+roof_mid = hit(SHELL, (0, LB_Y, 3.0), (0, 0, -1), (0, LB_Y, 2.03)).z
+LB_Z = roof_mid + 0.085
+feet = []
+for sx in (-1, 1):
+    fz = hit(SHELL, (sx * 0.50, LB_Y, 3.0), (0, 0, -1), (sx * 0.5, LB_Y, 2.0)).z
+    feet.append(fz)
+    box(sx * 0.50 - 0.025, sx * 0.50 + 0.025, LB_Y - 0.045, LB_Y + 0.045, fz, fz + 0.012, "LightBarFoot", "LightBar", RUBBER_R, 0.004)
+    bracket = [(sx * x, LB_Y + dy, z) for x in (0.49, 0.51) for dy in (-0.022, 0.022) for z in (fz + 0.012, fz + 0.03)]
+    bracket += [(sx * x, LB_Y + dy, LB_Z) for x in (0.515, 0.535) for dy in (-0.022, 0.022)]
+    hull(bracket, "LightBarBracket", "LightBar", BULLBAR, 0.004)
+box(-0.52, 0.52, LB_Y - 0.035, LB_Y + 0.035, LB_Z - 0.036, LB_Z + 0.036, "LightBarBody", "LightBar", BULLBAR, 0.012)
+box(-0.49, 0.49, LB_Y + 0.030, LB_Y + 0.041, LB_Z - 0.027, LB_Z + 0.027, "LightBarLens", "LightBar", LENS_LB, 0.004)
+for row in (-0.013, 0.013):
+    for k in range(14):
+        x = -0.455 + k * 0.07
+        cyl((x, LB_Y + 0.036, LB_Z + row), (0, 1, 0), 0.0105, 0.008, "LightBarLED", "LightBar", CHROME, 20, 0.006)
+for k in range(12):
+    x = -0.44 + k * 0.08
+    box(x - 0.004, x + 0.004, LB_Y - 0.048, LB_Y - 0.035, LB_Z - 0.03, LB_Z + 0.03, "LightBarFin", "LightBar", BULLBAR, 0.002)
+seats("LightBar", [(sx * 0.50, LB_Y + dy, feet[(sx + 1) // 2] + 0.012) for sx in (-1, 1) for dy in (-0.03, 0.03)], (0, 0, -1))
+ACC_LIGHTS["LightBar"] = [((sx * 0.28, LB_Y + 0.06, LB_Z), (0, 1, -0.12)) for sx in (-1, 1)]
+
+# Headache rack: round tube frame behind the cab, standing on the bed rails
+# just behind the bed's front wall, with a louvered guard over the rear window.
+bed_front = hit(SHELL, (0, -1.2, 1.30), (0, 1, 0), (0, -0.5, 1.3)).y
+HR_Y = bed_front - 0.035
+rail = {sx: hit(SHELL, (sx * 0.79, HR_Y - 0.02, 3.0), (0, 0, -1), (sx * 0.79, HR_Y, 1.40)).z for sx in (-1, 1)}
+HR_TOP = 1.97
+for sx in (-1, 1):
+    box(sx * 0.73, sx * 0.85, HR_Y - 0.065, HR_Y + 0.025, rail[sx], rail[sx] + 0.01, "RackPlate", "HeadacheRack", BULLBAR, 0.003)
+gtube([(-0.79, HR_Y, rail[-1] + 0.01), (-0.79, HR_Y, HR_TOP - 0.09), (-0.77, HR_Y, HR_TOP - 0.03), (-0.71, HR_Y, HR_TOP),
+       (0.71, HR_Y, HR_TOP), (0.77, HR_Y, HR_TOP - 0.03), (0.79, HR_Y, HR_TOP - 0.09), (0.79, HR_Y, rail[1] + 0.01)], 0.024, "RackHoop", "HeadacheRack", BULLBAR, 16, True, 2)
+mid_z = (rail[-1] + rail[1]) / 2 + 0.22
+gtube([(-0.79, HR_Y, mid_z), (0.79, HR_Y, mid_z)], 0.02, "RackBar", "HeadacheRack", BULLBAR, 14)
+for sx in (-1, 1):
+    gtube([(sx * 0.42, HR_Y, mid_z), (sx * 0.42, HR_Y, HR_TOP)], 0.016, "RackUpright", "HeadacheRack", BULLBAR, 12)
+n_slats = 9
+for k in range(n_slats):
+    z = mid_z + 0.04 + k * (HR_TOP - mid_z - 0.07) / (n_slats - 1)
+    hull([(x, HR_Y + dy, z + dz) for x in (-0.405, 0.405) for dy, dz in ((-0.012, -0.012), (0.012, 0.012), (-0.014, -0.008), (0.010, 0.016))], "RackSlat", "HeadacheRack", BULLBAR)
+seats("HeadacheRack", [(sx * 0.79, HR_Y + dy, rail[sx] + 0.01) for sx in (-1, 1) for dy in (-0.045, 0.01)], (0, 0, -1))
+
+# Side steps: 3" oval tubes under the doors, ends turned in to the rocker, with
+# three step pads, on two brackets bolted up into the rocker (pair: one for
+# each side).
+rocker = min(hit(SHELL_DOORS, (sx * 0.80, y, 0.2), (0, 0, 1), (sx * 0.8, y, 0.86)).z for sx in (-1, 1) for y in (0.0, 0.35, 0.7))
+ST_Z = rocker - 0.12
+for sx, group in ((-1, "SideStepD"), (1, "SideStepP")):
+    path = [(sx * 0.84, -0.22, ST_Z + 0.07), (sx * 0.92, -0.19, ST_Z + 0.015), (sx * 0.95, -0.12, ST_Z), (sx * 0.95, 0.72, ST_Z), (sx * 0.92, 0.80, ST_Z + 0.015), (sx * 0.84, 0.83, ST_Z + 0.07)]
+    o = gtube(path, 0.036, "StepTube", group, BULLBAR, 18, True, 2)
+    for y in (-0.02, 0.30, 0.62):
+        box(sx * 0.905, sx * 0.995, y - 0.075, y + 0.075, ST_Z + 0.022, ST_Z + 0.046, "StepPad", group, RUBBER_R, 0.008)
+    for y in (0.05, 0.55):
+        hull([(sx * x, y + dy, z) for dy in (-0.02, 0.02) for x, z in ((0.93, ST_Z - 0.01), (0.93, ST_Z + 0.02), (0.74, rocker - 0.006), (0.74, rocker - 0.02), (0.78, rocker - 0.006))], "StepBracket", group, BULLBAR, 0.003)
+    seats(group, [(sx * 0.76, y, rocker) for y in (0.05, 0.55)], (0, 0, 1))
+
+# Snorkel (passenger side): from a flange on the fender, up past the mirror and
+# along the windshield pillar to a ram head at roof height, clamped to the
+# pillar.
+fender = hit(SHELL, (1.5, 1.06, 1.30), (-1, 0, 0), (0.88, 1.06, 1.30))
+SN = [(fender.x + 0.012, 1.06, 1.30), (fender.x + 0.05, 1.06, 1.31), (0.94, 1.05, 1.40), (0.93, 1.00, 1.58), (0.90, 0.93, 1.72), (0.84, 0.82, 1.88), (0.80, 0.74, 2.00), (0.795, 0.72, 2.05)]
+gtube(SN, 0.042, "SnorkelPipe", "Snorkel", SNORKEL, 20, True, 3)
+cyl((fender.x + 0.008, 1.06, 1.30), (1, 0, 0), 0.07, 0.014, "SnorkelFlange", "Snorkel", SNORKEL, 28)
+head = Vector((0.795, 0.735, 2.075))
+hull([head + Vector((dx, dy, dz)) for dx in (-0.05, 0.05) for dy in (-0.07, 0.07) for dz in (-0.04, 0.045)], "SnorkelHead", "Snorkel", SNORKEL, 0.03)
+box(0.745, 0.845, 0.80, 0.81, 2.04, 2.10, "SnorkelGrille", "Snorkel", BULLBAR, 0.004)
+for (y, z) in ((0.95, 1.65), (0.83, 1.87)):
+    pillar = hit(SHELL_DOORS, (0.3, y, z), (1, 0, 0), (0.73, y, z))
+    gx = 0.93 if z < 1.7 else 0.85
+    hull([(x, y + dy, z + dz) for x in (pillar.x, gx - 0.03) for dy in (-0.012, 0.012) for dz in (-0.012, 0.012)], "SnorkelStay", "Snorkel", STAINLESS, 0.003)
+seats("Snorkel", [(fender.x + 0.016, 1.06 + dy, 1.30 + dz) for dy, dz in ((-0.045, 0.045), (0.045, -0.045))], (-1, 0, 0))
+
+# Performance exhaust (an upgrade: the truck pulls harder with it): a polished
+# muffler under the bed on the passenger's side, a pipe forward to meet the
+# stock one, and a tailpipe out to a chrome turndown tip, on two hangers bolted
+# up into the bed floor.
+floor = hit(SHELL, (0.45, -1.80, 0.0), (0, 0, 1), (0.45, -1.8, 0.95)).z
+MZ = floor - 0.12
+cylinder_y(0.45, MZ, 0.10, 0.07, -2.08, -1.58, "Muffler", "Exhaust", STAINLESS, 32)
+for y in (-2.09, -1.57):
+    cylinder_y(0.45, MZ, 0.104, 0.074, y - 0.006, y + 0.006, "MufflerSeam", "Exhaust", STAINLESS, 32)
+gtube([(0.45, -1.575, MZ), (0.45, -1.40, MZ + 0.01), (0.40, -1.15, MZ + 0.04), (0.32, -0.95, MZ + 0.05)], 0.032, "ExhaustInlet", "Exhaust", STAINLESS, 16, True, 2)
+gtube([(0.45, -2.085, MZ), (0.47, -2.20, MZ - 0.005), (0.50, -2.30, MZ - 0.02), (0.52, -2.36, MZ - 0.09)], 0.034, "Tailpipe", "Exhaust", STAINLESS, 16, True, 2)
+cyl((0.524, -2.385, MZ - 0.125), (0.05, -0.55, -0.83), 0.048, 0.10, "ExhaustTip", "Exhaust", CHROME, 28, 0.052)
+for y in (-1.70, -1.96):
+    box(0.44, 0.46, y - 0.015, y + 0.015, MZ + 0.06, floor - 0.004, "Hanger", "Exhaust", BULLBAR, 0.003)
+    cyl((0.45, y, MZ + 0.07), (0, 1, 0), 0.02, 0.025, "HangerRubber", "Exhaust", RUBBER_R, 16)
+seats("Exhaust", [(0.45, y, floor) for y in (-1.70, -1.96)], (0, 0, 1))
+print("accessories: roof %.3f, bed front %.3f, rails %.3f/%.3f, rocker %.3f, fender x %.3f, bed floor %.3f" % (roof_mid, bed_front, rail[-1], rail[1], rocker, fender.x, floor))
+
 # Mirrors: black housings at the front of each door window, like the 2001-04 Ranger.
 door_top = max(v.co.z for v in bpy.data.objects["f100_ddoor"].data.vertices if abs(v.co.x) > 0.80 and v.co.z < 1.6)
 print("door belt line z", round(door_top, 3))
@@ -1000,9 +1192,15 @@ FOLLOW = {
     "RainGuardD": "cabin_low/cardoor_d",
     "RainGuardP": "cabin_low/cardoor_p",
     "SunVisor": "cabin_low",
+    "LightBar": "cabin_low",
+    "HeadacheRack": "body_low",
+    "SideStepD": "cabin_low",
+    "SideStepP": "cabin_low",
+    "Snorkel": "cabin_low",
+    "Exhaust": "body_low",
 }
 ORDER = ["Body", "BodyLower", "Fascia", "Bumper", "Lights", "Glass", "GasDoor", "Hood", "DoorD", "DoorDLower", "DoorP", "DoorPLower", "Tailgate", "TailgateLower",
-         "BullBar", "RainGuardD", "RainGuardP", "SunVisor"]
+         "BullBar", "RainGuardD", "RainGuardP", "SunVisor", "LightBar", "HeadacheRack", "SideStepD", "SideStepP", "Snorkel", "Exhaust"]
 anchors = json.load(open(os.path.join(MODELS, "dpt_anchors.json")))
 
 
@@ -1101,7 +1299,13 @@ meta = {
     "paintTexture": "ranger_paint.png",
     "hide": ["body_low", "cabin_low"],
     "twoTone": TWO_TONE_Z,
-    "accessories": {"SunVisor": {"bolts": [[round(x, 4), round(z, 4), round(y, 4)] for x, y, z in SUN_VISOR_BOLTS]}},
+    "accessories": dict(
+        {"SunVisor": {"bolts": [[round(x, 4), round(z, 4), round(y, 4)] for x, y, z in SUN_VISOR_BOLTS]}},
+        # Unity terms (x, y up, z forward) in the root's frame: the seat, then the
+        # direction the bolt goes in.
+        **{g: {"bolts": [[round(p.x, 4), round(p.z, 4), round(p.y, 4), round(d.x, 4), round(d.z, 4), round(d.y, 4)] for p, d in b],
+               "lights": [[round(p[0], 4), round(p[2], 4), round(p[1], 4), round(d[0], 4), round(d[2], 4), round(d[1], 4)] for p, d in ACC_LIGHTS.get(g, [])]}
+           for g, b in ACC_BOLTS.items()}),
 }
 json.dump(meta, open(os.path.join(OUT, "assets", "ranger.json"), "w"), indent=1)
 
@@ -1218,6 +1422,10 @@ if RENDER:
         "lowR": ((1.4, 3.4, 0.55), (0.55, 2.0, 0.95)),
         "bay": ((0.0, 2.9, 2.6), (0.0, 1.3, 0.9)),
         "cab": ((-2.5, 1.9, 2.4), (-0.6, 0.45, 1.9)),
+        "rack": ((-2.4, -2.9, 2.7), (0.0, -0.4, 1.7)),
+        "stepL": ((-2.8, 0.9, 1.0), (-0.9, 0.3, 0.85)),
+        "snork": ((2.8, 2.6, 2.0), (0.85, 0.95, 1.65)),
+        "pipe": ((2.4, -4.0, 0.55), (0.45, -2.0, 0.8)),
     }
     for name in views:
         loc, tgt = V[name]

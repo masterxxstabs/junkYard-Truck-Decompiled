@@ -65,6 +65,15 @@ back fitted when you load, and loose ones are saved where they lie.
 | Ranger - Bull bar | $350 | Front, on the frame | 4, under the bumper |
 | Ranger - Rain guards (pair) | $60 | Top of each door window (one fits either door; you get two) | none, they snap on |
 | Ranger - Sun visor | $180 | Over the windshield, on the roof; comes in the body color, and paints on its own with the paint cans | 4, on the roof |
+| Ranger - Roof light bar (1.7) | $380 | On the roof behind the visor; two work lamps, switched with **G** (the light bar key) | 4, on the roof |
+| Ranger - Headache rack (1.7) | $420 | On the bed rails behind the cab: tube frame with a louvered window guard | 4, on the bed rails |
+| Ranger - Side steps (pair) (1.7) | $260 | Under each door (one fits either side; you get two) | 2 each, up into the rocker |
+| Ranger - Snorkel (1.7) | $300 | Passenger's side, from the fender up the windshield pillar | 2, in the fender |
+| Ranger - Performance exhaust (1.7) | $550 | Under the bed: polished muffler and a chrome turndown tip. **An upgrade: the truck pulls 8% harder** while it's on | 2 hangers, up into the bed floor |
+
+The light bar's lamps light the road ahead while they're switched on; the key
+switches every Ranger's bar. The exhaust's extra pull is added to whatever engine
+is in the truck (it raises the drive torque the game puts on the wheels).
 
 ### Bull bar
 
@@ -96,6 +105,8 @@ In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
 | Bull bar price | 350 | Price of the bull bar in the shops |
 | Rain guards price | 60 | Price of a pair of rain guards |
 | Sun visor price | 180 | Price of the sun visor |
+| Light bar / headache rack / side steps / snorkel / exhaust price | 380 / 420 / 260 / 300 / 550 | Shop prices of the 1.7 accessories |
+| Light bar key | G | Switches the roof light bar's lamps |
 | Spawn key | F7 | Spawns a free Ranger in front of you, no engine in it. None: off |
 
 ## Saving
@@ -131,8 +142,11 @@ part. Deleting a slot, or overwriting it with a new game, clears them too.
   `..._e` with a solid box, a snap trigger, a durability and maybe bolts). The bull
   bar takes over the Diamondback's empty brush guard slot (`brushguard_e`, renamed
   `brushguardR_e` on a Ranger); the rain guards (`rainguardD_e`, `rainguardP_e`, on
-  the doors) and the sun visor (`sunvisor_e`, on the cab, with copies of the game's
-  bolts) get new ones. The loose parts are game `PickUp`s with `attachTo` set to
+  the doors), the sun visor, light bar, side steps and snorkel (`sunvisor_e`,
+  `lightbar_e`, `sidestepD_e`, `sidestepP_e`, `snorkel_e`, on the cab), the headache
+  rack and exhaust (`headrack_e`, `rexhaust_e`, on the bed) get new ones, with copies
+  of the game's bolts set at the seats in `ranger.json` (and, for the light bar, two
+  spot lights). The loose parts are game `PickUp`s with `attachTo` set to
   their slot, and the slot's `durability.template`, so the game's own snap, bolt and
   removal code does the rest.
 * **Two-tone:** the body, doors and tailgate are cut at the line in `tools/`, and

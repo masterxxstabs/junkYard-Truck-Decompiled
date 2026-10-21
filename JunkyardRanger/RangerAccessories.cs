@@ -19,6 +19,13 @@ namespace JunkyardRanger
 	//   Rain guards  a slot on top of each door window, no bolts (they snap on);
 	//                one loose rain guard fits either door
 	//   Sun visor    a slot over the windshield, 4 bolts on the roof; body colored
+	//   Light bar    on the roof behind the visor, 4 bolts; two work lights,
+	//                switched with the light bar key
+	//   Headache rack  on the bed rails behind the cab, 4 bolts
+	//   Side steps   under each door, 2 bolts up into the rocker (pair)
+	//   Snorkel      up the passenger's windshield pillar, 2 bolts in the fender
+	//   Exhaust      a performance exhaust under the bed, 2 hanger bolts: the
+	//                truck pulls harder with it (RangerUpgrades)
 	internal static class RangerAccessories
 	{
 		internal class Slot
@@ -48,6 +55,13 @@ namespace JunkyardRanger
 			new Slot { name = "rainguardD_e", group = "RainGuardD", parent = "cabin_low/cardoor_d" },
 			new Slot { name = "rainguardP_e", group = "RainGuardP", parent = "cabin_low/cardoor_p" },
 			new Slot { name = "sunvisor_e", group = "SunVisor", parent = "cabin_low" },
+			// 1.7: added after the others, so saved paths of the old ones stay the same.
+			new Slot { name = "lightbar_e", group = "LightBar", parent = "cabin_low" },
+			new Slot { name = "headrack_e", group = "HeadacheRack", parent = "body_low" },
+			new Slot { name = "sidestepD_e", group = "SideStepD", parent = "cabin_low" },
+			new Slot { name = "sidestepP_e", group = "SideStepP", parent = "cabin_low" },
+			new Slot { name = "snorkel_e", group = "Snorkel", parent = "cabin_low" },
+			new Slot { name = "rexhaust_e", group = "Exhaust", parent = "body_low" },
 		};
 
 		public static readonly Kind[] Kinds =
@@ -55,6 +69,11 @@ namespace JunkyardRanger
 			new Kind { id = "BullBar", shopName = "Ranger - Bull bar", itemName = "rangerbullbar", description = "Bull bar (2004 Ford Ranger)", group = "BullBar", mass = 28f, perPurchase = 1, price = () => RangerMod.BullBarPrice, fits = new[] { "brushguardR_e" } },
 			new Kind { id = "RainGuard", shopName = "Ranger - Rain guards (pair)", itemName = "rangerrainguard", description = "Rain guard (2004 Ford Ranger, either door)", group = "RainGuardD", mass = 0.6f, perPurchase = 2, price = () => RangerMod.RainGuardPrice, fits = new[] { "rainguardD_e", "rainguardP_e" } },
 			new Kind { id = "SunVisor", shopName = "Ranger - Sun visor", itemName = "rangersunvisor", description = "Sun visor (2004 Ford Ranger)", group = "SunVisor", mass = 9f, perPurchase = 1, price = () => RangerMod.SunVisorPrice, fits = new[] { "sunvisor_e" } },
+			new Kind { id = "LightBar", shopName = "Ranger - Roof light bar", itemName = "rangerlightbar", description = "LED roof light bar (2004 Ford Ranger; switch it with the light bar key)", group = "LightBar", mass = 5f, perPurchase = 1, price = () => RangerMod.LightBarPrice, fits = new[] { "lightbar_e" } },
+			new Kind { id = "HeadacheRack", shopName = "Ranger - Headache rack", itemName = "rangerheadacherack", description = "Headache rack (2004 Ford Ranger, on the bed rails)", group = "HeadacheRack", mass = 22f, perPurchase = 1, price = () => RangerMod.HeadacheRackPrice, fits = new[] { "headrack_e" } },
+			new Kind { id = "SideStep", shopName = "Ranger - Side steps (pair)", itemName = "rangersidestep", description = "Side step (2004 Ford Ranger, either side)", group = "SideStepD", mass = 9f, perPurchase = 2, price = () => RangerMod.SideStepPrice, fits = new[] { "sidestepD_e", "sidestepP_e" } },
+			new Kind { id = "Snorkel", shopName = "Ranger - Snorkel", itemName = "rangersnorkel", description = "Snorkel (2004 Ford Ranger, passenger's side)", group = "Snorkel", mass = 4f, perPurchase = 1, price = () => RangerMod.SnorkelPrice, fits = new[] { "snorkel_e" } },
+			new Kind { id = "Exhaust", shopName = "Ranger - Performance exhaust", itemName = "rangerexhaust", description = "Performance exhaust (2004 Ford Ranger: the truck pulls 8% harder)", group = "Exhaust", mass = 14f, perPurchase = 1, price = () => RangerMod.ExhaustPrice, fits = new[] { "rexhaust_e" } },
 		};
 
 		public static bool IsAccessoryGroup(string group)
@@ -137,10 +156,11 @@ namespace JunkyardRanger
 					d.template = Template(KindFor(s.name));
 				}
 				List<Vector3> bolts = RangerModel.AccessoryBolts(s.group);
-				if (s.gameSlot == null && bolts.Count > 0 && gameBolt != null)
+				if (s.gameSlot == null && bolts.Count > 0 && gameBolt != null && CountBolts(slot) == 0)
 				{
-					AddBolts(copy, slot, bolts, gameBolt);
+					AddBolts(copy, slot, bolts, RangerModel.AccessoryBoltDirections(s.group), gameBolt);
 				}
+				AddLamps(copy, slot, RangerModel.AccessoryLights(s.group));
 				if (d != null)
 				{
 					d.numBolts = CountBolts(slot);
@@ -258,19 +278,52 @@ namespace JunkyardRanger
 		}
 
 		// Copies of the game's own bolt (from the brush guard slot), pointing into
-		// the surface they hold the part to (here: down, into the roof).
-		private static void AddBolts(GameObject copy, Transform slot, List<Vector3> seats, Transform gameBolt)
+		// the surface they hold the part to (down into the roof, unless the model
+		// says which way).
+		private static void AddBolts(GameObject copy, Transform slot, List<Vector3> seats, List<Vector3> directions, Transform gameBolt)
 		{
-			foreach (Vector3 seat in seats)
+			for (int i = 0; i < seats.Count; i++)
 			{
 				Transform bolt = Object.Instantiate(gameBolt.gameObject, slot, false).transform;
 				bolt.name = "bolt";
-				bolt.position = copy.transform.TransformPoint(seat);
-				bolt.rotation = Quaternion.LookRotation(-copy.transform.up, copy.transform.forward);
+				bolt.position = copy.transform.TransformPoint(seats[i]);
+				Vector3 into = i < directions.Count ? copy.transform.TransformDirection(directions[i]) : -copy.transform.up;
+				Vector3 up = Mathf.Abs(Vector3.Dot(into, copy.transform.up)) < 0.9f ? copy.transform.up : copy.transform.forward;
+				bolt.rotation = Quaternion.LookRotation(into, up);
 				bolt.localScale = gameBolt.localScale;
 				Hide(bolt);
 			}
 		}
+
+		// The light bar's work lamps: spot lights, off until the bar is on the
+		// truck and switched on (RangerUpgrades.UpdateLights).
+		private static void AddLamps(GameObject copy, Transform slot, List<KeyValuePair<Vector3, Vector3>> lamps)
+		{
+			foreach (Transform child in slot)
+			{
+				if (child.name == LampName)
+				{
+					return;
+				}
+			}
+			foreach (KeyValuePair<Vector3, Vector3> lamp in lamps)
+			{
+				GameObject go = new GameObject(LampName);
+				go.transform.SetParent(slot, false);
+				go.transform.position = copy.transform.TransformPoint(lamp.Key);
+				go.transform.rotation = Quaternion.LookRotation(copy.transform.TransformDirection(lamp.Value), copy.transform.up);
+				Light light = go.AddComponent<Light>();
+				light.type = LightType.Spot;
+				light.range = 45f;
+				light.spotAngle = 75f;
+				light.intensity = 2.6f;
+				light.color = new Color(0.95f, 0.97f, 1f);
+				light.shadows = LightShadows.None;
+				light.enabled = false;
+			}
+		}
+
+		public const string LampName = "lightbarlamp";
 
 		private static int CountBolts(Transform slot)
 		{

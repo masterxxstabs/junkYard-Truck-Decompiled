@@ -73,7 +73,29 @@ namespace JunkyardRanger
 			return accessoryBolts.TryGetValue(group, out list) ? list : new List<Vector3>();
 		}
 
+		// The direction each of those bolts goes in (root frame), or none: then
+		// straight down.
+		public static List<Vector3> AccessoryBoltDirections(string group)
+		{
+			List<Vector3> list;
+			return accessoryBoltDirs.TryGetValue(group, out list) ? list : new List<Vector3>();
+		}
+
+		// An accessory's lamps (the light bar's): position and direction, root frame.
+		public static List<KeyValuePair<Vector3, Vector3>> AccessoryLights(string group)
+		{
+			List<KeyValuePair<Vector3, Vector3>> list;
+			return accessoryLights.TryGetValue(group, out list) ? list : new List<KeyValuePair<Vector3, Vector3>>();
+		}
+
 		private static readonly Dictionary<string, List<Vector3>> accessoryBolts = new Dictionary<string, List<Vector3>>();
+		private static readonly Dictionary<string, List<Vector3>> accessoryBoltDirs = new Dictionary<string, List<Vector3>>();
+		private static readonly Dictionary<string, List<KeyValuePair<Vector3, Vector3>>> accessoryLights = new Dictionary<string, List<KeyValuePair<Vector3, Vector3>>>();
+
+		private static float Num(object o)
+		{
+			return Convert.ToSingle(o, System.Globalization.CultureInfo.InvariantCulture);
+		}
 
 		// Two-tone paint: below this height (the root's frame) is the "Lower" group.
 		public static float TwoToneLine = 1.12f;
@@ -115,12 +137,16 @@ namespace JunkyardRanger
 				fuelCap = cap != null && cap.Count == 3 ? new Vector3((float)(double)cap[0], (float)(double)cap[1], (float)(double)cap[2]) : Vector3.zero;
 				TwoToneLine = meta.ContainsKey("twoTone") ? (float)(double)meta["twoTone"] : 1.12f;
 				accessoryBolts.Clear();
+				accessoryBoltDirs.Clear();
+				accessoryLights.Clear();
 				Dictionary<string, object> acc = meta.ContainsKey("accessories") ? meta["accessories"] as Dictionary<string, object> : null;
 				if (acc != null)
 				{
 					foreach (KeyValuePair<string, object> a in acc)
 					{
 						List<Vector3> seats = new List<Vector3>();
+						List<Vector3> dirs = new List<Vector3>();
+						List<KeyValuePair<Vector3, Vector3>> lamps = new List<KeyValuePair<Vector3, Vector3>>();
 						Dictionary<string, object> info = a.Value as Dictionary<string, object>;
 						List<object> bolts = info != null && info.ContainsKey("bolts") ? info["bolts"] as List<object> : null;
 						if (bolts != null)
@@ -128,10 +154,28 @@ namespace JunkyardRanger
 							foreach (object o in bolts)
 							{
 								List<object> v = (List<object>)o;
-								seats.Add(new Vector3((float)(double)v[0], (float)(double)v[1], (float)(double)v[2]));
+								seats.Add(new Vector3(Num(v[0]), Num(v[1]), Num(v[2])));
+								if (v.Count >= 6)
+								{
+									dirs.Add(new Vector3(Num(v[3]), Num(v[4]), Num(v[5])).normalized);
+								}
+							}
+						}
+						List<object> lights = info != null && info.ContainsKey("lights") ? info["lights"] as List<object> : null;
+						if (lights != null)
+						{
+							foreach (object o in lights)
+							{
+								List<object> v = (List<object>)o;
+								lamps.Add(new KeyValuePair<Vector3, Vector3>(new Vector3(Num(v[0]), Num(v[1]), Num(v[2])), new Vector3(Num(v[3]), Num(v[4]), Num(v[5])).normalized));
 							}
 						}
 						accessoryBolts[a.Key] = seats;
+						if (dirs.Count == seats.Count && dirs.Count > 0)
+						{
+							accessoryBoltDirs[a.Key] = dirs;
+						}
+						accessoryLights[a.Key] = lamps;
 					}
 				}
 				ModelData data = ModelData.Load(obj);
