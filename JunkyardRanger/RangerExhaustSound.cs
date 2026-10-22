@@ -10,11 +10,11 @@ namespace JunkyardRanger
 	// How a Ranger sounds with the performance exhaust on. After the game's
 	// AudioControl.Update has set the engine sound for the frame:
 	//   * the engine loop that's playing (I4, V8 or 2J) is pitched down, deeper;
-	//   * two loops of our own play from the exhaust, made here when first needed:
-	//     a low rumble (exhaust pulses through the big muffler) that grows with the
-	//     throttle, and a lopey "chop" (uneven pulses, a big cam's idle) that's
-	//     strongest at idle and fades as the revs rise. Both follow the engine's
-	//     revs (the gearbox's pitch) and its volume.
+	//   * two loops of our own play from the exhaust, made here when first needed,
+	//     a cammed V8's: the lope at idle (lumpy, uneven "brap ... brap-brap"
+	//     cycles) that fades as the revs rise, and an even, raspy rumble that takes
+	//     over on the throttle. Both follow the engine's revs (the gearbox's
+	//     pitch) and its volume.
 	internal static class RangerExhaustSound
 	{
 		private const float Deeper = 0.9f;
@@ -158,10 +158,11 @@ namespace JunkyardRanger
 				level = 0f;
 			}
 			s.level = Mathf.MoveTowards(s.level, Mathf.Clamp01(level), Time.deltaTime * 3f);
-			// Revs: 1 at idle, up to the gearbox's top (about 2.4).
-			float idle = Mathf.Clamp01(1f - (revs - 1f) / 0.55f);
-			float rumbleVolume = s.level * (0.35f + 0.45f * Mathf.Clamp01(throttle) + 0.15f * idle);
-			float chopVolume = s.level * 0.85f * idle;
+			// Revs: 1 at idle, up to the gearbox's top (about 2.4). The lope rules at
+			// idle and fades as the revs come up; the rumble takes over on the gas.
+			float idle = Mathf.Clamp01(1f - (revs - 1f) / 0.6f);
+			float rumbleVolume = s.level * (0.25f + 0.55f * Mathf.Clamp01(throttle) + 0.25f * (1f - idle));
+			float chopVolume = s.level * idle;
 			Fade(s, rumbleVolume, chopVolume, revs);
 		}
 
@@ -170,12 +171,12 @@ namespace JunkyardRanger
 			if (s.rumble != null)
 			{
 				s.rumble.volume = Mathf.MoveTowards(s.rumble.volume, rumble, Time.deltaTime * 2f);
-				s.rumble.pitch = 0.78f + (revs - 1f) * 0.62f;
+				s.rumble.pitch = revs;
 			}
 			if (s.chop != null)
 			{
 				s.chop.volume = Mathf.MoveTowards(s.chop.volume, chop, Time.deltaTime * 2f);
-				s.chop.pitch = 0.92f + (revs - 1f) * 0.5f;
+				s.chop.pitch = revs;
 			}
 		}
 
@@ -215,18 +216,20 @@ namespace JunkyardRanger
 
 		// --- The loops, made once. ---
 
-		// Two seconds each, so every pattern (45 exhaust pulses a second, the
-		// lope at 1.5 a second) repeats a whole number of times and the loop is
-		// seamless.
-		private const float Length = 2f;
-		private const float Pulses = 45f;
+		// A big-cam V8 at about 800 rpm. Each loop is a whole number of engine
+		// cycles (14), so it repeats seamlessly; the sources' pitch follows the revs.
+		private const float IdleRpm = 800f;
+
+		// Lumpy, uneven cycles: brap ... brap-brap.
+		private static readonly float[] Lope = { 1.0f, 0.3f, 0.75f, 1.0f, 0.28f, 0.5f, 0.95f, 0.35f, 0.85f, 1.0f, 0.3f, 0.65f, 0.4f, 0.9f };
+		// On the throttle: every cycle near full.
+		private static readonly float[] Even = { 1f, 0.95f, 1f, 0.97f, 1f, 0.94f, 1f, 0.96f, 1f, 0.95f, 1f, 0.97f, 0.99f, 0.95f };
 
 		private static AudioClip RumbleClip()
 		{
 			if (rumbleClip == null)
 			{
-				float[] weights = { 1.0f, 0.8f, 0.95f, 0.75f, 1.0f, 0.85f, 0.9f, 0.7f };
-				rumbleClip = Make("RangerExhaustRumble", Synth(weights, 0.25f, 58f, 0.014f, 0.0f, 0.22f, 11));
+				rumbleClip = Make("RangerExhaustRumble", Engine(IdleRpm, Even, 0.9f, 84f, 0.007f, 1.6f, 9));
 			}
 			return rumbleClip;
 		}
@@ -235,10 +238,7 @@ namespace JunkyardRanger
 		{
 			if (chopClip == null)
 			{
-				// Uneven: some pulses big, some barely there, and the whole thing
-				// swelling and dipping 1.5 times a second.
-				float[] weights = { 1.0f, 0.35f, 0.9f, 0.2f, 1.0f, 0.55f, 0.75f, 0.15f };
-				chopClip = Make("RangerExhaustChop", Synth(weights, 0.9f, 46f, 0.02f, 0.0035f, 0.12f, 23));
+				chopClip = Make("RangerExhaustChop", Engine(IdleRpm, Lope, 0.8f, 92f, 0.0075f, 1.25f, 5));
 			}
 			return chopClip;
 		}
@@ -250,56 +250,74 @@ namespace JunkyardRanger
 			return clip;
 		}
 
-		// A train of exhaust pulses: each a decaying low thump (a tone and its
-		// octave) with a puff of filtered noise, weighted by the firing pattern,
-		// a slow lope (depth 0..1), and a little timing gallop on every 4th pulse.
-		private static float[] Synth(float[] weights, float lope, float tone, float decay, float gallop, float noise, int seed)
+		// The exhaust of a cross-plane V8: per engine cycle (two turns), eight
+		// firings 90 degrees apart, alternating banks unevenly (L R R L R L L R, the
+		// banks a little different in strength and tone); each cycle as strong as
+		// `cycles` says (the cam's lope), with a little jitter, and in weak cycles
+		// some firings nearly missing. Each pulse: the pipe's ring (a tone and its
+		// octave), a lower boom, and a short burst of band-passed noise (the rasp);
+		// then a muffler low-pass and a soft clip.
+		private static float[] Engine(float rpm, float[] cycles, float rasp, float thumpHz, float decay, float drive, int seed)
 		{
-			int n = (int)(Rate * Length);
-			float[] buf = new float[n];
+			double cycle = 120.0 / rpm;
+			int n = (int)Math.Round(cycle * cycles.Length * Rate);
+			double[] buf = new double[n];
 			Random rng = new Random(seed);
-			int pulses = (int)(Pulses * Length);
-			int pulseLen = (int)(Rate * 0.08f);
-			for (int k = 0; k < pulses; k++)
+			int[] bank = { 0, 1, 1, 0, 1, 0, 0, 1 };
+			int pulseLen = (int)(Rate * 0.09);
+			for (int c = 0; c < cycles.Length; c++)
 			{
-				float t0 = k / Pulses + (k % 4 == 3 ? gallop : 0f);
-				float swell = 1f - lope * 0.5f * (1f + Mathf.Cos(2f * Mathf.PI * 1.5f * t0));
-				float amp = weights[k % weights.Length] * (0.35f + 0.65f * swell) * (0.9f + 0.2f * (float)rng.NextDouble());
-				int start = (int)(t0 * Rate);
-				float lp = 0f;
-				for (int j = 0; j < pulseLen; j++)
+				for (int f = 0; f < 8; f++)
 				{
-					float tt = j / (float)Rate;
-					float env = Mathf.Exp(-tt / decay);
-					lp += ((float)rng.NextDouble() * 2f - 1f - lp) * 0.08f;
-					float v = Mathf.Sin(2f * Mathf.PI * tone * tt) + 0.45f * Mathf.Sin(2f * Mathf.PI * tone * 2f * tt + 0.6f) + noise * 6f * lp;
-					buf[(start + j) % n] += amp * env * v;
+					double jitter = (rng.NextDouble() - 0.5) * 0.0025;
+					double t0 = (c + f / 8.0) * cycle + jitter;
+					double a = cycles[c] * (bank[f] == 0 ? 1.0 : 0.8) * (0.85 + 0.3 * rng.NextDouble());
+					if (cycles[c] < 0.6 && rng.NextDouble() < 0.35)
+					{
+						a *= 0.25;
+					}
+					double hz = thumpHz * (bank[f] == 0 ? 1.0 : 1.12);
+					int start = (int)(t0 * Rate);
+					double hp = 0, lp = 0, prev = 0;
+					for (int j = 0; j < pulseLen; j++)
+					{
+						double t = j / (double)Rate;
+						double thump = Math.Exp(-t / decay) * (Math.Sin(2 * Math.PI * hz * t) + 0.55 * Math.Sin(2 * Math.PI * hz * 2 * t + 0.4));
+						double body = 0.6 * Math.Exp(-t / (decay * 2.6)) * Math.Sin(2 * Math.PI * hz * 0.5 * t);
+						double w = rng.NextDouble() * 2 - 1;
+						hp = 0.85 * (hp + w - prev);
+						prev = w;
+						lp += (hp - lp) * 0.09;
+						double r = rasp * 1.8 * Math.Exp(-t / 0.006) * lp;
+						buf[(start + j + n) % n] += a * (thump + body + r);
+					}
 				}
 			}
-			// Low-pass (the muffler), then a soft clip for some grit, normalized.
-			float y = 0f;
+			// Twice round, so the filter's state meets itself at the loop's ends.
+			double y = 0;
+			float[] o = new float[n];
 			for (int pass = 0; pass < 2; pass++)
 			{
 				for (int i = 0; i < n; i++)
 				{
-					y += (buf[i] - y) * 0.18f;
+					y += (buf[i] - y) * 0.2;
 					if (pass == 1)
 					{
-						buf[i] = y;
+						o[i] = (float)y;
 					}
 				}
 			}
 			float peak = 0.0001f;
 			for (int i = 0; i < n; i++)
 			{
-				buf[i] = (float)Math.Tanh(buf[i] * 1.6f);
-				peak = Mathf.Max(peak, Mathf.Abs(buf[i]));
+				o[i] = (float)Math.Tanh(o[i] * drive);
+				peak = Mathf.Max(peak, Mathf.Abs(o[i]));
 			}
 			for (int i = 0; i < n; i++)
 			{
-				buf[i] *= 0.85f / peak;
+				o[i] *= 0.9f / peak;
 			}
-			return buf;
+			return o;
 		}
 	}
 }
