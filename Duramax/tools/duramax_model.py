@@ -40,7 +40,7 @@ import_prefab.py from the game's F100 package). Run:
 
   python3 duramax_model.py f1003.blend <out_dir> [render]
 
-Everything in <out_dir> except the previews goes in UserData/EngineCloner/models/.
+Everything in <out_dir> except the previews goes in UserData/Duramax/models/.
 """
 import sys, os, math
 import bpy, bmesh

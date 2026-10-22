@@ -3,22 +3,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using HarmonyLib;
+using EngineCloner;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace EngineCloner
+namespace Duramax
 {
 	// The 6.6L Duramax turbo-diesel: a big V8 built on the game's own V8, so it fits the same
 	// engine bays, takes the same parts (heads, pistons, intake, turbos...),
-	// mounts, oil and gauges, and is bought, bolted in and saved like our other
-	// engines. It has its own model (UserData/EngineCloner/models/duramax.obj,
-	// made by tools/duramax_model.py), each piece shown on one of the V8's own
+	// mounts, oil and gauges, and is bought, bolted in and saved like Engine
+	// Cloner's engines (registered with its EngineApi). It has its own model
+	// (UserData/Duramax/models/duramax.obj, made by tools/duramax_model.py), each
+	// piece shown on one of the V8's own
 	// parts (block, heads, covers, intake, turbo on the distributor, fuel lines on
 	// the plug wires, air inlet and filter on the carb and air cleaner, CP3 on
 	// the fuel pump...), so it still comes apart, wears and goes back together
 	// the game's way. And more torque: the game sets the truck's torque from the V8
 	// each time it refreshes the engine, and the Duramax multiplies it.
-	internal static class Duramax
+	internal static class DuramaxModel
 	{
 		private static readonly Color Block = new Color(0.17f, 0.18f, 0.19f);
 		private static readonly Color Covers = new Color(0.035f, 0.035f, 0.04f);
@@ -42,9 +44,26 @@ namespace EngineCloner
 			return true;
 		}
 
+		// UserData/Duramax/models/duramax.obj, or where Engine Cloner 2.x kept it
+		// (UserData/EngineCloner/models) if it's still only there.
 		public static string ModelPath
 		{
-			get { return Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetDirectoryName(Application.dataPath), "UserData"), "EngineCloner"), "models"), "duramax.obj"); }
+			get
+			{
+				string userData = Path.Combine(Path.GetDirectoryName(Application.dataPath), "UserData");
+				string path = Path.Combine(Path.Combine(Path.Combine(userData, "Duramax"), "models"), "duramax.obj");
+				string old = Path.Combine(Path.Combine(Path.Combine(userData, "EngineCloner"), "models"), "duramax.obj");
+				return !File.Exists(path) && File.Exists(old) ? old : path;
+			}
+		}
+
+		private static void SetField(object o, string name, object value)
+		{
+			FieldInfo f = o.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			if (f != null && f.FieldType.IsInstanceOfType(value))
+			{
+				f.SetValue(o, value);
+			}
 		}
 
 		// On the shop's template: every copy (bought, saved, bolted into a truck)
@@ -76,7 +95,7 @@ namespace EngineCloner
 				{
 					lod.enabled = false;
 				}
-				EngineClonerMod.Log("6.6L Duramax: its own model on " + shown + " part(s).");
+				DuramaxMod.Log("6.6L Duramax: its own model on " + shown + " part(s).");
 				DuramaxAccessories.FitSlots(block);
 				return;
 			}
@@ -100,16 +119,16 @@ namespace EngineCloner
 				if (n == "v8_valvecoverD_e" || n == "v8_valvecoverP_e" || n == "v8_intakeman_e" || n == "valveCoverD_e" || n == "valveCoverP_e" || n == "intakeMan_e")
 				{
 					// The game's own paint (as from a paint can).
-					EngineShop.SetField(d, "painted", true);
-					EngineShop.SetField(d, "red", Covers.r);
-					EngineShop.SetField(d, "green", Covers.g);
-					EngineShop.SetField(d, "blue", Covers.b);
-					EngineShop.SetField(d, "metallic", 0.3f);
-					EngineShop.SetField(d, "smoothness", 0.75f);
-					EngineShop.SetField(d, "paintSlot", 0);
+					SetField(d, "painted", true);
+					SetField(d, "red", Covers.r);
+					SetField(d, "green", Covers.g);
+					SetField(d, "blue", Covers.b);
+					SetField(d, "metallic", 0.3f);
+					SetField(d, "smoothness", 0.75f);
+					SetField(d, "paintSlot", 0);
 				}
 			}
-			EngineClonerMod.Log("6.6L Duramax: no " + ModelPath + ", so it's the V8 in Duramax colors.");
+			DuramaxMod.Log("6.6L Duramax: no " + ModelPath + ", so it's the V8 in Duramax colors.");
 		}
 
 		private static bool Load()
@@ -140,13 +159,13 @@ namespace EngineCloner
 						pieces[node.name] = new KeyValuePair<Mesh, Material[]>(mesh, mats.ToArray());
 					}
 				}
-				EngineClonerMod.Log("Loaded the 6.6L Duramax model: " + pieces.Count + " parts.");
+				DuramaxMod.Log("Loaded the 6.6L Duramax model: " + pieces.Count + " parts.");
 				return true;
 			}
 			catch (Exception e)
 			{
 				pieces = null;
-				EngineClonerMod.Log("Couldn't load " + ModelPath + ": " + e.Message);
+				DuramaxMod.Log("Couldn't load " + ModelPath + ": " + e.Message);
 				return false;
 			}
 		}
@@ -322,7 +341,7 @@ namespace EngineCloner
 		// multiplied (a refresh that leaves it alone mustn't multiply it again).
 		private static void Prefix(enginev8 __instance, out float __state)
 		{
-			Component car = Duramax.Is(__instance) ? CarOf(__instance) : null;
+			Component car = DuramaxModel.Is(__instance) ? CarOf(__instance) : null;
 			__state = car != null ? Get(car, "maxTorqueStatic") : -1f;
 			if (car != null)
 			{
@@ -333,7 +352,7 @@ namespace EngineCloner
 
 		private static void Postfix(enginev8 __instance, float __state)
 		{
-			Component car = Duramax.Is(__instance) ? CarOf(__instance) : null;
+			Component car = DuramaxModel.Is(__instance) ? CarOf(__instance) : null;
 			if (car == null)
 			{
 				return;
@@ -351,7 +370,7 @@ namespace EngineCloner
 				float v = Get(car, name);
 				if (f != null && v > 0f)
 				{
-					f.SetValue(car, v * EngineClonerMod.DuramaxPower * DuramaxAccessories.PowerOf(__instance.gameObject));
+					f.SetValue(car, v * DuramaxMod.Power * DuramaxAccessories.PowerOf(__instance.gameObject));
 				}
 			}
 		}
@@ -360,7 +379,7 @@ namespace EngineCloner
 		// when another finalizer already swallowed the exception).
 		private static System.Exception Finalizer(System.Exception __exception, enginev8 __instance, float __state)
 		{
-			Component car = Duramax.Is(__instance) ? CarOf(__instance) : null;
+			Component car = DuramaxModel.Is(__instance) ? CarOf(__instance) : null;
 			if (car != null && Get(car, "maxTorqueStatic") == -12345f)
 			{
 				AccessTools.Field(car.GetType(), "maxTorqueStatic")?.SetValue(car, __state);

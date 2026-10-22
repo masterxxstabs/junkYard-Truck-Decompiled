@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 
-namespace EngineCloner
+namespace Duramax
 {
 	// Engine-free model data, so the parsers can be tested outside the game.
 	// Everything here is already in Unity's left-handed space (+Y up): glTF and

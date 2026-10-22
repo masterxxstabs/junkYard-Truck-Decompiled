@@ -3,7 +3,12 @@
 The engine patch behind extra engines in Junkyard Truck, plus new engines you can
 buy. Every extra engine block works on its own: its own physics, and the truck
 drives whichever block is bolted into it. Engines you buy (or clone in debug
-mode) are saved with your save slot.
+mode) are saved with your save slot. Other mods build on it: their own engines
+(the [6.6L Duramax](../Duramax/) mod) and vehicles (the [Junkyard Ranger](../JunkyardRanger/)).
+
+**3.0:** the 6.6L Duramax is now [a mod of its own](../Duramax/); Engine Cloner is
+only the patch (and the game's engines for sale). Install the Duramax mod to keep
+it: saved Duramaxes load as before.
 
 ## Buying a new engine
 
@@ -11,11 +16,8 @@ New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine
 in the catalog: I4 / V8 / 2J Inline-6 Engine → Engine) and in the **Parts Store**
 (ComputerPartStore mod, Truck Parts).
 
-The **6.6L Duramax** has its own category in both:
-* **JunkAuto.com (1.2 and later):** **6.6L Duramax Diesel → Engine**, with every
-  part that fits it under the other categories.
-* **Parts Store:** category **6.6L Duramax Diesel**, at the top of the **All**
-  list (and in Truck Parts as before).
+Other mods' engines (the 6.6L Duramax) are sold the same way, with their own
+categories.
 
 
 | Engine | Block | Default price |
@@ -23,7 +25,6 @@ The **6.6L Duramax** has its own category in both:
 | Engine - I4 (new) | `engineblock` | $750 |
 | Engine - V8 (new) | `v8_block` | $1500 |
 | Engine - 2J inline-6 (new) | `i6block` | $1800 |
-| Engine - 6.6L Duramax V8 turbo-diesel (new) | `v8_block` | $4200 |
 
 A new engine is a **bare block** by default: just the block, rust-free, with every
 part off, taken off the same way the game removes a part, so they all bolt back in
@@ -41,100 +42,6 @@ that type in your world:
 
 An engine type that isn't anywhere in the level can't be copied, so it isn't for
 sale there (the log says so).
-
-### 6.6L Duramax V8 turbo-diesel (2.5, 2.7)
-
-A big turbo-diesel V8 for the trucks, built on the game's own V8 so it **works like any engine in
-the game**: it drops into the same engine bays (Diamondback, F100), takes all the
-V8's parts (heads, pistons, cam, intake, carb or fuel rail, headers, the
-aftermarket turbos...), bolts in with the hoist, and needs oil, coolant and a
-battery like the others. It's sold as a bare block or complete, like the rest, and
-saved the same way.
-
-What's different:
-* **Its own model (2.9):** a GM-style turbo-diesel V8, modeled for this mod. Each
-  part has its own baked textures, like the game's engines: shading in the
-  corners, grime that collects low down and in the gaps, worn edges, cast grain,
-  and a metal/gloss map (bare metal, paint, plastic and rubber each look their
-  own).
-  * **Block:** deep skirt flaring out to the banks, cylinder barrels, deck bolt
-    bosses, ribs, freeze plugs, the oil cooler on the passenger's side, engine
-    mounts with their rubbers, the bellhousing flange and its bolts, the
-    dipstick tube up to the game's dipstick.
-  * **Heads:** aluminium, with exhaust port faces, head bolts, glow plugs and
-    lifting eyes.
-  * **Valve covers:** cast rocker housings bolted all round, rounded black
-    injector covers with **DURAMAX** and ribbed ends, the oil filler neck and a
-    yellow **oil cap**, and a crankcase breather.
-  * **Intake:** a smooth cast valley manifold, the Y-bridge with **6.6L**, its
-    coupler and clamps, the EGR valve and cooler, the wiring harness and the
-    charge pipe.
-  * **Turbo:** a variable-geometry turbo in the valley: aluminium compressor
-    scroll with its wheel in the inlet, cast iron turbine housing, actuator, oil
-    lines, pedestal.
-  * **Air:** a rubber inlet elbow and MAF housing off the turbo, and a pleated
-    cone air filter.
-  * **Fuel:** the CP3 high-pressure pump, fuel rails along both heads, steel
-    injector lines with their nuts, feed lines, and the glow plug harness.
-  * **Exhaust:** cast log manifolds and up-pipes with braided flex joints to
-    the turbo.
-  * **Front:** the front cover and its bolts, the damper, the water pump,
-    a nine-blade fan on its clutch, the alternator (and its fan), the A/C
-    compressor, the power steering pump, an idler and a ribbed serpentine belt
-    round them all; the thermostat housing with the upper hose, and the lower
-    hose.
-  * **Below:** an oil pan with a deep sump, its bolts and drain plug; the oil
-    filter; the starter and solenoid.
-
-  * **Fuel filter head (2.10):** in the valley, with its ribbed cap, yellow
-    primer button and bleed screw.
-
-  It's shown on the V8's own parts (26 of them), so the engine comes apart,
-  wears and goes back together the game's way. The V8's gasoline parts get
-  diesel looks: the distributor is the turbo, the plug wires are the fuel lines,
-  the carb and air cleaner are the inlet and air filter, the fuel pump is the
-  CP3. A part taken off is the game's loose V8 part.
-* **Power:** it pulls **60% harder** than the game's V8 (setting "6.6L Duramax
-  power", 1.6 = 60% more torque; turbos still add on top).
-
-The model is `UserData/EngineCloner/models/duramax.obj` (with `.mtl` and its
-`duramax_*` textures, three per part), in the download; without it, the Duramax is the game's V8 in charcoal and gloss black.
-It's made by `tools/duramax_model.py` (Blender's Python module) to the frames of
-the game's V8 parts. (2.7: from the 8.3L of 2.5/2.6 to the 6.6L turbo-diesel.)
-
-Parts for it are the V8's: buy them as V8 parts.
-
-#### Duramax accessories (2.10)
-
-Bolt-ons for the Duramax, sold next to it (JunkAuto: **6.6L Duramax Diesel →
-Performance & Accessories**; Parts Store: category **6.6L Duramax Diesel**). They
-fit the game's way: carry one to its place on a Duramax and the snap mark shows;
-let go and it pops on, then tighten its bolts with the ratchet. Undo the bolts and
-right-click it to take it off.
-
-| Accessory | Goes on | Bolts | Pull | Price |
-|---|---|---|---|---|
-| Ram intake horn (billet) | the intake's Y-bridge (front of the engine) | 4 | +6% | $450 |
-| Turbo blanket | the turbo's turbine housing | snaps on | +3% | $140 |
-| Lift pump & filter kit | the driver's side of the block, low | 4 | +6% | $650 |
-
-* **Needs its part:** the horn only fits while the intake is on, the blanket while
-  the turbo is on.
-* **Pull:** each one multiplies the Duramax's torque while it's fitted (all three
-  together: about +16%). It counts from the next time the game refreshes the
-  engine, for example when you get in.
-* **Saving:** fitted accessories are saved with the engine; loose ones on their
-  own.
-* **Prices:** settings "Duramax ram intake horn price" and so on.
-
-**Saving:** bought engines, and debug clones, are saved per save slot in
-`UserData/EngineCloner/slotN.txt` (`auto.txt` for the autosave):
-* **Placement:** loose, on the engine stand, or bolted in a vehicle.
-* **State:** every part's fitted state, condition and bolts, plus the engine's
-  condition and fluids.
-
-They're kept out of the game's own save, so they can never overwrite your
-original engine's save entry.
 
 ## Extra engine stands
 
@@ -176,10 +83,8 @@ Mods Menu → ENGINE CLONER, or `[EngineCloner]` in `UserData/MelonPreferences.c
 
 | Setting | Default | |
 |---|---|---|
-| New I4 / V8 / 2J inline-6 / 6.6L Duramax price | 750 / 1500 / 1800 / 4200 | Shop prices |
-| 6.6L Duramax power | 1.6 | Its torque compared with the game's V8 |
+| New I4 / V8 / 2J inline-6 price | 750 / 1500 / 1800 | Shop prices |
 | Engine stand price | 350 | |
-| Duramax ram intake horn / turbo blanket / lift pump kit price | 450 / 140 / 650 | Shop prices of the Duramax accessories |
 | Move stand key | K | Move a stand you bought |
 | New engines: bare block | **on** | Off: a complete engine (copy of your most complete one, all parts new) |
 | New engines come with oil | off | Off: shipped dry |
@@ -290,6 +195,26 @@ right part. Junkyard ATV ships the same fix; whichever mod loads first runs it.
 Only real game engine blocks (they all carry a `FixedJoint`) count as engine blocks.
 Engines built into other mods' vehicles, like Junkyard ATV's, are never rewired,
 swapped or cloned.
+
+## For other mods: EngineApi (3.0)
+
+`EngineCloner.EngineApi` lets another mod add engines and keep data in Engine
+Cloner's saves (reference `EngineCloner.dll`):
+
+* **`RegisterEngine(new EngineApi.EngineKind { ... })`:** a new engine kind built
+  on one of the game's engines (`baseEngine` "i4", "v8" or "i6": its parts, bay
+  and gauges). Give it an `id` (saved with each engine), a `shopName`, a `price`,
+  and a `style` callback that gets the shop's template (every engine of the kind
+  is a copy of it: put your look there). Optional: a Parts Store `storeCategory`
+  of its own (listed first in All) and `storeItems` for that category. It's then
+  sold, mounted (`VehicleApi.MountNewEngine(vehicle, id, ...)`), saved and restored
+  like Engine Cloner's own engines.
+* **`KindOf(block)`:** which kind an engine block is.
+* **`Saving` / `Loading`:** write lines of your own into the save file, and read
+  them back (return true for a line that's yours).
+* **Lines nobody reads are kept:** an engine of a kind whose mod isn't installed,
+  or another mod's lines, are written back unchanged on the next save, so
+  uninstalling a mod for a while loses nothing.
 
 ## Build
 

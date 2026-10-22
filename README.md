@@ -10,8 +10,9 @@ Every mod is separate: install the ones you want. They also work together (see
 
 | Mod | Version | What it does |
 |---|---|---|
-| [Engine Cloner](EngineCloner/) | 2.10.0 | Lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and a 6.6L Duramax V8 turbo-diesel (with bolt-on accessories) and extra engine stands; removes vehicle speed limits |
-| [Junkyard Ranger](JunkyardRanger/) | 1.7.2 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
+| [Engine Cloner](EngineCloner/) | 3.0.0 | The patch underneath: lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits; an API for other mods' engines |
+| [6.6L Duramax](Duramax/) | 1.0.0 | A GM-style 6.6L Duramax V8 turbo-diesel with its own detailed model, more power and bolt-on accessories (needs Engine Cloner) |
+| [Junkyard Ranger](JunkyardRanger/) | 1.7.3 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
 | [Truck Parts QOL](TruckPartsQOL/) | 1.5.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.2.1 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
@@ -34,6 +35,8 @@ Each folder has its own README with the details.
      uses a simple built-in body.
    * **Junkyard Ranger:** the body files go in `<game>/UserData/JunkyardRanger/models/`.
      It needs Engine Cloner.
+   * **6.6L Duramax:** the model goes in `<game>/UserData/Duramax/models/`. It needs
+     Engine Cloner (3.0 or newer).
 
 Settings live in `UserData/MelonPreferences.cfg`. With the Mods Menu installed you can
 change them in game: **MODS → (mod name)**.
@@ -43,7 +46,8 @@ change them in game: **MODS → (mod name)**.
 ### Engine Cloner
 
 A patch layer that lets the game run with more than one engine of a type, plus the
-gameplay built on it.
+gameplay built on it. Other mods build their engines and vehicles on it (the
+Duramax, the Ranger).
 
 * **Independent engines:**
   * **Own physics:** every engine block gets its own physics anchor, so copies no
@@ -69,6 +73,22 @@ gameplay built on it.
   Other mods build on this through `VehicleApi`.
 * **Debug:** a clone key (off by default) copies the engine or vehicle you're
   looking at.
+* **For other mods:** `EngineApi` registers engines built on the game's (sold,
+  mounted and saved like these) and keeps their save lines.
+
+### 6.6L Duramax
+
+* **The engine:** a GM-style 6.6L V8 turbo-diesel built on the game's V8, so it fits
+  the same bays and takes the V8's parts. $4200 on JunkAuto (**6.6L Duramax
+  Diesel**) and in the Parts Store.
+* **Its own model:** every part detailed and textured like the game's engines
+  (baked shading, grime, worn edges), with diesel looks for the V8's gasoline parts:
+  the turbo, fuel rails and injector lines, inlet and air filter, CP3 pump.
+* **Power:** pulls 60% harder than the V8 (a setting).
+* **Accessories:** a billet ram intake horn, a turbo blanket and a lift pump kit,
+  bolted on the game's way; each adds pull.
+* **Needs Engine Cloner** 3.0 or newer. Saved Duramaxes from Engine Cloner 2.x load
+  as before.
 
 ### Truck Parts QOL
 
@@ -170,8 +190,8 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
 
 ## How they fit together
 
-* **One shop list:** Truck Parts QOL, Junkyard ATV, Junkyard Ranger, Parts Store Plus
-  and Engine Cloner publish what they sell to a shared list. JunkAuto PC, and the Junkyard
+* **One shop list:** Truck Parts QOL, Junkyard ATV, Junkyard Ranger, Parts Store Plus,
+  Engine Cloner and the 6.6L Duramax publish what they sell to a shared list. JunkAuto PC, and the Junkyard
   Terminal's Parts Store if you have it, sell all of it.
   * The list is `AppDomain` data under `JunkyardTruckMods.ShopProviders`.
   * It's built from plain .NET types only, so no mod needs another's DLL.
@@ -231,6 +251,7 @@ Tools:
 ```
 Assembly-CSharp/   Decompiled game code, for reference only (never modified or shipped)
 EngineCloner/      Engine Cloner
+Duramax/           6.6L Duramax
 JunkyardRanger/    Junkyard Ranger
 TruckPartsQOL/     Truck Parts QOL
 JunkyardATV/       Junkyard ATV

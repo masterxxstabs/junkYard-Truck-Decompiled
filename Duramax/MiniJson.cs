@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace EngineCloner
+namespace Duramax
 {
 	// A small JSON reader for glTF: objects become Dictionary<string, object>,
 	// arrays List<object>, numbers double, plus string/bool/null.

@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "2.10.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -59,15 +59,10 @@ namespace EngineCloner
 		private static MelonPreferences_Entry<float> i4Price;
 		private static MelonPreferences_Entry<float> v8Price;
 		private static MelonPreferences_Entry<float> i6Price;
-		private static MelonPreferences_Entry<float> duramaxPrice;
-		private static MelonPreferences_Entry<float> duramaxPower;
 		private static MelonPreferences_Entry<bool> shipWithOil;
 		private static MelonPreferences_Entry<bool> removeSpeedLimits;
 		private static MelonPreferences_Entry<bool> bareBlocks;
 		private static MelonPreferences_Entry<float> standPrice;
-		private static MelonPreferences_Entry<float> ramHornPrice;
-		private static MelonPreferences_Entry<float> turboBlanketPrice;
-		private static MelonPreferences_Entry<float> liftPumpPrice;
 		private MelonPreferences_Entry<KeyCode> moveStandKey;
 		private string hint = "";
 		private float hintUntil;
@@ -89,8 +84,6 @@ namespace EngineCloner
 			i4Price = category.CreateEntry("I4Price", 750f, "New I4 price", "Price of a new I4 engine in the shops.");
 			v8Price = category.CreateEntry("V8Price", 1500f, "New V8 price", "Price of a new V8 engine in the shops.");
 			i6Price = category.CreateEntry("I6Price", 1800f, "New 2J inline-6 price", "Price of a new 2J inline-6 engine in the shops.");
-			duramaxPrice = category.CreateEntry("DuramaxPrice", 4200f, "New 6.6L Duramax price", "Price of a new 6.6L Duramax V8 turbo-diesel in the shops.");
-			duramaxPower = category.CreateEntry("DuramaxPower", 1.6f, "6.6L Duramax power", "How much stronger the Duramax pulls than the game's V8 (1.6 = 60% more torque; turbos still add on top).");
 			shipWithOil = category.CreateEntry("ShipWithOil", false, "New engines come with oil", "Off: new engines ship dry, like a real crate engine; add oil before starting it.");
 			standPrice = category.CreateEntry("StandPrice", 350f, "Engine stand price", "Price of an extra engine stand in the shops.");
 			moveStandKey = category.CreateEntry("MoveStandKey", KeyCode.K, "Move stand key", "Look at an engine stand you bought, press this, look where you want it and press it again.");
@@ -98,25 +91,6 @@ namespace EngineCloner
 			bareBlocks = category.CreateEntry("BareBlocks", true, "New engines: bare block", "On: a new engine is just the block, every part off (fit your own). Off: a complete engine, a copy of your most complete one with every part new.");
 			removeSpeedLimits = category.CreateEntry("RemoveSpeedLimits", true, "Remove speed limits", "On: vehicles aren't cut off at the game's top speed (pickup 85/100, F100 95/100, golf cart 100); they go as fast as engine and gearing allow. Off: the game's limits.");
 			ShopProviders.Register(EngineShop.ShopItems);
-			ramHornPrice = category.CreateEntry("RamHornPrice", 450f, "Duramax ram intake horn price", "Price of the Duramax's billet ram intake horn (6% more pull when fitted).");
-			turboBlanketPrice = category.CreateEntry("TurboBlanketPrice", 140f, "Duramax turbo blanket price", "Price of the Duramax's turbo blanket (3% more pull when fitted).");
-			liftPumpPrice = category.CreateEntry("LiftPumpPrice", 650f, "Duramax lift pump kit price", "Price of the Duramax's lift pump and filter kit (6% more pull when fitted).");
-			ShopProviders.Register(DuramaxAccessories.ShopItems);
-		}
-
-		public static float RamHornPrice
-		{
-			get { return ramHornPrice != null ? ramHornPrice.Value : 450f; }
-		}
-
-		public static float TurboBlanketPrice
-		{
-			get { return turboBlanketPrice != null ? turboBlanketPrice.Value : 140f; }
-		}
-
-		public static float LiftPumpPrice
-		{
-			get { return liftPumpPrice != null ? liftPumpPrice.Value : 650f; }
 		}
 
 		public static float StandPrice
@@ -134,14 +108,9 @@ namespace EngineCloner
 			get { return removeSpeedLimits == null || removeSpeedLimits.Value; }
 		}
 
-		public static float DuramaxPower
-		{
-			get { return duramaxPower != null ? Mathf.Clamp(duramaxPower.Value, 0.5f, 4f) : 1.6f; }
-		}
-
 		public static float PriceOf(string kind)
 		{
-			MelonPreferences_Entry<float> e = kind == "v8" ? v8Price : kind == "i6" ? i6Price : kind == "duramax" ? duramaxPrice : i4Price;
+			MelonPreferences_Entry<float> e = kind == "v8" ? v8Price : kind == "i6" ? i6Price : i4Price;
 			return e != null ? e.Value : 1000f;
 		}
 
@@ -254,7 +223,6 @@ namespace EngineCloner
 			wiredBlock.Clear();
 			VehicleCloner.Reset();
 			EngineShop.Reset();
-			DuramaxAccessories.Reset();
 			StandShop.Reset();
 			EngineShop.HookStore(HarmonyInstance);
 			nextBlockScan = 0f;
@@ -267,7 +235,6 @@ namespace EngineCloner
 			{
 				CloneLookedAt();
 			}
-			DuramaxAccessories.UpdateTriggers();
 			if (restoredWith != null)
 			{
 				string message = StandShop.Update(moveStandKey.Value);

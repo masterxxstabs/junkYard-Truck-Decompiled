@@ -10,7 +10,8 @@ using Object = UnityEngine.Object;
 namespace EngineCloner
 {
 	// New engines for sale: the I4 (the truck's engineblock), the V8 (v8_block) and
-	// the 2J inline-6 (i6block). Sold in the Parts Store (ComputerPartStore) and in
+	// the 2J inline-6 (i6block), and any other mod's engines built on them
+	// (EngineApi.RegisterEngine). Sold in the Parts Store (ComputerPartStore) and in
 	// every shop that reads the mods' shared shop list (JunkAuto).
 	//
 	// A bought engine is a new bare block by default: a copy of an engine of that
@@ -28,24 +29,53 @@ namespace EngineCloner
 			public string blockName;
 			public Type script;
 			// The game's engine it's built on and fits like ("i4", "v8", "i6"): its
-			// own id, except for our own engines (the Duramax is a V8).
+			// own id, except for other mods' engines (EngineApi).
 			public string game;
+			// Other mods' engines: their price, look, own store category and items.
+			public Func<float> price;
+			public Action<GameObject> style;
+			public string storeCategory;
+			public Func<object[][]> storeItems;
 		}
 
-		public static readonly Kind[] Kinds =
+		public static readonly List<Kind> Kinds = new List<Kind>
 		{
 			new Kind { id = "i4", name = "Engine - I4 (new)", blockName = "engineblock", script = typeof(engine), game = "i4" },
 			new Kind { id = "v8", name = "Engine - V8 (new)", blockName = "v8_block", script = typeof(enginev8), game = "v8" },
 			new Kind { id = "i6", name = "Engine - 2J inline-6 (new)", blockName = "i6block", script = typeof(enginei6), game = "i6" },
-			// Built on the game's V8 (its parts, bay and gauges), with its own look
-			// and more power (Duramax.cs).
-			new Kind { id = "duramax", name = "Engine - 6.6L Duramax V8 turbo-diesel (new)", blockName = "v8_block", script = typeof(enginev8), game = "v8" },
 		};
 
 		private const string Category = "Truck Part";
-		// The Duramax is also listed in its own category, first in the Parts
-		// Store's list ("All").
-		public const string DuramaxCategory = "6.6L Duramax Diesel";
+
+		// Another mod's engine kind (EngineApi.RegisterEngine).
+		public static bool Register(EngineApi.EngineKind e)
+		{
+			if (e == null || string.IsNullOrEmpty(e.id) || KindOf(e.id) != null)
+			{
+				EngineClonerMod.Log("Can't register engine kind " + (e != null ? e.id : "null") + ": no id, or it's taken.");
+				return false;
+			}
+			Kind baseKind = KindOf(e.baseEngine);
+			if (baseKind == null || baseKind.id != baseKind.game)
+			{
+				EngineClonerMod.Log("Can't register engine kind " + e.id + ": base engine " + e.baseEngine + " should be i4, v8 or i6.");
+				return false;
+			}
+			Kinds.Add(new Kind
+			{
+				id = e.id,
+				name = string.IsNullOrEmpty(e.shopName) ? "Engine - " + e.id + " (new)" : e.shopName,
+				blockName = baseKind.blockName,
+				script = baseKind.script,
+				game = baseKind.game,
+				price = e.price,
+				style = e.style,
+				storeCategory = e.storeCategory,
+				storeItems = e.storeItems
+			});
+			EngineClonerMod.Log("Engine kind " + e.id + " registered (built on the " + baseKind.id + ").");
+			return true;
+		}
 
 		private static GameObject holder;
 		private static readonly Dictionary<string, GameObject> templates = new Dictionary<string, GameObject>();
@@ -65,7 +95,7 @@ namespace EngineCloner
 
 		public static Kind KindOf(GameObject block)
 		{
-			// Ours say what they are (a Duramax and a V8 share the V8's script).
+			// Ours say what they are (another mod's engine shares its base engine's script).
 			ShopEngine marker = block.GetComponent<ShopEngine>();
 			Kind own = marker != null ? KindOf(marker.kind) : null;
 			if (own != null)
@@ -91,6 +121,16 @@ namespace EngineCloner
 
 		public static float Price(Kind k)
 		{
+			if (k.price != null)
+			{
+				try
+				{
+					return k.price();
+				}
+				catch
+				{
+				}
+			}
 			return EngineClonerMod.PriceOf(k.id);
 		}
 
@@ -130,16 +170,16 @@ namespace EngineCloner
 			template.name = k.blockName;
 			StripGameSave(template);
 			Freshen(template, k, bare);
-			if (k.id == "duramax")
+			if (k.style != null)
 			{
 				try
 				{
-					Duramax.Style(template);
+					k.style(template);
 				}
 				catch (Exception e)
 				{
-					// Still for sale, in the V8's look.
-					EngineClonerMod.Log("Couldn't give the Duramax its look: " + e);
+					// Still for sale, in the base engine's look.
+					EngineClonerMod.Log("Couldn't style the new " + k.id + ": " + e);
 				}
 			}
 			ShopEngine marker = template.AddComponent<ShopEngine>();
@@ -440,6 +480,61 @@ namespace EngineCloner
 			EngineClonerMod.Log("New engines are sold in the Parts Store.");
 		}
 
+		// Another mod's items for its engine's category, right after the engine.
+		private static void StoreItems(IList list, Kind k)
+		{
+			int at = 0;
+			foreach (object e in list)
+			{
+				if ((string)nameField.GetValue(e) == k.name && (string)categoryField.GetValue(e) == k.storeCategory)
+				{
+					at = list.IndexOf(e) + 1;
+					break;
+				}
+			}
+			object[][] items;
+			try
+			{
+				items = k.storeItems() ?? new object[0][];
+			}
+			catch (Exception ex)
+			{
+				EngineClonerMod.Log("Couldn't list the " + k.id + "'s items: " + ex.Message);
+				return;
+			}
+			foreach (object[] item in items)
+			{
+				if (item == null || item.Length < 3 || !(item[0] is GameObject) || !(item[1] is string))
+				{
+					continue;
+				}
+				string name = (string)item[1];
+				object entry = null;
+				foreach (object e in list)
+				{
+					if ((string)nameField.GetValue(e) == name)
+					{
+						entry = e;
+						break;
+					}
+				}
+				if (entry == null)
+				{
+					entry = Activator.CreateInstance(entryType);
+					nameField.SetValue(entry, name);
+					categoryField.SetValue(entry, k.storeCategory);
+				}
+				else
+				{
+					list.Remove(entry);
+				}
+				prefabField.SetValue(entry, item[0]);
+				priceField.SetValue(entry, item[2] is float ? (float)item[2] : 0f);
+				list.Insert(Math.Min(at, list.Count), entry);
+				at = list.IndexOf(entry) + 1;
+			}
+		}
+
 		private static bool storeError;
 
 		private static void StorePostfix(object __result)
@@ -454,7 +549,7 @@ namespace EngineCloner
 				foreach (Kind k in Kinds)
 				{
 					GameObject t = Template(k);
-					foreach (string category in k.id == "duramax" ? new[] { Category, DuramaxCategory } : new[] { Category })
+					foreach (string category in k.storeCategory != null ? new[] { Category, k.storeCategory } : new[] { Category })
 					{
 						// Our entry for this engine (by name: templates are remade per level).
 						object entry = null;
@@ -483,49 +578,19 @@ namespace EngineCloner
 						}
 						prefabField.SetValue(entry, t);
 						priceField.SetValue(entry, Price(k));
-						if (category == DuramaxCategory && list.IndexOf(entry) != 0)
+						if (category != Category && list.IndexOf(entry) != 0)
 						{
 							list.Remove(entry);
 							list.Insert(0, entry);
 						}
 					}
 				}
-				// The Duramax's accessories, under its category, just after it.
-				int at = 0;
-				foreach (object e in list)
+				foreach (Kind k in Kinds)
 				{
-					if ((string)nameField.GetValue(e) == KindOf("duramax").name && (string)categoryField.GetValue(e) == DuramaxCategory)
+					if (k.storeCategory != null && k.storeItems != null)
 					{
-						at = list.IndexOf(e) + 1;
-						break;
+						StoreItems(list, k);
 					}
-				}
-				foreach (object[] item in DuramaxAccessories.ShopItems())
-				{
-					string name = (string)item[1];
-					object entry = null;
-					foreach (object e in list)
-					{
-						if ((string)nameField.GetValue(e) == name)
-						{
-							entry = e;
-							break;
-						}
-					}
-					if (entry == null)
-					{
-						entry = Activator.CreateInstance(entryType);
-						nameField.SetValue(entry, name);
-						categoryField.SetValue(entry, DuramaxCategory);
-					}
-					else
-					{
-						list.Remove(entry);
-					}
-					prefabField.SetValue(entry, item[0]);
-					priceField.SetValue(entry, (float)item[2]);
-					list.Insert(Math.Min(at, list.Count), entry);
-					at = list.IndexOf(entry) + 1;
 				}
 				// The engine stand, too.
 				object[][] stand = StandShop.ShopItems();

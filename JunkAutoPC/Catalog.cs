@@ -36,7 +36,7 @@ namespace JunkAutoPC
 		public const string I4 = "I4 ENGINE";
 		public const string V8 = "V8 ENGINE";
 		public const string I6 = "2J INLINE-6 ENGINE";
-		// Engine Cloner's Duramax: its own section, with every part that fits it
+		// The 6.6L Duramax mod's engine: its own section, with every part that fits it
 		// (it's built on the V8, so it takes the V8's parts).
 		public const string Duramax = "6.6L DURAMAX DIESEL";
 		public static readonly string[] Engines = { I4, V8, I6 };

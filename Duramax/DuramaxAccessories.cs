@@ -4,10 +4,11 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using EngineCloner;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace EngineCloner
+namespace Duramax
 {
 	// Bolt-on accessories for the Duramax, fitted the game's own way. Each has a
 	// slot on the engine like the game's part slots (a hidden part named "..._e"
@@ -23,6 +24,7 @@ namespace EngineCloner
 	//
 	// Their looks are groups of the Duramax's model (acc_*), and their bolt seats
 	// are in models/duramax_acc.json (both made by tools/duramax_model.py).
+	// Loose ones are saved in Engine Cloner's save files (EngineApi.Saving).
 	internal static class DuramaxAccessories
 	{
 		internal class Kind
@@ -40,9 +42,9 @@ namespace EngineCloner
 
 		public static readonly Kind[] Kinds =
 		{
-			new Kind { id = "RamHorn", slot = "dmxramhorn_e", group = "acc_ramhorn", shopName = "Duramax - Ram intake horn (billet)", itemName = "duramaxramhorn", description = "Ram intake horn, billet (6.6L Duramax: bolts to the intake's Y-bridge)", mass = 2.5f, power = 1.06f, price = () => EngineClonerMod.RamHornPrice },
-			new Kind { id = "TurboBlanket", slot = "dmxblanket_e", group = "acc_turboblanket", shopName = "Duramax - Turbo blanket", itemName = "duramaxturboblanket", description = "Turbo blanket (6.6L Duramax: wraps the turbine)", mass = 0.8f, power = 1.03f, price = () => EngineClonerMod.TurboBlanketPrice },
-			new Kind { id = "LiftPump", slot = "dmxliftpump_e", group = "acc_liftpump", shopName = "Duramax - Lift pump & filter kit", itemName = "duramaxliftpump", description = "Lift pump and filter kit (6.6L Duramax: bolts to the driver's side of the block)", mass = 6f, power = 1.06f, price = () => EngineClonerMod.LiftPumpPrice },
+			new Kind { id = "RamHorn", slot = "dmxramhorn_e", group = "acc_ramhorn", shopName = "Duramax - Ram intake horn (billet)", itemName = "duramaxramhorn", description = "Ram intake horn, billet (6.6L Duramax: bolts to the intake's Y-bridge)", mass = 2.5f, power = 1.06f, price = () => DuramaxMod.RamHornPrice },
+			new Kind { id = "TurboBlanket", slot = "dmxblanket_e", group = "acc_turboblanket", shopName = "Duramax - Turbo blanket", itemName = "duramaxturboblanket", description = "Turbo blanket (6.6L Duramax: wraps the turbine)", mass = 0.8f, power = 1.03f, price = () => DuramaxMod.TurboBlanketPrice },
+			new Kind { id = "LiftPump", slot = "dmxliftpump_e", group = "acc_liftpump", shopName = "Duramax - Lift pump & filter kit", itemName = "duramaxliftpump", description = "Lift pump and filter kit (6.6L Duramax: bolts to the driver's side of the block)", mass = 6f, power = 1.06f, price = () => DuramaxMod.LiftPumpPrice },
 		};
 
 		private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -76,7 +78,7 @@ namespace EngineCloner
 				return mounts.Count > 0;
 			}
 			mounts = new Dictionary<string, Mount>();
-			string path = Path.Combine(Path.GetDirectoryName(Duramax.ModelPath), "duramax_acc.json");
+			string path = Path.Combine(Path.GetDirectoryName(DuramaxModel.ModelPath), "duramax_acc.json");
 			if (!File.Exists(path))
 			{
 				return false;
@@ -106,7 +108,7 @@ namespace EngineCloner
 			}
 			catch (Exception ex)
 			{
-				EngineClonerMod.Log("Couldn't read " + path + ": " + ex.Message);
+				DuramaxMod.Log("Couldn't read " + path + ": " + ex.Message);
 			}
 			return mounts.Count > 0;
 		}
@@ -142,7 +144,7 @@ namespace EngineCloner
 				Mesh mesh;
 				Material[] materials;
 				Mount mount;
-				if (!mounts.TryGetValue(k.group, out mount) || !Duramax.Piece(k.group, out mesh, out materials))
+				if (!mounts.TryGetValue(k.group, out mount) || !DuramaxModel.Piece(k.group, out mesh, out materials))
 				{
 					continue;
 				}
@@ -199,7 +201,7 @@ namespace EngineCloner
 			}
 			if (made > 0)
 			{
-				EngineClonerMod.Log("6.6L Duramax: " + made + " accessory slot(s).");
+				DuramaxMod.Log("6.6L Duramax: " + made + " accessory slot(s).");
 			}
 		}
 
@@ -332,13 +334,13 @@ namespace EngineCloner
 			}
 			Mesh mesh;
 			Material[] materials;
-			if (!LoadMounts() || !Duramax.Piece(kind.group, out mesh, out materials))
+			if (!LoadMounts() || !DuramaxModel.Piece(kind.group, out mesh, out materials))
 			{
 				return null;
 			}
 			if (holder == null)
 			{
-				holder = new GameObject("EngineCloner_DuramaxAccessories");
+				holder = new GameObject("Duramax_Accessories");
 				holder.SetActive(false);
 				Object.DontDestroyOnLoad(holder);
 			}
@@ -403,7 +405,7 @@ namespace EngineCloner
 
 		// Loose accessories in the world, saved with the engines:
 		//   DMXACC;kind;px;py;pz;rx;ry;rz;rw;health
-		public static int SaveLines(StringBuilder sb)
+		public static void SaveLines(StringBuilder sb)
 		{
 			int n = 0;
 			foreach (DuramaxAccessoryItem item in Object.FindObjectsOfType<DuramaxAccessoryItem>())
@@ -416,7 +418,10 @@ namespace EngineCloner
 				})).Append('\n');
 				n++;
 			}
-			return n;
+			if (n > 0)
+			{
+				DuramaxMod.Log("Saved " + n + " loose accessor" + (n == 1 ? "y" : "ies") + ".");
+			}
 		}
 
 		public static bool LoadLine(string[] f)

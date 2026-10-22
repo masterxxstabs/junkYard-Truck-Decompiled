@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.7.2", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.7.3", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger
@@ -60,7 +60,7 @@ namespace JunkyardRanger
 			log = LoggerInstance;
 			MelonPreferences_Category c = MelonPreferences.CreateCategory("JunkyardRanger", "Junkyard Ranger");
 			price = c.CreateEntry("Price", 4500f, "Price", "What a new Ranger costs in the shops.");
-			engineKind = c.CreateEntry("Engine", RangerEngine.I4, "Engine", "The engine a new Ranger comes with (the game's own engines, or Engine Cloner's 6.6L Duramax), or None to fit your own.");
+			engineKind = c.CreateEntry("Engine", RangerEngine.I4, "Engine", "The engine a new Ranger comes with (the game's own engines, or the 6.6L Duramax with that mod), or None to fit your own.");
 			completeEngine = c.CreateEntry("CompleteEngine", true, "Engine: complete", "On: the engine comes with every part on, ready to run. Off: a bare block to build up.");
 			paintColor = c.CreateEntry("PaintColor", "#E8E8E4", "Paint color", "A new Ranger's color (above the two-tone line), as #RRGGBB. Repaint it in game with the spray cans.");
 			weathered = c.CreateEntry("Weathered", false, "Weathered paint", "On: the paint is worn through to rust in places, like the game's other trucks. Off: clean paint.");

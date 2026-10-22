@@ -104,7 +104,7 @@ In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
 | Setting | Default | What it does |
 |---|---|---|
 | Price | 4500 | Price in the shops |
-| Engine | I4 | The engine a new Ranger comes with: I4, V8, I6_2J, Duramax_6_6 (Engine Cloner's 6.6L Duramax) or None |
+| Engine | I4 | The engine a new Ranger comes with: I4, V8, I6_2J, Duramax_6_6 (needs the 6.6L Duramax mod) or None |
 | Engine: complete | on | On: every part on, ready to run. Off: a bare block to build up |
 | Paint color | #E8E8E4 | A new Ranger's color above the two-tone line (#RRGGBB) |
 | Two-tone lower color | #3A3D40 | A new Ranger's color below the line and on the bumper |

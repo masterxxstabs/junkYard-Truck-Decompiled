@@ -16,7 +16,9 @@ namespace EngineCloner
 	//
 	//   ENGINE;kind;place;vehicle;px;py;pz;rx;ry;rz;rw;state
 	//
-	// and one per loose Duramax accessory (DuramaxAccessories.SaveLines).
+	// Other mods add lines of their own (EngineApi.Saving / Loading); lines that
+	// nobody reads (an engine kind or a mod that isn't installed now) are kept and
+	// written back, so nothing is lost.
 	//
 	// place: loose (world pose), stand (on the engine stand) or vehicle (bolted in
 	// the named vehicle, pose relative to it). state is a snapshot of the block:
@@ -82,7 +84,11 @@ namespace EngineCloner
 					})).Append('\n');
 					n++;
 				}
-				int accessories = DuramaxAccessories.SaveLines(sb);
+				EngineApi.RaiseSaving(sb);
+				foreach (string line in kept)
+				{
+					sb.Append(line).Append('\n');
+				}
 				string path = File(slot);
 				Directory.CreateDirectory(Path.GetDirectoryName(path));
 				string temp = path + ".tmp";
@@ -92,7 +98,7 @@ namespace EngineCloner
 					System.IO.File.Delete(path);
 				}
 				System.IO.File.Move(temp, path);
-				EngineClonerMod.Log("Saved " + n + " bought/cloned engine(s)" + (accessories > 0 ? " and " + accessories + " loose Duramax accessor" + (accessories == 1 ? "y" : "ies") : "") + " with " + SlotName(slot) + ".");
+				EngineClonerMod.Log("Saved " + n + " bought/cloned engine(s)" + (kept.Count > 0 ? " (and kept " + kept.Count + " line(s) for mods that aren't installed)" : "") + " with " + SlotName(slot) + ".");
 			}
 			catch (Exception e)
 			{
@@ -161,10 +167,14 @@ namespace EngineCloner
 
 		// --- Loading. ---
 
+		// Lines of the loaded file that nobody could read: written back on save.
+		private static readonly List<string> kept = new List<string>();
+
 		public static void Load(int slot)
 		{
 			// Other mods' vehicles first: engines saved in them are bolted back in.
 			VehicleApi.RaiseLoad(slot);
+			kept.Clear();
 			if (slot <= 0 || !System.IO.File.Exists(File(slot)))
 			{
 				return;
@@ -179,20 +189,26 @@ namespace EngineCloner
 			foreach (string line in all)
 			{
 				string[] f = line.Split(';');
-				try
+				if (line.Trim().Length == 0 || f[0] == "STAND")
 				{
-					if (DuramaxAccessories.LoadLine(f))
-					{
-						continue;
-					}
-				}
-				catch (Exception e)
-				{
-					EngineClonerMod.Log("Skipping a bad accessory save line: " + e.Message);
 					continue;
 				}
-				if (f.Length < 12 || f[0] != "ENGINE")
+				if (f[0] != "ENGINE")
 				{
+					if (!EngineApi.RaiseLoading(f))
+					{
+						kept.Add(line);
+					}
+					continue;
+				}
+				if (f.Length < 12)
+				{
+					continue;
+				}
+				if (EngineShop.KindOf(f[1]) == null)
+				{
+					// An engine kind from a mod that isn't installed.
+					kept.Add(line);
 					continue;
 				}
 				try

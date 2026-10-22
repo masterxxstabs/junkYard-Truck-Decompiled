@@ -168,7 +168,7 @@ namespace EngineCloner
 			return null;
 		}
 
-		// A new engine ("i4", "v8", "i6", "duramax") bolted into the vehicle's engine bay:
+		// A new engine ("i4", "v8", "i6", or another mod's registered kind) bolted into the vehicle's engine bay:
 		// complete (every part on, new) or a bare block, with or without oil. It's
 		// one of this mod's engines, so it's saved with the vehicle.
 		public static GameObject MountNewEngine(GameObject vehicle, string kind, bool complete, bool withOil)
