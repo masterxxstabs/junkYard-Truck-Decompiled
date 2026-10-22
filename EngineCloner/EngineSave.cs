@@ -443,10 +443,8 @@ namespace EngineCloner
 			{
 				EngineShop.SetField(script, "whichTruck", car != null ? 1 : 2);
 			}
-			if (VehicleCloner.IsCopy(vehicle))
-			{
-				ReferenceSwapper.Localize(vehicle, block);
-			}
+			// Before the block's Start runs: it snaps to its truck's engine bay.
+			EngineClonerMod.LocalizeMounted(block);
 		}
 
 		// "dirt pickup truck" is the game's own; "dirt pickup truck#ranger-3" a

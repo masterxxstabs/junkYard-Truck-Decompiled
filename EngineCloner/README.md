@@ -10,6 +10,13 @@ mode) are saved with your save slot. Other mods build on it: their own engines
 only the patch (and the game's engines for sale). Install the Duramax mod to keep
 it: saved Duramaxes load as before.
 
+**3.0.1:** engines in copied trucks (the Ranger) run, and stay in the truck they're
+put in. An engine bolted into a truck is now always pointed at that truck (its
+fuel, battery, gearbox and engine bay), and getting in a truck wires the game to
+the engine bolted in it. Before, an engine in a Ranger could keep reading the
+Diamondback's fuel and battery (so it never ran) and snap to the Diamondback's
+engine bay.
+
 ## Buying a new engine
 
 New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine

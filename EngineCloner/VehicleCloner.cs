@@ -609,7 +609,70 @@ namespace EngineCloner
 			if (vehicle != null)
 			{
 				VehicleCloner.Wire(vehicle);
+				GameObject block = VehicleApi.MountedEngine(vehicle);
+				if (block != null)
+				{
+					EngineClonerMod.WireTo(block);
+				}
 				Prepare(__instance, vehicle);
+				Point(__instance, block);
+			}
+		}
+
+		// The game refreshes and starts the engine of the truck's kind it holds
+		// (Interactor.fourcyl / v8 / i6): the one bolted in this vehicle.
+		private static void Point(Interactor interactor, GameObject block)
+		{
+			if (block == null)
+			{
+				return;
+			}
+			if (block.GetComponent<enginev8>() != null)
+			{
+				interactor.v8 = block;
+			}
+			else if (block.GetComponent<enginei6>() != null)
+			{
+				interactor.i6 = block;
+			}
+			else if (block.GetComponent<engine>() != null)
+			{
+				interactor.fourcyl = block;
+			}
+		}
+
+		// Once in, the engine works out whether it can run, with its own truck's
+		// battery, fuel and parts (it was skipped while the vehicle wasn't wired).
+		private static void Postfix(Interactor __instance)
+		{
+			if (!__instance.drivingCar)
+			{
+				return;
+			}
+			try
+			{
+				Transform seat = __instance.person != null ? __instance.person.transform.parent : null;
+				GameObject vehicle = seat != null ? VehicleCloner.FindVehicleRoot(seat) : null;
+				GameObject block = vehicle != null ? VehicleApi.MountedEngine(vehicle) : null;
+				if (block == null)
+				{
+					return;
+				}
+				foreach (MonoBehaviour script in block.GetComponents<MonoBehaviour>())
+				{
+					if (script is engine || script is enginev8 || script is enginei6)
+					{
+						MethodInfo refresh = script.GetType().GetMethod("Refresh", Type.EmptyTypes);
+						if (refresh != null)
+						{
+							refresh.Invoke(script, null);
+						}
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				EngineClonerMod.Log("Refreshing the engine after getting in: " + e.Message);
 			}
 		}
 
@@ -719,16 +782,17 @@ namespace EngineCloner
 				return;
 			}
 			Transform parent = __instance.transform.parent;
-			if (parent == null || parent.gameObject == __state || VehicleCloner.FindVehicleRoot(parent) == null)
+			if (parent != null && parent.gameObject != __state && VehicleCloner.FindVehicleRoot(parent) != null)
 			{
-				return;
+				__instance.transform.parent = __state.transform;
+				FixedJoint joint = __instance.GetComponent<FixedJoint>();
+				if (joint != null)
+				{
+					joint.connectedBody = __state.GetComponent<Rigidbody>();
+				}
 			}
-			__instance.transform.parent = __state.transform;
-			FixedJoint joint = __instance.GetComponent<FixedJoint>();
-			if (joint != null)
-			{
-				joint.connectedBody = __state.GetComponent<Rigidbody>();
-			}
+			// The block now talks to the truck it's in, not the one it came from.
+			EngineClonerMod.LocalizeMounted(__instance.gameObject);
 		}
 	}
 }

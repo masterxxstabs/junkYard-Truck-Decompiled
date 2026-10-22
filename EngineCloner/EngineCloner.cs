@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -46,7 +46,8 @@ namespace EngineCloner
 		private static readonly HashSet<int> clones = new HashSet<int>();
 
 		// block:vehicle pairs already made to talk to each other.
-		private static readonly HashSet<string> localized = new HashSet<string>();
+		// Block -> the vehicle its references were last pointed at (LocalizeMounted).
+		private static readonly Dictionary<int, int> localizedIn = new Dictionary<int, int>();
 
 		// Per engine type, the block the game's vehicles, gearboxes, gauges etc. are
 		// currently wired to. See ReferenceSwapper.
@@ -219,7 +220,7 @@ namespace EngineCloner
 			ownerByAnchor.Clear();
 			blocks.Clear();
 			clones.Clear();
-			localized.Clear();
+			localizedIn.Clear();
 			wiredBlock.Clear();
 			VehicleCloner.Reset();
 			EngineShop.Reset();
@@ -293,6 +294,13 @@ namespace EngineCloner
 				if (IsMounted(block, joint))
 				{
 					WireToVehicle(block);
+					LocalizeMounted(block);
+				}
+				else
+				{
+					// Out of its vehicle: references can be swapped while it's loose, so
+					// it's pointed at its vehicle again whenever it goes back in.
+					localizedIn.Remove(block.GetInstanceID());
 				}
 			}
 		}
@@ -368,17 +376,83 @@ namespace EngineCloner
 			// getting in that vehicle then swaps the game over to both.
 			if (IsMounted(wired, wired.GetComponent<FixedJoint>()))
 			{
-				GameObject vehicle = block.transform.parent.gameObject;
-				if (localized.Add(block.GetInstanceID() + ":" + vehicle.GetInstanceID()))
-				{
-					int n = ReferenceSwapper.Localize(vehicle, block);
-					log.Msg(vehicle.name + " and its " + block.name + ": pointed " + n + " references at each other.");
-				}
 				return;
 			}
 			int swapped = ReferenceSwapper.Swap(wired, block);
 			wiredBlock[type] = block;
+			Relocalize(wired, block);
 			log.Msg("Mounted " + block.name + ": rewired " + swapped + " game references to it.");
+		}
+
+		// A swap also swaps what the vehicles' own scripts point at (they're outside
+		// the two blocks): point each vehicle back at the engine bolted in it.
+		private static void Relocalize(GameObject a, GameObject b)
+		{
+			foreach (GameObject block in new[] { a, b })
+			{
+				if (block != null)
+				{
+					localizedIn.Remove(block.GetInstanceID());
+					LocalizeMounted(block);
+				}
+			}
+		}
+
+		// Getting in a vehicle: the game drives, starts and refreshes the engine of
+		// its type it's wired to, so wire it to the one bolted in this vehicle, even
+		// if the one it was wired to is still bolted in another (that vehicle's own
+		// scripts keep pointing at their own engine: they're localized).
+		public static void WireTo(GameObject block)
+		{
+			if (block == null || !IsEngineBlock(block))
+			{
+				return;
+			}
+			LocalizeMounted(block);
+			Type type = EngineType(block);
+			GameObject wired;
+			if (!wiredBlock.TryGetValue(type, out wired) || wired == null || wired == block)
+			{
+				wiredBlock[type] = block;
+				return;
+			}
+			int swapped = ReferenceSwapper.Swap(wired, block);
+			wiredBlock[type] = block;
+			Relocalize(wired, block);
+			log.Msg("Getting in with " + block.name + ": rewired " + swapped + " game references to it.");
+		}
+
+		// An engine bolted into a vehicle talks to that vehicle, and the vehicle to
+		// it: the engine's own references (its truck, the truck's rigidbody and
+		// engine bay, battery, fuel, gearbox...) and the vehicle's references to an
+		// engine of that type all point at each other. A block copied from another
+		// engine, or moved from one truck to another, still pointed at the old truck:
+		// it read that truck's fuel and battery (so it never ran) and snapped to that
+		// truck's bay (so it ended up in the other truck). Done once per mount.
+		public static void LocalizeMounted(GameObject block)
+		{
+			if (block == null)
+			{
+				return;
+			}
+			FixedJoint joint = block.GetComponent<FixedJoint>();
+			if (!IsMounted(block, joint))
+			{
+				return;
+			}
+			GameObject vehicle = block.transform.parent.gameObject;
+			if (VehicleCloner.VehicleType(vehicle) == null)
+			{
+				return;
+			}
+			int done;
+			if (localizedIn.TryGetValue(block.GetInstanceID(), out done) && done == vehicle.GetInstanceID())
+			{
+				return;
+			}
+			localizedIn[block.GetInstanceID()] = vehicle.GetInstanceID();
+			int n = ReferenceSwapper.Localize(vehicle, block);
+			Log(vehicle.name + " and its " + block.name + ": pointed " + n + " references at each other.");
 		}
 
 		private static Type EngineType(GameObject block)
