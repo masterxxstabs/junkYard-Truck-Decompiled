@@ -5,7 +5,7 @@ using EngineCloner;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.7.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(JunkyardRanger.RangerMod), "Junkyard Ranger", "1.7.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace JunkyardRanger
@@ -86,12 +86,14 @@ namespace JunkyardRanger
 		{
 			RangerShop.HookStore(HarmonyInstance);
 			RangerUpgrades.Patch(HarmonyInstance);
+			RangerExhaustSound.Patch(HarmonyInstance);
 		}
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
 		{
 			RangerBuilder.Reset();
 			RangerUpgrades.Reset();
+			RangerExhaustSound.Reset();
 			RangerShop.HookStore(HarmonyInstance);
 		}
 

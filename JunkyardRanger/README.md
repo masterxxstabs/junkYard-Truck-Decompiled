@@ -75,6 +75,12 @@ The light bar's lamps light the road ahead while they're switched on; the key
 switches every Ranger's bar. The exhaust's extra pull is added to whatever engine
 is in the truck (it raises the drive torque the game puts on the wheels).
 
+**Exhaust sound (1.7.1):** with the exhaust on, the engine sounds deeper, and two
+sounds of the mod's own play from under the bed: a low **rumble** that grows as you
+give it gas, and a lopey **chop** at idle (uneven, swelling pulses, like a big cam)
+that fades as the revs climb. Both follow the engine's revs and volume, with any
+engine in the truck.
+
 ### Bull bar
 
 **Ranger - Bull bar** ($350, same shops) is a black steel grille guard: two

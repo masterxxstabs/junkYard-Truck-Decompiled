@@ -11,7 +11,9 @@ namespace JunkyardRanger
 	//   Light bar    its two work lamps light up while it's switched on (the light
 	//                bar key; every Ranger's bar at once)
 	//   Exhaust      the truck pulls 8% harder: after the game's car.control()
-	//                sets the wheels' drive torque for this frame, it's raised
+	//                sets the wheels' drive torque for this frame, it's raised;
+	//                and it sounds deeper, with a rumble and a lopey chop
+	//                (RangerExhaustSound)
 	internal static class RangerUpgrades
 	{
 		public const float ExhaustPull = 1.08f;
@@ -155,6 +157,19 @@ namespace JunkyardRanger
 		}
 
 		private static bool warned;
+
+		// The exhaust slot's look on this Ranger (shows when fitted), or null.
+		public static Renderer ExhaustOf(Component car)
+		{
+			Fitted(car);
+			return Info(car).exhaust;
+		}
+
+		private static CarInfo Info(Component car)
+		{
+			CarInfo info;
+			return cars.TryGetValue(car.GetInstanceID(), out info) ? info : new CarInfo();
+		}
 
 		private static bool Fitted(Component car)
 		{
