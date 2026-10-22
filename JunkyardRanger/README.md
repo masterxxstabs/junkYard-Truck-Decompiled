@@ -51,6 +51,10 @@ A new Ranger from the shops comes:
   and you paint the lower color instead, all round the truck.
 * **Engines:** swap them like on the Diamondback. Engines bought from the shop and
   bolted into a Ranger are saved in it.
+* **Mud:** like the game's trucks. Driving on dirt muddies the tires (the road
+  cleans them again), and mud builds up on the body, quickly in deep mud and slowly
+  on dirt. Hose it off with the garage hose or the water tank. Each Ranger has its
+  own mud, separate from the Diamondback's, and it's saved with the truck.
 
 ## Accessories
 
@@ -119,7 +123,7 @@ In the Mods Menu (or `UserData/MelonPreferences.cfg`, section `JunkyardRanger`):
 ## Saving
 
 Rangers are saved with your save slot in `UserData/JunkyardRanger/slotN.txt`
-(`auto.txt` for the autosave): where each one is, its paint, and the state of every
+(`auto.txt` for the autosave): where each one is, its paint and mud, and the state of every
 part. Deleting a slot, or overwriting it with a new game, clears them too.
 
 ## Install

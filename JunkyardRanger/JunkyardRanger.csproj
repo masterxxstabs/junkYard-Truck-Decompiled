@@ -26,6 +26,7 @@
     <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(ManagedDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
     <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(ManagedDir)\UnityEngine.InputLegacyModule.dll" Private="false" />
     <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(ManagedDir)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TerrainModule" HintPath="$(ManagedDir)\UnityEngine.TerrainModule.dll" Private="false" />
     <!-- Junkyard Ranger is built on Engine Cloner (its vehicle copies) -->
     <Reference Include="EngineCloner" HintPath="$(GameDir)\Mods\EngineCloner.dll" Private="false" />
   </ItemGroup>

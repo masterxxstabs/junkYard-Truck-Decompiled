@@ -154,6 +154,8 @@ namespace JunkyardRanger
 				RangerBody body = copy.AddComponent<RangerBody>();
 				body.id = state != null ? state.id : NewId();
 				body.LoadPaint(state != null ? state.paint : null);
+				body.mud = copy.AddComponent<RangerMud>();
+				body.mud.Load(state != null ? state.paint : null);
 				HidePanels(copy);
 				RangerModel.Dress(copy, body);
 				RangerAccessories.FitSlots(copy, body);
@@ -357,6 +359,7 @@ namespace JunkyardRanger
 
 		public string id;
 		public Transform gasDoor;
+		public RangerMud mud;
 
 		private readonly Dictionary<string, Color> colors = new Dictionary<string, Color>();
 		private readonly Dictionary<string, Vector2> finish = new Dictionary<string, Vector2>(); // metallic, smoothness

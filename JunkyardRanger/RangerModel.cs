@@ -352,9 +352,13 @@ namespace JunkyardRanger
 					{
 						list.Add(body.PaintMaterial(g.name, PaintLayerTemplate(), paintTexture, RangerMod.Weathered));
 					}
-					// No mud layer: the F100's is changed by the game as the F100 gets
-					// dirty (and the copies of it that are found may be the F100's own),
-					// so it covered a Ranger's paint with the F100's mud.
+					// The mud layer over the paint: the Ranger's own (the F100's is the
+					// F100's mud).
+					Material mud = body != null && body.mud != null ? body.mud.Layer() : null;
+					if (mud != null)
+					{
+						list.Add(mud);
+					}
 				}
 				else
 				{

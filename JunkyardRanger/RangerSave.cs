@@ -53,7 +53,7 @@ namespace JunkyardRanger
 					"RANGER", "1", body.id,
 					F(t.position.x), F(t.position.y), F(t.position.z),
 					F(t.rotation.x), F(t.rotation.y), F(t.rotation.z), F(t.rotation.w),
-					body.SavePaint(), gameEngine ?? "-",
+					body.SavePaint() + (body.mud != null ? "/" + body.mud.Save() : ""), gameEngine ?? "-",
 					VehicleApi.Snapshot(ranger, RangerBuilder.Skip)
 				})).Append('\n');
 				n++;
