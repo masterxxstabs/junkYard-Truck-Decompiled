@@ -10,7 +10,7 @@ Every mod is separate: install the ones you want. They also work together (see
 
 | Mod | Version | What it does |
 |---|---|---|
-| [Engine Cloner](EngineCloner/) | 3.0.3 | The patch underneath: lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits; an API for other mods' engines |
+| [Engine Cloner](EngineCloner/) | 3.0.4 | The patch underneath: lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits; an API for other mods' engines |
 | [6.6L Duramax](Duramax/) | 1.0.0 | A GM-style 6.6L Duramax V8 turbo-diesel with its own detailed model, more power and bolt-on accessories (needs Engine Cloner) |
 | [Junkyard Ranger](JunkyardRanger/) | 1.8.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
 | [Truck Parts QOL](TruckPartsQOL/) | 1.5.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |

@@ -44,6 +44,22 @@ Each time the panel opens, the report is also written to
 also gets a `[diag]` line whenever an engine's `canRun` changes and whenever the
 key is turned.
 
+**3.0.4: engines that never ran again after a save.** The game saves its own
+engines and trucks, including what they point at, but it can't save a reference
+to part of a copied truck: such references come back empty. This mod points an
+engine bolted into a Ranger at the Ranger. So once the game's own I4 or 2J had
+been in a Ranger and the game was saved, that engine loaded with no truck,
+battery, transmission or engine bay, and it could never run again (the
+diagnostics showed these as `null`).
+
+* **When saving:** just before the game saves, everything it saves that points
+  into a copy is pointed at the same part of the game's own vehicle. It's put
+  back right after the save.
+* **Repair:** an engine with these references empty (from a save made before
+  this version) has them filled in again. They're filled from the truck the
+  engine is bolted into, or from the Diamondback if it's loose, and the log says
+  which ones. The diagnostics now list an engine's empty references.
+
 ## Buying a new engine
 
 New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine

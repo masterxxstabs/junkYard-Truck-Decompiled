@@ -227,6 +227,8 @@ namespace EngineCloner
 					}
 				}
 			}
+			List<string> empty = EngineRepair.EmptyLinks((MonoBehaviour)script);
+			sb.Append("  empty references (").Append(empty.Count).Append("): ").Append(empty.Count > 0 ? string.Join(", ", empty.ToArray()) : "none").Append('\n');
 			sb.Append("  parts at 0% (missing or broken; the am_ ones are optional upgrades): ")
 				.Append(zero.Count > 0 ? string.Join(", ", zero.ToArray()) : "none").Append('\n');
 			if (vehicle != null)
@@ -427,9 +429,18 @@ namespace EngineCloner
 			return (Component)block.GetComponent<enginev8>() ?? (Component)block.GetComponent<enginei6>() ?? (Component)block.GetComponent<engine>() ?? block.GetComponent<Engine250>();
 		}
 
+		// Looked up quietly (Harmony's lookup warns in the log for every miss).
 		private static FieldInfo FieldInfoOf(object o, string name)
 		{
-			return o != null ? AccessTools.Field(o.GetType(), name) : null;
+			for (Type t = o != null ? o.GetType() : null; t != null; t = t.BaseType)
+			{
+				FieldInfo f = t.GetField(name, All | BindingFlags.DeclaredOnly);
+				if (f != null)
+				{
+					return f;
+				}
+			}
+			return null;
 		}
 
 		private static object Field(object o, string name)

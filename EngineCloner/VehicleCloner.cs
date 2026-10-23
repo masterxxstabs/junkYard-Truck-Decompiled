@@ -535,6 +535,14 @@ namespace EngineCloner
 			{
 				EngineClonerMod.Log("Couldn't wire the game to its own vehicles for saving: " + e.Message);
 			}
+			try
+			{
+				EngineRepair.BeforeSave();
+			}
+			catch (Exception e)
+			{
+				EngineClonerMod.Log("Couldn't point the saved references at the game's own vehicles: " + e.Message);
+			}
 		}
 
 		public static void EndSave()
@@ -543,6 +551,7 @@ namespace EngineCloner
 			{
 				return;
 			}
+			EngineRepair.AfterSave();
 			foreach (GameObject vehicle in rewireAfterSave)
 			{
 				if (vehicle != null)

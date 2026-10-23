@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.3", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.4", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -228,6 +228,7 @@ namespace EngineCloner
 			EngineShop.Reset();
 			StandShop.Reset();
 			Diagnostics.Reset();
+			EngineRepair.Reset();
 			EngineShop.HookStore(HarmonyInstance);
 			nextBlockScan = 0f;
 		}
@@ -282,6 +283,10 @@ namespace EngineCloner
 				TryRestore();
 				VehicleCloner.Scan();
 				VehicleCloner.RecordSafePoses();
+				if (restoredWith != null)
+				{
+					EngineRepair.RepairAll();
+				}
 				foreach (GameObject block in blocks)
 				{
 					SeatInBay(block);
@@ -391,6 +396,16 @@ namespace EngineCloner
 			wiredBlock[type] = block;
 			Relocalize(wired, block);
 			log.Msg("Mounted " + block.name + ": rewired " + swapped + " game references to it.");
+		}
+
+		// Localize this block again the next time it's mounted (its references
+		// were just repaired).
+		public static void ForgetLocalized(GameObject block)
+		{
+			if (block != null)
+			{
+				localizedIn.Remove(block.GetInstanceID());
+			}
 		}
 
 		// A swap also swaps what the vehicles' own scripts point at (they're outside
