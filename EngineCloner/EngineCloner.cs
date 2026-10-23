@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.2", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.3", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -65,6 +65,7 @@ namespace EngineCloner
 		private static MelonPreferences_Entry<bool> bareBlocks;
 		private static MelonPreferences_Entry<float> standPrice;
 		private MelonPreferences_Entry<KeyCode> moveStandKey;
+		private MelonPreferences_Entry<KeyCode> diagnosticsKey;
 		private string hint = "";
 		private float hintUntil;
 
@@ -88,6 +89,7 @@ namespace EngineCloner
 			shipWithOil = category.CreateEntry("ShipWithOil", false, "New engines come with oil", "Off: new engines ship dry, like a real crate engine; add oil before starting it.");
 			standPrice = category.CreateEntry("StandPrice", 350f, "Engine stand price", "Price of an extra engine stand in the shops.");
 			moveStandKey = category.CreateEntry("MoveStandKey", KeyCode.K, "Move stand key", "Look at an engine stand you bought, press this, look where you want it and press it again.");
+			diagnosticsKey = category.CreateEntry("DiagnosticsKey", KeyCode.F5, "Diagnostics key", "Shows why the engine in the vehicle you're in (or looking at) will or won't run, and writes it to the log. Shift + this key writes it to the log without showing it.");
 			ShopProviders.Register(StandShop.ShopItems);
 			bareBlocks = category.CreateEntry("BareBlocks", true, "New engines: bare block", "On: a new engine is just the block, every part off (fit your own). Off: a complete engine, a copy of your most complete one with every part new.");
 			removeSpeedLimits = category.CreateEntry("RemoveSpeedLimits", true, "Remove speed limits", "On: vehicles aren't cut off at the game's top speed (pickup 85/100, F100 95/100, golf cart 100); they go as fast as engine and gearing allow. Off: the game's limits.");
@@ -225,12 +227,14 @@ namespace EngineCloner
 			VehicleCloner.Reset();
 			EngineShop.Reset();
 			StandShop.Reset();
+			Diagnostics.Reset();
 			EngineShop.HookStore(HarmonyInstance);
 			nextBlockScan = 0f;
 		}
 
 		public override void OnUpdate()
 		{
+			Diagnostics.Update(diagnosticsKey != null ? diagnosticsKey.Value : KeyCode.F5);
 			// Debug only: copy what you're looking at. Gameplay is buying new engines.
 			if (debugClone.Value && Input.GetKeyDown(cloneKey.Value))
 			{
@@ -251,6 +255,7 @@ namespace EngineCloner
 
 		public override void OnGUI()
 		{
+			Diagnostics.Draw();
 			if (hint.Length == 0 || Time.time > hintUntil)
 			{
 				return;
@@ -484,6 +489,19 @@ namespace EngineCloner
 			block.transform.SetPositionAndRotation(bay.position, bay.rotation);
 			joint.connectedBody = vehicle.GetComponent<Rigidbody>();
 			Log(block.name + " was fixed to " + vehicle.name + " but outside its engine bay; put it in the bay.");
+		}
+
+		// The engine of each type the game is wired to, and the vehicles (for the
+		// diagnostics).
+		public static string DescribeWiring()
+		{
+			List<string> parts = new List<string>();
+			foreach (KeyValuePair<Type, GameObject> pair in wiredBlock)
+			{
+				parts.Add(pair.Key.Name + " → " + Diagnostics.Name(pair.Value) + (pair.Value != null && localizedIn.ContainsKey(pair.Value.GetInstanceID()) ? " (localized)" : ""));
+			}
+			parts.Add("vehicles: " + VehicleCloner.DescribeWired());
+			return string.Join(" · ", parts.ToArray());
 		}
 
 		private static Type EngineType(GameObject block)

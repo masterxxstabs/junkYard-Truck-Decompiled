@@ -26,6 +26,24 @@ so it seemed random. The switch now leaves what a part is physically touching
 alone. As a safety net, an engine fixed to a truck but sitting outside that
 truck's bay is put back in the bay, and the log says so.
 
+**3.0.3: diagnostics.** Press **F5** (the DiagnosticsKey setting) in a vehicle,
+or while looking at one or at an engine. A panel shows why its engine will or
+won't run:
+
+* **The vehicle:** fuel, the engine flags (`usingV8`, `usingI6`), `canRun` and
+  `canCrank`, whether the game is wired to it, and which engine its scripts use.
+* **The engine:** where it's mounted, how far it is from the bay, what it reads
+  its fuel, battery and truck from, and every part at 0%.
+* **Wrong wiring:** anything in the vehicle or the engine that points into a
+  different vehicle or engine (which shouldn't happen).
+* **The game's own scripts:** what the player, gearbox, engine sound and fuel
+  handler point at.
+
+Each time the panel opens, the report is also written to
+`MelonLoader/Latest.log`. Shift+F5 writes it without showing the panel. The log
+also gets a `[diag]` line whenever an engine's `canRun` changes and whenever the
+key is turned.
+
 ## Buying a new engine
 
 New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine

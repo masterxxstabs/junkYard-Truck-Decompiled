@@ -127,6 +127,16 @@ namespace EngineCloner
 			}
 		}
 
+		public static string DescribeWired()
+		{
+			List<string> parts = new List<string>();
+			foreach (KeyValuePair<Type, GameObject> pair in wired)
+			{
+				parts.Add(pair.Key.Name + " → " + Diagnostics.Name(pair.Value));
+			}
+			return string.Join(", ", parts.ToArray());
+		}
+
 		public static Type VehicleType(GameObject go)
 		{
 			foreach (Type type in VehicleTypes)

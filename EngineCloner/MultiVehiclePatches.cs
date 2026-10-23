@@ -29,12 +29,12 @@ namespace EngineCloner
 		{
 			Transform parent = __instance.transform.parent;
 			GameObject vehicle = parent != null ? VehicleCloner.FindVehicleRoot(parent) : null;
-			if (vehicle == null || VehicleCloner.IsWired(vehicle))
+			if (vehicle != null && !VehicleCloner.IsWired(vehicle))
 			{
-				return;
+				EngineShop.SetField(__instance, "canRun", false);
+				EngineShop.SetField(__instance, "canCrank", false);
 			}
-			EngineShop.SetField(__instance, "canRun", false);
-			EngineShop.SetField(__instance, "canCrank", false);
+			Diagnostics.AfterRefresh(__instance);
 		}
 
 		private static readonly HashSet<int> reported = new HashSet<int>();
