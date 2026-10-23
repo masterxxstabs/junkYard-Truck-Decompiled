@@ -30,7 +30,9 @@ namespace JunkAutoPC
 	// Grouped like RockAuto: vehicle, then part category.
 	internal static class Catalog
 	{
-		public const string Truck = "1982 DIAMONDBACK PICKUP";
+		// Truck parts that aren't engine parts fit any of the trucks, so they're
+		// listed as universal, not under one truck.
+		public const string Truck = "UNIVERSAL / OTHER";
 		public const string Bike = "250CC DIRT BIKE";
 		public const string Other = "UNIVERSAL / OTHER";
 		public const string I4 = "I4 ENGINE";
@@ -40,6 +42,9 @@ namespace JunkAutoPC
 		// (it's built on the V8, so it takes the V8's parts).
 		public const string Duramax = "6.6L DURAMAX DIESEL";
 		public static readonly string[] Engines = { I4, V8, I6 };
+		// Furniture Tweaks' shelves, safes and crates (sold as "Furniture - ..."),
+		// and the engine stand.
+		public const string Furniture = "GARAGE FURNITURE";
 
 		private static MethodInfo getCatalog;
 		private static FieldInfo prefabField, nameField, priceField, categoryField;
@@ -226,6 +231,15 @@ namespace JunkAutoPC
 			p.price = Mathf.Max(0f, price);
 			p.vehicle = storeCategory == "Truck Part" ? Truck : storeCategory == "Dirt Bike Part" ? Bike : Other;
 			p.category = Classify(storeName + " " + description);
+			// Garage furniture: its own section, with the engine stand.
+			bool furniture = storeName.StartsWith("Furniture - ", StringComparison.OrdinalIgnoreCase);
+			if (furniture || storeName.StartsWith("Tool - Engine stand", StringComparison.OrdinalIgnoreCase))
+			{
+				p.vehicle = Furniture;
+				p.category = furniture ? "STORAGE" : "SHOP EQUIPMENT";
+				list.Add(p);
+				return;
+			}
 			// The Duramax heads its own section, with its accessories.
 			if (storeName.IndexOf("Duramax", StringComparison.OrdinalIgnoreCase) >= 0)
 			{

@@ -15,7 +15,8 @@ Every mod is separate: install the ones you want. They also work together (see
 | [Junkyard Ranger](JunkyardRanger/) | 1.8.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
 | [Truck Parts QOL](TruckPartsQOL/) | 1.5.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
-| [JunkAuto PC](JunkAutoPC/) | 1.2.1 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by vehicle and engine), with delivery and order emails |
+| [JunkAuto PC](JunkAutoPC/) | 1.3.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by engine, plus garage furniture), with delivery and order emails |
+| [Furniture Tweaks](FurnitureTweaks/) | 1.0.0 | Garage furniture you buy and place: a parts shelf to pop parts on and off, a safe for cash, storage crates (needs Engine Cloner) |
 | [Parts Store Plus](PartsStorePlus/) | 1.1.0 | Sells every dirt bike part and every truck engine part (pistons, bearings, crank...), not just what the junkyard spawns |
 | [Controller Support](ControllerSupport/) | 1.0.0 | Play with a controller: hold L2 / R2 to tighten / loosen bolts; R2 gas, L2 brake / reverse and left stick steering when driving; every button configurable |
 | [Mods Menu](ModsMenu/) | 1.2.0 | A **MODS** button in the main menu: every installed mod and its settings, in the game's own style |
@@ -191,7 +192,7 @@ Extra parts for your vehicles, in the spirit of My Summer Car.
 ## How they fit together
 
 * **One shop list:** Truck Parts QOL, Junkyard ATV, Junkyard Ranger, Parts Store Plus,
-  Engine Cloner and the 6.6L Duramax publish what they sell to a shared list. JunkAuto PC, and the Junkyard
+  Engine Cloner, the 6.6L Duramax and Furniture Tweaks publish what they sell to a shared list. JunkAuto PC, and the Junkyard
   Terminal's Parts Store if you have it, sell all of it.
   * The list is `AppDomain` data under `JunkyardTruckMods.ShopProviders`.
   * It's built from plain .NET types only, so no mod needs another's DLL.

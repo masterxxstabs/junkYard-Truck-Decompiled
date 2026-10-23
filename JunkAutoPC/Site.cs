@@ -473,9 +473,10 @@ namespace JunkAutoPC
 		{
 			private static int Rank(string v)
 			{
-				// The truck, its engines (the Duramax right after the V8), the bike...
+				// The engines (the Duramax right after the V8), the bike, vehicles,
+				// garage furniture, then universal parts.
 				int engine = Array.IndexOf(Catalog.Engines, v);
-				return v == Catalog.Truck ? 0 : v == Catalog.Duramax ? 25 : engine >= 0 ? 10 * (1 + engine) : v == Catalog.Bike ? 40 : v == "VEHICLES" ? 50 : 60;
+				return v == Catalog.Duramax ? 25 : engine >= 0 ? 10 * (1 + engine) : v == Catalog.Bike ? 40 : v == "VEHICLES" ? 50 : v == Catalog.Furniture ? 55 : 60;
 			}
 
 			public int Compare(string a, string b)

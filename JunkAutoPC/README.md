@@ -15,9 +15,11 @@ Click **My Computer** as usual. The mail screen has a new link under
 
 ### The store
 
-* **Catalog:** your vehicles and engines on the left (1982 Diamondback Pickup,
-  I4 Engine, V8 Engine, 6.6L Duramax Diesel, 2J Inline-6 Engine, 250cc Dirt
-  Bike, Vehicles, Universal/Other). Open one with `[+]`, then pick a category:
+* **Catalog:** the engines and vehicles on the left (I4 Engine, V8 Engine, 6.6L
+  Duramax Diesel, 2J Inline-6 Engine, 250cc Dirt Bike, Vehicles, Garage
+  Furniture, Universal/Other).
+  Truck parts that aren't engine parts fit any truck, so they're under
+  Universal/Other (1.3; there's no Diamondback section any more). Open one with `[+]`, then pick a category:
   Engine, Fuel & Air, Ignition & Electrical, Cooling System, Exhaust & Emission,
   Transmission, Driveline & Axle, Brake & Wheel Hub, Suspension & Steering,
   Body & Accessories, Audio & Electronics or Miscellaneous. Parts are listed with
@@ -29,6 +31,8 @@ Click **My Computer** as usual. The mail screen has a new link under
   engine under **Engine**, its bolt-on accessories (1.2.1) under **Performance &
   Accessories**, and every part that fits it (it takes the V8's parts) under the
   usual categories.
+* **Garage Furniture (1.3):** Furniture Tweaks' parts shelves, safes and crates
+  under **Storage**, and Engine Cloner's engine stand under **Shop Equipment**.
 * **Cart:** change quantities, see subtotal, shipping and total, then **Place
   Order**. It's paid from your cash, the same way the Parts Store pays.
 * **Order Status:** every order with its items, total, and time to arrival or
