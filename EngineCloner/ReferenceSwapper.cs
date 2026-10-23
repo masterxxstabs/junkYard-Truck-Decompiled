@@ -26,6 +26,11 @@ namespace EngineCloner
 
 		private static readonly Dictionary<Type, List<FieldInfo>> fieldCache = new Dictionary<Type, List<FieldInfo>>();
 
+		// What a part is physically touching right now (the slot or engine bay it's
+		// held over), not which vehicle the game is wired to: never swapped. Swapping
+		// it sent an engine dropped into one truck's bay to the other truck's bay.
+		private static readonly string[] TouchingFields = { "validTrigObject", "otherObj", "vt", "HiJackX" };
+
 		public static int Swap(GameObject a, GameObject b)
 		{
 			Dictionary<Object, Object> map;
@@ -53,6 +58,10 @@ namespace EngineCloner
 				}
 				foreach (FieldInfo field in ObjectFields(behaviour.GetType()))
 				{
+					if (behaviour is PickUp && Array.IndexOf(TouchingFields, field.Name) >= 0)
+					{
+						continue;
+					}
 					swapped += SwapField(field, behaviour, map);
 				}
 			}

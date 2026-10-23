@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.1", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.2", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -277,6 +277,10 @@ namespace EngineCloner
 				TryRestore();
 				VehicleCloner.Scan();
 				VehicleCloner.RecordSafePoses();
+				foreach (GameObject block in blocks)
+				{
+					SeatInBay(block);
+				}
 			}
 			for (int i = blocks.Count - 1; i >= 0; i--)
 			{
@@ -453,6 +457,33 @@ namespace EngineCloner
 			localizedIn[block.GetInstanceID()] = vehicle.GetInstanceID();
 			int n = ReferenceSwapper.Localize(vehicle, block);
 			Log(vehicle.name + " and its " + block.name + ": pointed " + n + " references at each other.");
+		}
+
+		// A block bolted into a vehicle sits in that vehicle's engine bay. One that's
+		// fixed to a vehicle but somewhere else (put in another truck's bay) is moved
+		// into its own vehicle's bay.
+		private static void SeatInBay(GameObject block)
+		{
+			if (block == null)
+			{
+				return;
+			}
+			FixedJoint joint = block.GetComponent<FixedJoint>();
+			if (!IsMounted(block, joint))
+			{
+				return;
+			}
+			GameObject vehicle = block.transform.parent.gameObject;
+			EngineShop.Kind kind = EngineShop.KindOf(block);
+			Transform bay = kind != null ? VehicleApi.Bay(vehicle, kind.game) : null;
+			if (bay == null || (block.transform.position - bay.position).sqrMagnitude < 0.3f * 0.3f)
+			{
+				return;
+			}
+			joint.connectedBody = null;
+			block.transform.SetPositionAndRotation(bay.position, bay.rotation);
+			joint.connectedBody = vehicle.GetComponent<Rigidbody>();
+			Log(block.name + " was fixed to " + vehicle.name + " but outside its engine bay; put it in the bay.");
 		}
 
 		private static Type EngineType(GameObject block)

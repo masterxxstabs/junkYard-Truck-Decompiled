@@ -151,7 +151,7 @@ namespace EngineCloner
 			return null;
 		}
 
-		private static Transform Bay(GameObject vehicle, string kind)
+		internal static Transform Bay(GameObject vehicle, string kind)
 		{
 			string name = BayName(vehicle, kind);
 			if (name == null)

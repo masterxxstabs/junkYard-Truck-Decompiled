@@ -743,19 +743,22 @@ namespace EngineCloner
 	[HarmonyPatch(typeof(PickUp), "LetGo")]
 	internal static class MountEnginePatch
 	{
-		private static void Prefix(PickUp __instance, GameObject ___validTrigObject, bool ___canSnap, ref GameObject ___truck, ref GameObject ___truck2, ref GameObject ___amc, out GameObject __state)
+		private static void Prefix(PickUp __instance, ref GameObject ___validTrigObject, bool ___canSnap, ref GameObject ___truck, ref GameObject ___truck2, ref GameObject ___amc, out Transform[] __state)
 		{
 			__state = null;
 			if (!___canSnap || ___validTrigObject == null || !EngineClonerMod.IsEngineBlock(__instance.gameObject))
 			{
 				return;
 			}
-			GameObject vehicle = VehicleCloner.FindVehicleRoot(___validTrigObject.transform);
+			GameObject bay = ___validTrigObject;
+			GameObject vehicle = VehicleCloner.FindVehicleRoot(bay.transform);
 			if (vehicle == null)
 			{
 				return;
 			}
 			VehicleCloner.Wire(vehicle);
+			// The bay it's held over stays the bay it's held over.
+			___validTrigObject = bay;
 			Type type = VehicleCloner.VehicleType(vehicle);
 			if (type == typeof(car))
 			{
@@ -769,27 +772,46 @@ namespace EngineCloner
 			{
 				___amc = vehicle;
 			}
-			__state = vehicle;
+			__state = new[] { vehicle.transform, bay.transform };
 		}
 
 		// The dirt bike's bay is looked up with an uncached GameObject.Find("DirtBike").
 		// If the engine landed in a different vehicle than the bay it was dropped
 		// into, move it to the right one.
-		private static void Postfix(PickUp __instance, GameObject __state)
+		private static void Postfix(PickUp __instance, Transform[] __state)
 		{
-			if (__state == null)
+			if (__state == null || __state[0] == null)
 			{
 				return;
 			}
+			GameObject vehicle = __state[0].gameObject;
+			Transform bay = __state[1];
 			Transform parent = __instance.transform.parent;
-			if (parent != null && parent.gameObject != __state && VehicleCloner.FindVehicleRoot(parent) != null)
+			if (parent == null || VehicleCloner.FindVehicleRoot(parent) == null)
 			{
-				__instance.transform.parent = __state.transform;
-				FixedJoint joint = __instance.GetComponent<FixedJoint>();
+				return;   // not bolted into a vehicle (an engine stand, say)
+			}
+			FixedJoint joint = __instance.GetComponent<FixedJoint>();
+			bool wrongVehicle = parent.gameObject != vehicle;
+			bool wrongPlace = bay != null && (__instance.transform.position - bay.position).sqrMagnitude > 0.0025f;
+			if (wrongVehicle || wrongPlace)
+			{
+				// In the bay it was dropped into, fixed to that vehicle. The joint is
+				// let go first: it holds the block where it was when it was connected.
 				if (joint != null)
 				{
-					joint.connectedBody = __state.GetComponent<Rigidbody>();
+					joint.connectedBody = null;
 				}
+				__instance.transform.parent = vehicle.transform;
+				if (bay != null)
+				{
+					__instance.transform.SetPositionAndRotation(bay.position, bay.rotation);
+				}
+				if (joint != null)
+				{
+					joint.connectedBody = vehicle.GetComponent<Rigidbody>();
+				}
+				EngineClonerMod.Log("Put " + __instance.name + " in " + vehicle.name + "'s engine bay, where it was dropped" + (wrongVehicle ? " (the game had it in another vehicle)." : "."));
 			}
 			// The block now talks to the truck it's in, not the one it came from.
 			EngineClonerMod.LocalizeMounted(__instance.gameObject);

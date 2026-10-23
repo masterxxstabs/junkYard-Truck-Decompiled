@@ -17,6 +17,15 @@ the engine bolted in it. Before, an engine in a Ranger could keep reading the
 Diamondback's fuel and battery (so it never ran) and snap to the Diamondback's
 engine bay.
 
+**3.0.2:** an engine dropped into a truck's bay stays in that truck's bay.
+Dropping an engine in switches the game over to that truck. The switch also
+flipped the engine's own note of which bay it was held over to the other truck's
+bay, so the engine landed in the other truck's bay, fixed to the truck you
+dropped it in. That happened whenever the game was last set to the other truck,
+so it seemed random. The switch now leaves what a part is physically touching
+alone. As a safety net, an engine fixed to a truck but sitting outside that
+truck's bay is put back in the bay, and the log says so.
+
 ## Buying a new engine
 
 New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine
