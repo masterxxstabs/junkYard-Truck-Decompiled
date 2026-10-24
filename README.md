@@ -16,7 +16,7 @@ Every mod is separate: install the ones you want. They also work together (see
 | [Truck Parts QOL](TruckPartsQOL/) | 1.5.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.3.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by engine, plus garage furniture), with delivery and order emails |
-| [Furniture Tweaks](FurnitureTweaks/) | 1.0.0 | Garage furniture you buy and place: a parts shelf to pop parts on and off, a safe for cash, storage crates (needs Engine Cloner) |
+| [Furniture Tweaks](FurnitureTweaks/) | 1.1.0 | Garage furniture you buy and place: a parts shelf to pop parts on and off, a safe for cash, storage crates with a Tarkov-style grid inventory (needs Engine Cloner) |
 | [Parts Store Plus](PartsStorePlus/) | 1.1.0 | Sells every dirt bike part and every truck engine part (pistons, bearings, crank...), not just what the junkyard spawns |
 | [Controller Support](ControllerSupport/) | 1.0.0 | Play with a controller: hold L2 / R2 to tighten / loosen bolts; R2 gas, L2 brake / reverse and left stick steering when driving; every button configurable |
 | [Mods Menu](ModsMenu/) | 1.2.0 | A **MODS** button in the main menu: every installed mod and its settings, in the game's own style |

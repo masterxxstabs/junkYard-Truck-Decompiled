@@ -8,7 +8,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(FurnitureTweaks.FurnitureMod), "Furniture Tweaks", "1.0.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(FurnitureTweaks.FurnitureMod), "Furniture Tweaks", "1.1.0", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace FurnitureTweaks
@@ -44,7 +44,7 @@ namespace FurnitureTweaks
 			safePrice = c.CreateEntry("SafePrice", 900f, "Safe price", "What a safe costs in the shops.");
 			cratePrice = c.CreateEntry("CratePrice", 120f, "Storage crate price", "What a storage crate costs in the shops.");
 			moveKey = c.CreateEntry("MoveKey", KeyCode.U, "Move key", "Look at a piece of furniture and press this to pick it up and move it; press it again to put it down.");
-			takeKey = c.CreateEntry("TakeKey", KeyCode.R, "Take out key", "Look at a crate with your hands free and press this to take out the part shown.");
+			takeKey = c.CreateEntry("TakeKey", KeyCode.R, "Crate key", "Look at a crate with your hands free and press this to open it (a grid of what's inside; drag parts to move them, R turns them while dragging); press it again to close it.");
 			safeStep = c.CreateEntry("SafeStep", 100f, "Safe step", "How much cash each scroll puts in or takes out of a safe (hold Shift for ten times as much).");
 			ShopProviders.Register(Shop.ShopItems);
 			VehicleApi.Saving += Save.Write;
@@ -60,6 +60,8 @@ namespace FurnitureTweaks
 
 		public override void OnSceneWasLoaded(int buildIndex, string sceneName)
 		{
+			CrateWindow.Close();
+			Icons.Reset();
 			Looks.Reset();
 			Interact.Reset();
 			Save.Reset();
@@ -69,12 +71,14 @@ namespace FurnitureTweaks
 		public override void OnUpdate()
 		{
 			Save.Update();
+			CrateWindow.Update();
 			Interact.Update();
 		}
 
 		public override void OnGUI()
 		{
 			Interact.Draw();
+			CrateWindow.Draw();
 		}
 
 		// Every part a piece of furniture is holding (so two don't claim one).
@@ -341,7 +345,6 @@ namespace FurnitureTweaks
 		private static Furniture moving;
 		private static Vector3 movingFrom;
 		private static Quaternion movingRot;
-		private static float movingYaw;
 		private static Collider[] movingColliders;
 
 		private static float nextScroll;
@@ -424,7 +427,7 @@ namespace FurnitureTweaks
 				UpdateMove(cam);
 				return;
 			}
-			if (VehicleApi.PlayerInVehicle())
+			if (CrateWindow.Open || VehicleApi.PlayerInVehicle())
 			{
 				return;
 			}
@@ -458,27 +461,21 @@ namespace FurnitureTweaks
 			else if (crate != null)
 			{
 				crate.wantOpen = true;
-				crate.Tidy();
-				string head = "Storage crate (" + crate.items.Count + "/" + StorageCrate.Capacity + ")\n";
+				string head = "Storage crate (" + crate.Count + " parts, " + crate.UsedCells + " / " + StorageCrate.Cols * StorageCrate.Rows + " cells)\n";
 				if (held != null)
 				{
-					look = head + "Let go to put the " + Items.Label(held) + " in";
+					int w, h;
+					Items.Footprint(held, out w, out h);
+					look = head + "Let go to put the " + Items.Label(held) + " in (" + w + " x " + h + ")";
 				}
 				else
 				{
-					if (step != 0)
+					if (Input.GetKeyDown(FurnitureMod.TakeKey))
 					{
-						crate.Scroll(-step);
-					}
-					PickUp sel = crate.Selected;
-					if (sel != null && Input.GetKeyDown(FurnitureMod.TakeKey))
-					{
-						crate.TakeOut(cam);
+						CrateWindow.Show(crate);
 						return;
 					}
-					look = head + (sel != null
-						? "< " + Items.Label(sel) + " (" + Mathf.RoundToInt(sel.thisDurability) + "%) >  " + (crate.selected + 1) + " of " + crate.items.Count + "\nScroll to choose · [" + FurnitureMod.TakeKey + "] take it out · " + move
-						: "Empty. Let go of a part while you look at it to put it in · " + move);
+					look = head + "[" + FurnitureMod.TakeKey + "] open it · " + move;
 				}
 			}
 			else if (safe != null)
@@ -654,18 +651,34 @@ namespace FurnitureTweaks
 		}
 
 		// --- Moving. ---
+		//
+		// The piece goes where you look, on the floor. Out in the open it faces
+		// you; aim at a wall and it backs up against it, square to it. Scroll turns
+		// it from there (15 degrees a notch, 90 with Shift). It glides to where it's
+		// going rather than jumping, and lands exactly where it was shown.
+
+		private static float userYaw;
+		private static float backDepth;
+		private static Vector3 targetPos, shownPos;
+		private static float targetYaw, shownYaw;
+		private static bool againstWall;
 
 		private static void StartMove(Furniture f)
 		{
 			moving = f;
 			movingFrom = f.transform.position;
 			movingRot = f.transform.rotation;
-			movingYaw = f.transform.eulerAngles.y;
 			movingColliders = f.GetComponentsInChildren<Collider>();
 			foreach (Collider c in movingColliders)
 			{
 				c.enabled = false;
 			}
+			// How far its back is behind its middle (to stand it against a wall).
+			Bounds b = Items.LocalBounds(f.transform);
+			backDepth = Mathf.Max(0.05f, -b.min.z);
+			userYaw = 0f;
+			shownPos = targetPos = f.transform.position;
+			shownYaw = targetYaw = f.transform.eulerAngles.y;
 		}
 
 		private static void UpdateMove(Camera cam)
@@ -677,24 +690,54 @@ namespace FurnitureTweaks
 			float scroll = Input.GetAxis("Mouse ScrollWheel");
 			if (Mathf.Abs(scroll) > 0.01f && Time.time >= nextScroll)
 			{
-				movingYaw += scroll > 0f ? 15f : -15f;
-				nextScroll = Time.time + 0.08f;
+				bool coarse = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+				userYaw = Mathf.Repeat(userYaw + (scroll > 0f ? 1f : -1f) * (coarse ? 90f : 15f) + 180f, 360f) - 180f;
+				nextScroll = Time.time + 0.06f;
 			}
-			RaycastHit[] hits = Build.Sorted(Physics.RaycastAll(cam.transform.position, cam.transform.forward, 6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore));
-			Vector3 at = cam.transform.position + Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized * 2.5f;
-			foreach (RaycastHit hit in hits)
+			Vector3 flatForward = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up);
+			if (flatForward.sqrMagnitude < 0.0001f)
+			{
+				flatForward = cam.transform.up;
+			}
+			flatForward.Normalize();
+			Vector3 at = cam.transform.position + flatForward * 2.5f;
+			againstWall = false;
+			float baseYaw = 0f;
+			foreach (RaycastHit hit in Build.Sorted(Physics.RaycastAll(cam.transform.position, cam.transform.forward, 6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)))
 			{
 				if (hit.collider.GetComponentInParent<PickUp>() != null || hit.collider.transform.IsChildOf(moving.transform))
 				{
 					continue;
 				}
-				at = hit.point;
+				Vector3 n = Vector3.ProjectOnPlane(hit.normal, Vector3.up);
+				if (hit.normal.y < 0.6f && n.sqrMagnitude > 0.01f)
+				{
+					// A wall: back against it, facing out.
+					n.Normalize();
+					at = hit.point + n * (backDepth + 0.02f);
+					baseYaw = Quaternion.LookRotation(n).eulerAngles.y;
+					againstWall = true;
+				}
+				else
+				{
+					at = hit.point;
+				}
 				break;
 			}
-			at = Build.Ground(at, movingColliders);
-			moving.transform.SetPositionAndRotation(at, Quaternion.Euler(0f, movingYaw, 0f));
+			if (!againstWall)
+			{
+				// Facing you.
+				Vector3 toYou = Vector3.ProjectOnPlane(cam.transform.position - at, Vector3.up);
+				baseYaw = toYou.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toYou).eulerAngles.y : cam.transform.eulerAngles.y + 180f;
+			}
+			targetPos = Build.Ground(at, movingColliders);
+			targetYaw = baseYaw + userYaw;
+			float k = 1f - Mathf.Exp(-16f * Time.deltaTime);
+			shownPos = Vector3.Lerp(shownPos, targetPos, k);
+			shownYaw = Mathf.LerpAngle(shownYaw, targetYaw, k);
+			moving.transform.SetPositionAndRotation(shownPos, Quaternion.Euler(0f, shownYaw, 0f));
 			moving.Moved();
-			look = "Moving the " + Build.NameOf(moving.kind) + "\n[" + FurnitureMod.MoveKey + "] put it here · scroll to turn it · [Backspace] put it back";
+			look = "Moving the " + Build.NameOf(moving.kind) + (againstWall ? " (against the wall)" : "") + "\n[" + FurnitureMod.MoveKey + "] put it here · scroll turns it (Shift: 90°) · aim at a wall to back it up to it · [Backspace] put it back";
 			if (Input.GetKeyDown(KeyCode.Backspace))
 			{
 				moving.transform.SetPositionAndRotation(movingFrom, movingRot);
@@ -702,6 +745,8 @@ namespace FurnitureTweaks
 			}
 			else if (Input.GetKeyDown(FurnitureMod.MoveKey))
 			{
+				// Exactly where it was going.
+				moving.transform.SetPositionAndRotation(targetPos, Quaternion.Euler(0f, targetYaw, 0f));
 				EndMove();
 			}
 		}
