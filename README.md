@@ -13,7 +13,7 @@ Every mod is separate: install the ones you want. They also work together (see
 | [Engine Cloner](EngineCloner/) | 3.0.4 | The patch underneath: lets extra engines and trucks work on their own; sells new I4 / V8 / 2J engine blocks and extra engine stands; removes vehicle speed limits; an API for other mods' engines |
 | [6.6L Duramax](Duramax/) | 1.0.0 | A GM-style 6.6L Duramax V8 turbo-diesel with its own detailed model, more power and bolt-on accessories (needs Engine Cloner) |
 | [Junkyard Ranger](JunkyardRanger/) | 1.8.0 | A 2004 Ford Ranger made from the game's own F100, on the Diamondback's chassis: takes the game's engines, gearbox and parts (needs Engine Cloner) |
-| [Truck Parts QOL](TruckPartsQOL/) | 1.5.0 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
+| [Truck Parts QOL](TruckPartsQOL/) | 1.5.1 | Car stereo (head unit, door speakers, sub, amp, CDs from your music), rock lights in any color, wheel spacers, bolt-down parts, bed covers, OBD scanner tool, paintable rims and turbos |
 | [Junkyard ATV](JunkyardATV/) | 1.0.0 | A drivable ATV (Suzuki Quadzilla 500 model) running on the game's own 250 engine |
 | [JunkAuto PC](JunkAutoPC/) | 1.3.0 | JunkAuto.com, a RockAuto-style parts site on the garage computer (parts by engine, plus garage furniture), with delivery and order emails |
 | [Furniture Tweaks](FurnitureTweaks/) | 1.1.0 | Garage furniture you buy and place: a parts shelf to pop parts on and off, a safe for cash, storage crates with a Tarkov-style grid inventory (needs Engine Cloner) |

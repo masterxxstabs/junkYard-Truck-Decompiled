@@ -213,6 +213,16 @@ bed.
 | **O** | Open / close: roll the tarp up, fold the tonneau against the cab, or lift the hard top's rear hatch |
 | **Y** | Remove the cover. It goes back in its box, which drops into the bed |
 | **Page Up / Page Down** | Raise / lower the fitted cover 1 cm (hold Shift for 5 cm). Saved per cover |
+| **Shift + Delete** | Delete every hard top fitted on any vehicle, all at once (`RemoveHardTopsKey`; 1.5.1) |
+
+**Removing every hard top (1.5.1):** press **Shift + Delete** in the level, or
+tick **Remove all hard tops now** in the Mods Menu (in game or from the main
+menu). Every hard top (camper shell) fitted on any vehicle, Rangers and other
+copies included, is taken off and deleted. Tarps and tonneau covers stay. The
+Mods Menu box works like a button: it unticks itself once it's done. Ticked
+before you load in, it waits a few seconds for the vehicles that arrive late.
+The message on screen and the log say how many were removed, and from which
+vehicles.
 
 Each fit writes what it measured to the MelonLoader console (bed zone, floor, rail
 height, which end is the cab, plus the colliders the floor probe hit). If a cover

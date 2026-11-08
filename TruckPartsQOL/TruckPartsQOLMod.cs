@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.5.0", "masterxxstabs")]
+[assembly: MelonInfo(typeof(TruckPartsQOL.TruckPartsQOLMod), "Truck Parts QOL", "1.5.1", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace TruckPartsQOL
@@ -44,6 +44,8 @@ namespace TruckPartsQOL
 		private MelonPreferences_Entry<float> rockLightBrightness;
 		private MelonPreferences_Entry<bool> rockLightsOn;
 		private MelonPreferences_Entry<KeyCode> rockLightKey;
+		private MelonPreferences_Entry<KeyCode> removeHardTopsKey;
+		private MelonPreferences_Entry<bool> removeHardTops;
 		private MelonPreferences_Entry<KeyCode> rotateKey;
 		private MelonPreferences_Entry<KeyCode> tiltKey;
 
@@ -126,6 +128,8 @@ namespace TruckPartsQOL
 			rockLightBrightness = c.CreateEntry("RockLightBrightness", 1f, "Rock light brightness", "1 is normal; 0.5 half, 2 twice as bright.");
 			rockLightsOn = c.CreateEntry("RockLightsOn", true, "Rock lights on", "Whether fitted rock lights are lit (the rock light key switches this).");
 			rockLightKey = c.CreateEntry("RockLightKey", KeyCode.L, "Rock lights on / off");
+			removeHardTopsKey = c.CreateEntry("RemoveHardTopsKey", KeyCode.Delete, "Remove every hard top (hold Shift)", "Shift + this key deletes every hard top (camper shell) fitted on any vehicle. None turns it off.");
+			removeHardTops = c.CreateEntry("RemoveAllHardTops", false, "Remove all hard tops now", "Tick to delete every hard top (camper shell) fitted on any vehicle. Works in the level, or the next time you're in one, then unticks itself.");
 			rotateKey = c.CreateEntry("RotateKey", KeyCode.R, "Fitting: turn the part 15 degrees (Shift: the other way)");
 			tiltKey = c.CreateEntry("TiltKey", KeyCode.F, "Fitting a rock light: tilt its aim 10 degrees (Shift: the other way)");
 			StoreIntegration.PriceOf = Price;
@@ -262,6 +266,7 @@ namespace TruckPartsQOL
 					if (vehicles.Count > 0)
 					{
 						restoredWith = new GameObject("TruckPartsQOL_Restored");
+						restoredAt = Time.realtimeSinceStartup;
 						UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(restoredWith, vehicles[0].scene);
 						savingDisabled = false;
 						int slot = OverwritePatch.NewGame ? 0 : PlayerPrefs.GetInt("LoadSlot", 0);
@@ -280,6 +285,7 @@ namespace TruckPartsQOL
 				return;
 			}
 			UpdateRockLights();
+			UpdateRemoveHardTops();
 			if (Time.frameCount % 30 == 0)
 			{
 				PartSave.RetryPending();
@@ -302,6 +308,71 @@ namespace TruckPartsQOL
 			{
 				HandleLook();
 			}
+		}
+
+		// Deleting every fitted hard top (camper shell), all vehicles at once: Shift
+		// + the key, or the setting ticked in the Mods Menu (a one-shot button: it
+		// unticks itself once done).
+		private static float restoredAt;
+
+		private void UpdateRemoveHardTops()
+		{
+			bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+			bool byKey = removeHardTopsKey.Value != KeyCode.None && shift && Input.GetKeyDown(removeHardTopsKey.Value);
+			if (!byKey && !removeHardTops.Value)
+			{
+				return;
+			}
+			// Ticked before the level loaded: wait for the parts that are fitted to
+			// vehicles that come in a little later (the Rangers).
+			if (!byKey && Time.realtimeSinceStartup < restoredAt + 10f)
+			{
+				return;
+			}
+			if (removeHardTops.Value)
+			{
+				removeHardTops.Value = false;
+				MelonPreferences.Save();
+			}
+			int removed = RemoveAllHardTops();
+			Flash(removed > 0 ? "Removed " + removed + " hard top" + (removed == 1 ? "" : "s") + " from your vehicles" : "No hard tops are fitted on any vehicle");
+		}
+
+		public static int RemoveAllHardTops()
+		{
+			int removed = 0;
+			List<string> where = new List<string>();
+			foreach (TruckPart part in TruckPart.All.ToArray())
+			{
+				if (part == null || part.kind != PartKind.HardTop || !part.installed)
+				{
+					continue;
+				}
+				GameObject vehicle = part.Vehicle;
+				try
+				{
+					BedCover cover = part.GetComponent<BedCover>();
+					if (cover != null && cover.IsFitted)
+					{
+						// Off the vehicle properly first (its colliders and the
+						// vehicle's physics), then gone.
+						cover.Unfit();
+					}
+				}
+				catch (Exception e)
+				{
+					Log("Taking a hard top off " + (vehicle != null ? vehicle.name : "a vehicle") + ": " + e.Message);
+				}
+				part.installed = false;
+				Object.Destroy(part.gameObject);
+				where.Add(vehicle != null ? Vehicles.SaveName(vehicle) : "?");
+				removed++;
+			}
+			if (removed > 0)
+			{
+				Log("Removed " + removed + " hard top(s): " + string.Join(", ", where.ToArray()) + ".");
+			}
+			return removed;
 		}
 
 		// The rock light settings, live (they can be changed in the Mods Menu
