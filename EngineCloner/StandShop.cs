@@ -40,11 +40,81 @@ namespace EngineCloner
 			moving = null;
 		}
 
+		// The game's own stand's hinge (what turns DK_9): the HingeJoint on DK_9's
+		// rigidbody or connected to it, found from the stand itself. Not from
+		// Interactor.EngStand: the game saves that, and a save made while it
+		// pointed at a bought stand (which the game can't save) loads it empty.
+		public static GameObject OriginalHinge()
+		{
+			GameObject dk9 = null;
+			foreach (Rigidbody rb in Object.FindObjectsOfType<Rigidbody>())
+			{
+				if (rb.name == "DK_9" && rb.GetComponentInParent<BoughtStand>() == null)
+				{
+					dk9 = rb.gameObject;
+					break;
+				}
+			}
+			if (dk9 == null)
+			{
+				return null;
+			}
+			Rigidbody body = dk9.GetComponent<Rigidbody>();
+			foreach (HingeJoint h in Object.FindObjectsOfType<HingeJoint>())
+			{
+				if (h.GetComponentInParent<BoughtStand>() == null && (h.connectedBody == body || h.GetComponent<Rigidbody>() == body))
+				{
+					return h.gameObject;
+				}
+			}
+			return null;
+		}
+
+		// The game turns the stand it last clicked (Interactor.EngStand) and saves
+		// that reference. Before a save, and whenever it's empty (a save that lost
+		// it), it's the game's own stand.
+		public static void PointAtOwnStand(bool force)
+		{
+			Interactor interactor = Object.FindObjectOfType<Interactor>();
+			if (interactor == null)
+			{
+				return;
+			}
+			GameObject current = interactor.EngStand;
+			if (!force && current != null && current.GetComponent<HingeJoint>() != null)
+			{
+				return;
+			}
+			if (current != null && current.GetComponentInParent<BoughtStand>() == null && current.GetComponent<HingeJoint>() != null)
+			{
+				return;
+			}
+			GameObject own = OriginalHinge();
+			if (own != null && own != current)
+			{
+				interactor.EngStand = own;
+				if (!force)
+				{
+					EngineClonerMod.Log("The engine stand the game turns was missing (" + (current == null ? "empty in the save" : current.name) + "); set it back to the game's own stand.");
+				}
+			}
+		}
+
 		// The original stand's root: the smallest object holding all of its parts.
 		private static Transform OriginalRoot()
 		{
 			Interactor interactor = Object.FindObjectOfType<Interactor>();
 			List<Transform> parts = new List<Transform>();
+			GameObject hinge = OriginalHinge();
+			if (hinge != null)
+			{
+				parts.Add(hinge.transform);
+				HingeJoint h = hinge.GetComponent<HingeJoint>();
+				if (h != null && h.connectedBody != null)
+				{
+					parts.Add(h.connectedBody.transform);
+				}
+			}
 			foreach (string name in new[] { "DK_9", "EngRelease", "ebtemplate", "ebtemplatev8", "ebtemplatei6" })
 			{
 				GameObject go = GameObject.Find(name);
@@ -53,7 +123,7 @@ namespace EngineCloner
 					parts.Add(go.transform);
 				}
 			}
-			if (interactor != null && interactor.EngStand != null)
+			if (interactor != null && interactor.EngStand != null && interactor.EngStand.GetComponentInParent<BoughtStand>() == null)
 			{
 				parts.Add(interactor.EngStand.transform);
 			}
@@ -68,6 +138,11 @@ namespace EngineCloner
 				{
 					root = root.parent;
 				}
+			}
+			// Never just the swinging head: the stand is what it hangs on.
+			if (root != null && root.name == "DK_9" && root.parent != null)
+			{
+				root = root.parent;
 			}
 			return root;
 		}
@@ -358,13 +433,22 @@ namespace EngineCloner
 
 		private static void Prefix(Interactor __instance, RaycastHit ___hit)
 		{
-			if (__instance.EngStand == null || ___hit.collider == null)
+			if (___hit.collider == null)
+			{
+				return;
+			}
+			if (__instance.EngStand == null)
+			{
+				StandShop.PointAtOwnStand(false);
+			}
+			if (__instance.EngStand == null)
 			{
 				return;
 			}
 			if (hingeName == null)
 			{
-				hingeName = __instance.EngStand.name;
+				GameObject own = StandShop.OriginalHinge();
+				hingeName = own != null ? own.name : __instance.EngStand.name;
 			}
 			GameObject best = null;
 			float bestDist = float.MaxValue;

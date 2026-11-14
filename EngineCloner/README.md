@@ -60,6 +60,26 @@ diagnostics showed these as `null`).
   engine is bolted into, or from the Diamondback if it's loose, and the log says
   which ones. The diagnostics now list an engine's empty references.
 
+**3.0.5: bought engine stands after a save.** The game saves which stand it last
+turned. When that was a bought stand, which the game can't save, it loaded empty.
+That caused two problems:
+
+* **Bought stands came back as just the swinging head.** This mod works out what
+  makes up the stand from the game's own stand, and with that reference empty it
+  copied only the head (DK_9).
+* **No stand would turn any more.**
+
+Now:
+
+* **What to copy** comes from the stand itself (the hinge on DK_9), so the whole
+  stand is copied every time.
+* **Before each save,** the game is pointed back at its own stand.
+* **On load,** a save that already lost the reference gets it back. The log says
+  when this happens.
+
+Bought stands are rebuilt whole on the next load. Their positions are saved, so
+they come back where they were.
+
 ## Buying a new engine
 
 New engines are sold on **JunkAuto.com** (JunkAuto PC mod, each under its engine

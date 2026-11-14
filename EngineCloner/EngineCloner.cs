@@ -5,7 +5,7 @@ using MelonLoader;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.4", "masterxxstabs")]
+[assembly: MelonInfo(typeof(EngineCloner.EngineClonerMod), "Engine Cloner", "3.0.5", "masterxxstabs")]
 [assembly: MelonGame(null, null)]
 
 namespace EngineCloner
@@ -200,6 +200,9 @@ namespace EngineCloner
 			EngineOverwritePatch.NewGame = false;
 			try
 			{
+				// Before the bought stands are rebuilt: they're copies of the game's
+				// stand, which has to be whole.
+				StandShop.PointAtOwnStand(false);
 				EngineSave.Load(slot);
 			}
 			catch (Exception e)
@@ -286,6 +289,7 @@ namespace EngineCloner
 				if (restoredWith != null)
 				{
 					EngineRepair.RepairAll();
+					StandShop.PointAtOwnStand(false);
 				}
 				foreach (GameObject block in blocks)
 				{

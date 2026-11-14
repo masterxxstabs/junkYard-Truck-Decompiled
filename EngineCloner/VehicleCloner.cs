@@ -537,6 +537,14 @@ namespace EngineCloner
 			}
 			try
 			{
+				StandShop.PointAtOwnStand(true);
+			}
+			catch (Exception e)
+			{
+				EngineClonerMod.Log("Couldn't point the game at its own engine stand for saving: " + e.Message);
+			}
+			try
+			{
 				EngineRepair.BeforeSave();
 			}
 			catch (Exception e)
