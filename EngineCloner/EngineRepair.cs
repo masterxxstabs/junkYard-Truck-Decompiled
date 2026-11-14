@@ -63,6 +63,7 @@ namespace EngineCloner
 			{ "driveRingGearR4", new Link(Side.Truck, "SuspensionOffroadCar/Visuals/AxleRearLeft/AxleRearMiddle/diffringgearR4_e") },
 			{ "driveRingGearR5", new Link(Side.Truck, "SuspensionOffroadCar/Visuals/AxleRearLeft/AxleRearMiddle/diffringgearR5_e") },
 			{ "idCab", new Link(Side.Truck, "cabin_low") },
+			{ "exhaustTrails", new Link(Side.Truck, "ExhaustSmoke") },
 			{ "ebtemplate", new Link(Side.Truck, "Engine/ebtemplate2") },
 			{ "ebtemplatev8", new Link(Side.Truck, "Engine/ebtemplate2v8") },
 			{ "ebtemplatei6", new Link(Side.Truck, "Engine/ebtemplatei62") },

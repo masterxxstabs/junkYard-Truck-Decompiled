@@ -77,6 +77,9 @@ Now:
 * **On load,** a save that already lost the reference gets it back. The log says
   when this happens.
 
+**3.0.6:** the repair also fills in an engine's exhaust smoke (`exhaustTrails`),
+the last of the I4's links to its truck.
+
 Bought stands are rebuilt whole on the next load. Their positions are saved, so
 they come back where they were.
 
